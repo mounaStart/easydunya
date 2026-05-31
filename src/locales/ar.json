@@ -1,0 +1,163 @@
+{
+  "app": {
+    "name": "إيزي دنيا",
+    "tagline": "النقل بين المدن في موريتانيا"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "trips": "الرحلات",
+    "checkBooking": "تحقق",
+    "bookings": "حجوزاتي",
+    "myTrips": "رحلاتي",
+    "vehicles": "مركباتي",
+    "newTrip": "نشر رحلة",
+    "dashboard": "لوحة التحكم",
+    "drivers": "السائقون",
+    "profile": "الملف الشخصي",
+    "logout": "تسجيل الخروج",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب"
+  },
+  "common": {
+    "loading": "جار التحميل…",
+    "error": "حدث خطأ",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "refuse": "رفض",
+    "delete": "حذف",
+    "back": "رجوع",
+    "yes": "نعم",
+    "no": "لا",
+    "from": "الانطلاق",
+    "to": "الوصول",
+    "date": "التاريخ",
+    "time": "الوقت",
+    "price": "السعر",
+    "seats": "المقاعد",
+    "seatsAvailable": "مقاعد متاحة",
+    "fullName": "الاسم الكامل",
+    "phone": "الهاتف",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "search": "بحث",
+    "all": "الكل",
+    "today": "اليوم",
+    "tomorrow": "غدًا",
+    "noResults": "لا توجد نتائج",
+    "share": "مشاركة",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "required": "حقل مطلوب",
+    "actions": "إجراءات"
+  },
+  "home": {
+    "heroTitle": "احجز رحلتك بين المدن بنقرات قليلة",
+    "heroSubtitle": "لا داعي للانتظار ساعات في المحطة. اختر مدينتك وسائقك وادفع نقدًا على متن السيارة.",
+    "ctaBook": "احجز الآن",
+    "ctaCheck": "تحقق من حجزي",
+    "filterCity": "تصفية حسب المدينة",
+    "allCities": "جميع المدن",
+    "upcomingTrips": "الرحلات المبرمجة (7 أيام)",
+    "noTrips": "لا توجد رحلات متاحة. عد قريبًا!"
+  },
+  "auth": {
+    "loginTitle": "تسجيل الدخول",
+    "registerTitle": "إنشاء حساب",
+    "registerAsPassenger": "أنا مسافر",
+    "registerAsDriver": "أنا سائق",
+    "noAccount": "ليس لديك حساب؟",
+    "haveAccount": "لديك حساب بالفعل؟",
+    "signIn": "تسجيل الدخول",
+    "signUp": "تسجيل",
+    "driverPending": "حسابك كسائق قيد المراجعة من قبل فريق إيزي دنيا.",
+    "loginError": "البريد أو كلمة المرور غير صحيحة",
+    "registerError": "تعذر إنشاء الحساب"
+  },
+  "trip": {
+    "details": "تفاصيل الرحلة",
+    "bookSeat": "احجز مقعدًا",
+    "bookGuest": "احجز بدون حساب",
+    "bookLogged": "احجز (حساب)",
+    "driver": "السائق",
+    "vehicle": "المركبة",
+    "notes": "ملاحظات",
+    "status": {
+      "scheduled": "مبرمجة",
+      "in_progress": "جارية",
+      "completed": "منتهية",
+      "cancelled": "ملغاة"
+    }
+  },
+  "booking": {
+    "title": "الحجز",
+    "guestTitle": "احجز بدون حساب",
+    "guestSubtitle": "ضع فقط اسمك ورقم هاتفك. ستحصل على رمز تأكيد لتقديمه للسائق.",
+    "yourCode": "رمز التأكيد الخاص بك",
+    "saveCode": "احتفظ بهذا الرمز، سيُطلب منك عند الركوب.",
+    "shareCode": "مشاركة عبر واتساب",
+    "newBooking": "حجز جديد",
+    "createSuccess": "تم تسجيل الحجز!",
+    "createError": "تعذر تسجيل الحجز",
+    "noSeats": "لا توجد مقاعد متاحة",
+    "status": {
+      "pending": "قيد الانتظار",
+      "confirmed": "مؤكد",
+      "rejected": "مرفوض",
+      "cancelled": "ملغى",
+      "completed": "منتهٍ"
+    },
+    "check": {
+      "title": "تحقق من حجزي",
+      "placeholder": "أدخل رمزك (مثال: K3MX72)",
+      "verify": "تحقق",
+      "notFound": "لا يوجد حجز بهذا الرمز.",
+      "found": "تم العثور على الحجز"
+    }
+  },
+  "driver": {
+    "dashboard": "لوحة تحكم السائق",
+    "earnings": "إجمالي الأرباح",
+    "tripsCount": "عدد الرحلات",
+    "ratingAvg": "متوسط التقييم",
+    "upcoming": "الحجوزات القادمة",
+    "noTrips": "لم تنشر أي رحلة.",
+    "publishFirst": "انشر رحلتك الأولى",
+    "myVehicles": "مركباتي",
+    "addVehicle": "إضافة مركبة",
+    "noVehicles": "لا توجد مركبات مسجلة.",
+    "make": "العلامة",
+    "model": "الطراز",
+    "plate": "رقم اللوحة",
+    "features": "المواصفات (تكييف، أمتعة...)",
+    "newTripTitle": "نشر رحلة",
+    "fromCity": "مدينة الانطلاق",
+    "toCity": "مدينة الوصول",
+    "departAt": "تاريخ ووقت الانطلاق",
+    "selectVehicle": "اختر مركبة",
+    "publish": "نشر الرحلة",
+    "bookings": "الحجوزات",
+    "callPassenger": "اتصل بالمسافر",
+    "startTrip": "بدء الرحلة",
+    "endTrip": "إنهاء الرحلة"
+  },
+  "admin": {
+    "dashboard": "إدارة إيزي دنيا",
+    "stats": {
+      "users": "المستخدمون",
+      "drivers": "السائقون",
+      "trips": "الرحلات",
+      "bookings": "الحجوزات",
+      "revenue": "الإيرادات (عمولة 6٪)"
+    },
+    "pendingDrivers": "السائقون قيد الاعتماد",
+    "approveDriver": "اعتماد",
+    "rejectDriver": "رفض",
+    "suspend": "تعليق",
+    "noPending": "لا يوجد سائق قيد الاعتماد"
+  },
+  "lang": {
+    "fr": "Français",
+    "ar": "العربية"
+  }
+}
