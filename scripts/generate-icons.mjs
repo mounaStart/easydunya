@@ -5,8 +5,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, "")), "..");
+// Résolution de chemin compatible Windows + Linux (Netlify)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, "..");
 const PUBLIC_ICONS = path.join(ROOT, "public", "icons");
 fs.mkdirSync(PUBLIC_ICONS, { recursive: true });
 
@@ -64,38 +67,56 @@ function makePng(size, drawPixel) {
   ]);
 }
 
-// Tracé : fond brand-600 (#0d9488), rond plus clair au centre, lettre simulée par un carré clair
+// Tracé : fond dégradé bleu (#1e88d6) → orange (#f97316), avec un pin de localisation blanc.
 function draw(size) {
-  const radius = size * 0.16; // coins arrondis
-  const bg = [13, 148, 136, 255]; // brand-600
-  const fg = [255, 255, 255, 255];
-  // forme "ED" simplifiée : un E + un D dans un cercle clair
+  const radius = size * 0.22; // coins arrondis (style "squircle")
+  const blue = [30, 136, 214];
+  const orange = [249, 115, 22];
+
+  // Géométrie du pin (centré, dans la zone de sécurité maskable)
   const cx = size / 2;
-  const cy = size / 2;
-  const innerR = size * 0.34;
+  const headY = size * 0.42;
+  const headR = size * 0.16;
+  const tipY = size * 0.74;
+  const dotR = size * 0.07;
+
+  function bgColor(x, y) {
+    const t = (x + y) / (2 * size); // diagonale
+    return [
+      Math.round(blue[0] + (orange[0] - blue[0]) * t),
+      Math.round(blue[1] + (orange[1] - blue[1]) * t),
+      Math.round(blue[2] + (orange[2] - blue[2]) * t),
+      255,
+    ];
+  }
+
+  function inPin(x, y) {
+    const hx = x - cx;
+    const hy = y - headY;
+    if (hx * hx + hy * hy <= headR * headR) return true; // tête ronde
+    // corps triangulaire vers la pointe
+    if (y >= headY && y <= tipY) {
+      const prog = (y - headY) / (tipY - headY);
+      const halfW = headR * (1 - prog) * 0.92;
+      if (Math.abs(x - cx) <= halfW) return true;
+    }
+    return false;
+  }
+
   return (x, y) => {
-    // coins arrondis
     const r = radius;
     const dx = x < r ? r - x : x > size - r ? x - (size - r) : 0;
     const dy = y < r ? r - y : y > size - r ? y - (size - r) : 0;
-    if (dx * dx + dy * dy > r * r) return [0, 0, 0, 0];
+    if (dx * dx + dy * dy > r * r) return [0, 0, 0, 0]; // coins transparents
 
-    const cdx = x - cx;
-    const cdy = y - cy;
-    const dist = Math.sqrt(cdx * cdx + cdy * cdy);
-    // texte "ED" stylisé : deux barres verticales + courbes — on simule avec un rectangle blanc central
-    const textW = size * 0.55;
-    const textH = size * 0.22;
-    if (
-      Math.abs(cdx) < textW / 2 &&
-      Math.abs(cdy) < textH / 2 &&
-      dist < innerR * 1.6
-    ) {
-      // anneau de fond plus clair
-      if (Math.abs(cdy) > textH * 0.32) return [255, 255, 255, 200];
-      return fg;
+    if (inPin(x, y)) {
+      // point orange à l'intérieur de la tête
+      const hx = x - cx;
+      const hy = y - headY;
+      if (hx * hx + hy * hy <= dotR * dotR) return [...orange, 255];
+      return [255, 255, 255, 255];
     }
-    return bg;
+    return bgColor(x, y);
   };
 }
 

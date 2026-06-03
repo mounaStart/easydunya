@@ -5,9 +5,13 @@ import MapView from "../components/MapView";
 import Spinner from "../components/Spinner";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
-import { formatPrice, formatTime, relativeDateLabel } from "../lib/utils";
+import {
+  formatPrice,
+  formatTime,
+  relativeDateLabel,
+} from "../lib/utils";
 
-export default function Home() {
+export default function Search() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const { cities } = useCities();
@@ -18,46 +22,36 @@ export default function Home() {
   const [toId, setToId] = useState("");
   const [date, setDate] = useState("");
 
-  const cityName = (c: { name_fr: string; name_ar: string }) =>
-    isAr ? c.name_ar : c.name_fr;
-
   const results = useMemo(() => {
     return trips.filter((tr) => {
       if (fromId && tr.from_city_id !== fromId) return false;
       if (toId && tr.to_city_id !== toId) return false;
       if (date) {
         const d = new Date(tr.depart_at);
-        const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        if (local !== date) return false;
+        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (localDate !== date) return false;
       }
       return true;
     });
   }, [trips, fromId, toId, date]);
 
-  const selectCls =
-    "w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500";
+  const cityName = (c: { name_fr: string; name_ar: string }) =>
+    isAr ? c.name_ar : c.name_fr;
 
   return (
-    <div className="page max-w-xl space-y-6">
-      {/* En-tête */}
-      <div className="text-center pt-2">
-        <span className="pill-info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 2 2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg>
-          {t("home.badge")}
-        </span>
-        <h1 className="mt-4 text-2xl font-extrabold text-ink">
+    <div className="page space-y-6">
+      {/* Formulaire de recherche */}
+      <div className="card p-5 sm:p-6">
+        <h1 className="text-2xl font-extrabold text-ink text-center">
           {t("search.title")}
         </h1>
-        <p className="muted mt-1.5">{t("search.subtitle")}</p>
-      </div>
+        <p className="muted text-center mt-1.5 mb-5">{t("search.subtitle")}</p>
 
-      {/* Carte de recherche */}
-      <div className="card p-5 sm:p-6 space-y-4">
-        <div>
-          <label className="label">{t("search.fromCity")}</label>
-          <div className="relative">
+        <div className="space-y-4">
+          <div>
+            <label className="label">{t("search.fromCity")}</label>
             <select
-              className={selectCls}
+              className="input"
               value={fromId}
               onChange={(e) => setFromId(e.target.value)}
             >
@@ -68,15 +62,11 @@ export default function Home() {
                 </option>
               ))}
             </select>
-            <Chevron />
           </div>
-        </div>
-
-        <div>
-          <label className="label">{t("search.toCity")}</label>
-          <div className="relative">
+          <div>
+            <label className="label">{t("search.toCity")}</label>
             <select
-              className={selectCls}
+              className="input"
               value={toId}
               onChange={(e) => setToId(e.target.value)}
             >
@@ -87,27 +77,24 @@ export default function Home() {
                 </option>
               ))}
             </select>
-            <Chevron />
           </div>
+          <div>
+            <label className="label">{t("search.tripDate")}</label>
+            <input
+              type="date"
+              className="input"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <button className="btn-primary w-full py-4" type="button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            {t("search.searchBtn")}
+          </button>
         </div>
-
-        <div>
-          <label className="label">{t("search.tripDate")}</label>
-          <input
-            type="date"
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-ink focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-
-        <button type="button" className="btn-primary w-full py-4">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          {t("search.searchBtn")}
-        </button>
       </div>
 
-      {/* Carte des voyages */}
+      {/* Carte */}
       <div>
         <h2 className="flex items-center gap-2 text-xl font-bold text-ink mb-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e88d6" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
@@ -120,9 +107,13 @@ export default function Home() {
           legend
           height={300}
         />
+        <p className="muted mt-3 flex items-start gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          {t("search.mapHint")}
+        </p>
       </div>
 
-      {/* Voyages disponibles */}
+      {/* Résultats */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-xl font-bold text-ink">
@@ -193,23 +184,5 @@ export default function Home() {
         )}
       </div>
     </div>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg
-      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rtl:right-auto rtl:left-4"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }

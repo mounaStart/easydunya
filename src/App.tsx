@@ -3,14 +3,17 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Home from "./pages/Home";
+import Search from "./pages/Search";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import TripDetail from "./pages/TripDetail";
-import BookTrip from "./pages/BookTrip";
 import CheckBooking from "./pages/CheckBooking";
 import NotFound from "./pages/NotFound";
 
 import MyBookings from "./pages/passenger/MyBookings";
+import Reservation from "./pages/passenger/Reservation";
+import Historique from "./pages/passenger/Historique";
+import Profile from "./pages/passenger/Profile";
 
 import DriverDashboard from "./pages/driver/Dashboard";
 import DriverVehicles from "./pages/driver/MyVehicles";
@@ -24,18 +27,28 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="search" element={<Search />} />
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
         <Route path="check" element={<CheckBooking />} />
         <Route path="trips/:tripId" element={<TripDetail />} />
-        <Route path="trips/:tripId/book" element={<BookTrip />} />
 
         {/* Passenger */}
+        <Route path="reservation" element={<Reservation />} />
+        <Route path="historique" element={<Historique />} />
         <Route
           path="me/bookings"
           element={
             <ProtectedRoute roles={["passenger", "driver", "admin"]}>
               <MyBookings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute roles={["passenger", "driver", "admin"]}>
+              <Profile />
             </ProtectedRoute>
           }
         />
@@ -52,7 +65,7 @@ export default function App() {
         <Route
           path="driver/vehicles"
           element={
-            <ProtectedRoute roles={["driver", "admin"]}>
+            <ProtectedRoute roles={["driver", "admin"]} requireDriverApproved>
               <DriverVehicles />
             </ProtectedRoute>
           }
@@ -60,7 +73,7 @@ export default function App() {
         <Route
           path="driver/trips/new"
           element={
-            <ProtectedRoute roles={["driver", "admin"]}>
+            <ProtectedRoute roles={["driver", "admin"]} requireDriverApproved>
               <DriverNewTrip />
             </ProtectedRoute>
           }
@@ -68,7 +81,7 @@ export default function App() {
         <Route
           path="driver/trips/:tripId/bookings"
           element={
-            <ProtectedRoute roles={["driver", "admin"]}>
+            <ProtectedRoute roles={["driver", "admin"]} requireDriverApproved>
               <DriverTripBookings />
             </ProtectedRoute>
           }

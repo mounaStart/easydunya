@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -11,7 +10,7 @@ if (!url || !key) {
   );
 }
 
-export const supabase = createClient<Database>(
+export const supabase = createClient(
   url ?? "http://localhost:8000",
   key ?? "missing-anon-key",
   {

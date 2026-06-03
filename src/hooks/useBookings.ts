@@ -35,12 +35,42 @@ export async function createBooking(args: CreateBookingArgs): Promise<{
 
 export async function findBookingByCode(code: string): Promise<Booking | null> {
   if (!code) return null;
-  const { data } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("confirmation_code", code.toUpperCase())
-    .maybeSingle();
-  return (data as Booking | null) ?? null;
+  // Fonction SECURITY DEFINER : lecture par code (clé d'accès), même invité.
+  const { data, error } = await supabase.rpc("get_booking_by_code", {
+    p_code: code,
+  });
+  if (error) {
+    // Repli : lecture directe (fonctionne si c'est sa propre réservation)
+    const { data: row } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("confirmation_code", code.toUpperCase())
+      .maybeSingle();
+    return (row as Booking | null) ?? null;
+  }
+  const rows = (data as Booking[] | null) ?? [];
+  return rows[0] ?? null;
+}
+
+const CODES_KEY = "ed_booking_codes";
+
+/** Mémorise le code d'une réservation faite sur cet appareil. */
+export function rememberBookingCode(code: string) {
+  try {
+    const prev: string[] = JSON.parse(localStorage.getItem(CODES_KEY) ?? "[]");
+    const next = [code, ...prev.filter((c) => c !== code)].slice(0, 20);
+    localStorage.setItem(CODES_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getRememberedCodes(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(CODES_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
 }
 
 export function useMyBookings(passengerId: string | undefined) {

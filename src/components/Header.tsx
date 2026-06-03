@@ -1,29 +1,71 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
 import LangSwitcher from "./LangSwitcher";
 import { cn } from "../lib/utils";
 
+interface NavLinkItem {
+  to: string;
+  label: string;
+  badge?: number;
+}
+
+function initials(name?: string | null, email?: string | null) {
+  const base = (name || email || "?").trim();
+  return base.charAt(0).toUpperCase();
+}
+
 export default function Header() {
   const { t } = useTranslation();
-  const { user, profile, isAdmin, isDriver, isPassenger, signOut } = useAuth();
+  const { user, profile, isAdmin, isDriver, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [pendingDriversCount, setPendingDriversCount] = useState(0);
 
-  const links: { to: string; label: string }[] = [
-    { to: "/", label: t("nav.home") },
-    { to: "/check", label: t("nav.checkBooking") },
-  ];
-  if (isPassenger) links.push({ to: "/me/bookings", label: t("nav.bookings") });
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    async function load() {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "driver")
+        .eq("driver_status", "pending");
+      if (!cancelled) setPendingDriversCount(count ?? 0);
+    }
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isAdmin]);
+
+  const driverApproved = profile?.driver_status === "approved";
+
+  const links: NavLinkItem[] = [{ to: "/", label: t("nav.home") }];
   if (isDriver) {
+    links.push({ to: "/driver", label: t("nav.dashboard") });
+    if (driverApproved) {
+      links.push(
+        { to: "/driver/trips/new", label: t("nav.newTrip") },
+        { to: "/driver/vehicles", label: t("nav.vehicles") }
+      );
+    }
+  } else if (isAdmin) {
+    links.push({
+      to: "/admin",
+      label: t("nav.dashboard"),
+      badge: pendingDriversCount > 0 ? pendingDriversCount : undefined,
+    });
+  } else {
     links.push(
-      { to: "/driver", label: t("nav.dashboard") },
-      { to: "/driver/trips/new", label: t("nav.newTrip") },
-      { to: "/driver/vehicles", label: t("nav.vehicles") }
+      { to: "/reservation", label: t("nav.reservation") },
+      { to: "/historique", label: t("nav.historique") }
     );
   }
-  if (isAdmin) links.push({ to: "/admin", label: t("nav.dashboard") });
 
   async function handleLogout() {
     await signOut();
@@ -34,9 +76,18 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2 font-bold text-brand-700">
-          <span className="text-2xl">🚐</span>
-          <span className="text-lg sm:text-xl">Easy Dunya</span>
+        <Link to="/" className="flex items-center gap-2.5 shrink-0">
+          <span className="icon-tile w-9 h-9 shadow-soft overflow-hidden">
+            <img
+              src="/brand/logo.png"
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </span>
+          <span className="text-lg sm:text-xl font-extrabold tracking-tight">
+            <span className="text-ink">Easy</span>
+            <span className="text-accent-500">Dunya</span>
+          </span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -47,7 +98,7 @@ export default function Header() {
               end={l.to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "px-3 py-2 rounded-lg text-sm font-medium transition",
+                  "relative px-3 py-2 rounded-xl text-sm font-medium transition",
                   isActive
                     ? "bg-brand-50 text-brand-700"
                     : "text-slate-600 hover:bg-slate-50"
@@ -55,24 +106,46 @@ export default function Header() {
               }
             >
               {l.label}
+              {l.badge !== undefined && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                  {l.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
 
         <div className="flex items-center gap-2">
+          <button
+            className="hidden sm:inline-flex p-2 rounded-full text-slate-500 hover:bg-slate-100"
+            aria-label="notifications"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+            </svg>
+          </button>
           <LangSwitcher />
           {user ? (
             <>
-              <span className="hidden sm:inline text-sm text-slate-500 max-w-[140px] truncate">
-                {profile?.full_name ?? user.email}
-              </span>
-              <button onClick={handleLogout} className="btn-ghost text-sm">
+              <Link
+                to="/profile"
+                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft"
+                style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+                title={profile?.full_name ?? user.email ?? ""}
+              >
+                {initials(profile?.full_name, user.email)}
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="hidden md:inline-flex btn-ghost text-sm"
+              >
                 {t("nav.logout")}
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-ghost text-sm">
+              <Link to="/login" className="btn-ghost text-sm hidden sm:inline-flex">
                 {t("nav.login")}
               </Link>
               <Link
@@ -104,17 +177,26 @@ export default function Header() {
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    "px-3 py-2.5 rounded-lg text-sm font-medium",
+                    "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium",
                     isActive
                       ? "bg-brand-50 text-brand-700"
                       : "text-slate-700 hover:bg-slate-50"
                   )
                 }
               >
-                {l.label}
+                <span>{l.label}</span>
+                {l.badge !== undefined && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                    {l.badge}
+                  </span>
+                )}
               </NavLink>
             ))}
-            {!user && (
+            {user ? (
+              <button onClick={handleLogout} className="btn-secondary text-sm mt-2">
+                {t("nav.logout")}
+              </button>
+            ) : (
               <Link
                 to="/register"
                 onClick={() => setOpen(false)}

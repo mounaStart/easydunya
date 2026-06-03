@@ -22,7 +22,18 @@ export default function Login() {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      setError(t("auth.loginError"));
+      const lower = error.toLowerCase();
+      if (lower.includes("not confirmed") || lower.includes("email_not_confirmed")) {
+        setError(
+          "Votre email n'est pas encore confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation."
+        );
+      } else if (lower.includes("invalid login credentials")) {
+        setError(
+          "Email ou mot de passe incorrect. (Si vous venez de vous inscrire, votre email n'est peut-être pas encore confirmé.)"
+        );
+      } else {
+        setError(error);
+      }
       return;
     }
     navigate(from, { replace: true });

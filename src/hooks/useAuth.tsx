@@ -27,7 +27,9 @@ interface AuthContextValue {
     fullName: string;
     phone: string;
     role: UserRole;
-  }) => Promise<{ error?: string }>;
+    licenseNumber?: string;
+    baseCityId?: string;
+  }) => Promise<{ error?: string; needsEmailConfirm?: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -39,13 +41,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const loadProfile = useCallback(async (u: User) => {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", userId)
+      .eq("id", u.id)
       .maybeSingle();
-    if (!error) setProfile((data as Profile | null) ?? null);
+    if (error) return;
+    if (data) {
+      setProfile(data as Profile);
+      return;
+    }
+    // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
+    const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+    const roleMeta = meta.role;
+    const role: UserRole =
+      roleMeta === "driver" || roleMeta === "admin" ? roleMeta : "passenger";
+    const payload = {
+      id: u.id,
+      role,
+      full_name: (meta.full_name as string) ?? null,
+      phone: (meta.phone as string) ?? null,
+      driver_status: role === "driver" ? "pending" : null,
+    };
+    const { data: created } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .maybeSingle();
+    setProfile((created as Profile | null) ?? (payload as unknown as Profile));
   }, []);
 
   useEffect(() => {
@@ -53,14 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (cancelled) return;
       setSession(data.session);
-      if (data.session?.user) await loadProfile(data.session.user.id);
+      if (data.session?.user) await loadProfile(data.session.user);
       setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, s) => {
       setSession(s);
       if (s?.user) {
-        await loadProfile(s.user.id);
+        await loadProfile(s.user);
       } else {
         setProfile(null);
       }
@@ -85,39 +109,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName,
       phone,
       role,
+      licenseNumber,
+      baseCityId,
     }: {
       email: string;
       password: string;
       fullName: string;
       phone: string;
       role: UserRole;
+      licenseNumber?: string;
+      baseCityId?: string;
     }) => {
+      // 1) Vérifier l'unicité du téléphone (lecture publique des profils chauffeurs autorisée,
+      // pour les passagers cette requête peut échouer silencieusement par RLS — on fait au mieux)
+      const trimmedPhone = phone.trim();
+      if (trimmedPhone) {
+        const { data: taken, error: phoneErr } = await supabase.rpc(
+          "is_phone_taken",
+          { p_phone: trimmedPhone }
+        );
+        if (!phoneErr && taken === true) {
+          return { error: "Ce numéro de téléphone est déjà utilisé." };
+        }
+      }
+
+      // 2) Création du compte Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName, phone, role },
+          data: { full_name: fullName, phone: trimmedPhone, role },
         },
       });
       if (error) return { error: error.message };
 
-      // Si le trigger a déjà créé un profil, on s'assure que role/phone/name sont à jour.
+      // 3) S'assurer que le profil est à jour (role / phone / name + champs chauffeur)
       if (data.user) {
+        const profilePayload: Record<string, unknown> = {
+          id: data.user.id,
+          role,
+          full_name: fullName,
+          phone: trimmedPhone,
+          driver_status: role === "driver" ? "pending" : null,
+        };
+        if (role === "driver") {
+          if (licenseNumber) profilePayload.license_number = licenseNumber;
+          if (baseCityId) profilePayload.base_city_id = baseCityId;
+        }
         await supabase
           .from("profiles")
-          .upsert(
-            {
-              id: data.user.id,
-              role,
-              full_name: fullName,
-              phone,
-              driver_status: role === "driver" ? "pending" : null,
-            },
-            { onConflict: "id" }
-          );
-        await loadProfile(data.user.id);
+          .upsert(profilePayload, { onConflict: "id" });
+        await loadProfile(data.user);
       }
-      return {};
+
+      // 4) Détecter "confirmation email requise" : Supabase renvoie un user
+      // mais pas de session tant que l'email n'est pas confirmé.
+      const needsEmailConfirm = !!data.user && !data.session;
+      return { needsEmailConfirm };
     },
     [loadProfile]
   );
@@ -129,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) await loadProfile(session.user.id);
+    if (session?.user) await loadProfile(session.user);
   }, [session, loadProfile]);
 
   const value = useMemo<AuthContextValue>(() => {

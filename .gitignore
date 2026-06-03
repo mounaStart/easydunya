@@ -16,3 +16,5 @@ coverage
 .supabase/
 volumes/db/data
 volumes/storage
+.tmp_docx/
+.tmp_doc.zip

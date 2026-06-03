@@ -24,9 +24,10 @@ reçoivent et gèrent les réservations, partagent leur position GPS.
 
 ### 1. Pré-requis
 
-- Node.js ≥ 20
-- npm ≥ 10
-- Docker Desktop (pour Supabase local)
+- Node.js ≥ 20 + npm ≥ 10 (**obligatoire**)
+- Docker Desktop (**optionnel**, uniquement pour Supabase local)
+
+> **Docker non reconnu ?** → suivez **[Démarrage sans Docker](docs/DEMARRAGE-SANS-DOCKER.md)** (Supabase Cloud, gratuit).
 
 ### 2. Installation
 
@@ -35,7 +36,12 @@ npm install
 cp .env.example .env
 ```
 
-### 3. Démarrer Supabase en local
+### 3. Backend Supabase
+
+**Option A — Sans Docker (recommandé si `docker` n’est pas installé)**  
+Voir le guide : [docs/DEMARRAGE-SANS-DOCKER.md](docs/DEMARRAGE-SANS-DOCKER.md)
+
+**Option B — Supabase local avec Docker**
 
 ```bash
 docker compose up -d

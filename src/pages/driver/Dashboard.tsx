@@ -24,6 +24,7 @@ export default function DriverDashboard() {
   const { user, profile } = useAuth();
   const [trips, setTrips] = useState<TripPublic[]>([]);
   const [stats, setStats] = useState<Stats>({ earnings: 0, tripsCount: 0, upcoming: 0 });
+  const [pendingByTrip, setPendingByTrip] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,13 +52,18 @@ export default function DriverDashboard() {
 
       let earnings = 0;
       let upcoming = 0;
+      const pendingMap: Record<string, number> = {};
       for (const b of bookingsData ?? []) {
         const trip = allTrips.find((tr) => tr.id === b.trip_id);
         if (!trip) continue;
         if (b.status === "confirmed" || b.status === "completed") {
           earnings += (trip.price_per_seat as number) * (b.seats as number);
         }
-        if (b.status === "pending") upcoming++;
+        if (b.status === "pending") {
+          upcoming++;
+          pendingMap[b.trip_id as string] =
+            (pendingMap[b.trip_id as string] ?? 0) + 1;
+        }
       }
       const tripsCount = allTrips.filter(
         (t) => t.status === "completed"
@@ -66,6 +72,7 @@ export default function DriverDashboard() {
       if (!cancelled) {
         setTrips(allTrips);
         setStats({ earnings, tripsCount, upcoming });
+        setPendingByTrip(pendingMap);
         setLoading(false);
       }
     }
@@ -77,16 +84,60 @@ export default function DriverDashboard() {
 
   if (loading) return <Spinner />;
 
-  if (profile?.driver_status === "pending") {
-    return (
-      <div className="page max-w-xl">
-        <div className="card p-6 text-center bg-amber-50 border-amber-200">
-          <div className="text-3xl mb-2">⏳</div>
-          <h1 className="h2 mb-2">{t("auth.driverPending")}</h1>
-          <p className="muted">Easy Dunya</p>
+  // Garde d'accès selon le statut chauffeur
+  if (profile?.role === "driver") {
+    if (profile.driver_status === "pending") {
+      return (
+        <div className="page max-w-xl">
+          <div className="card p-6 text-center bg-amber-50 border-amber-200">
+            <div className="text-4xl mb-2">⏳</div>
+            <h1 className="h2 mb-2">Compte en attente de validation</h1>
+            <p className="text-slate-600 mb-2">
+              Votre compte chauffeur est en cours de vérification par l'équipe
+              Easy Dunya.
+            </p>
+            <p className="muted text-sm">
+              Vous serez notifié dès qu'il sera approuvé. Vous pourrez alors
+              publier vos voyages.
+            </p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
+    if (profile.driver_status === "rejected") {
+      return (
+        <div className="page max-w-xl">
+          <div className="card p-6 text-center bg-rose-50 border-rose-200">
+            <div className="text-4xl mb-2">❌</div>
+            <h1 className="h2 mb-2">Compte refusé</h1>
+            <p className="text-slate-600">
+              Votre demande de compte chauffeur a été refusée. Contactez Easy
+              Dunya pour plus d'informations.
+            </p>
+            <a href="mailto:contact@easydunya.mr" className="btn-primary inline-flex mt-4">
+              📧 Nous contacter
+            </a>
+          </div>
+        </div>
+      );
+    }
+    if (profile.driver_status === "suspended") {
+      return (
+        <div className="page max-w-xl">
+          <div className="card p-6 text-center bg-slate-100 border-slate-200">
+            <div className="text-4xl mb-2">⏸</div>
+            <h1 className="h2 mb-2">Compte suspendu</h1>
+            <p className="text-slate-600">
+              Votre compte chauffeur est temporairement suspendu. Contactez Easy
+              Dunya pour réactiver votre accès.
+            </p>
+            <a href="mailto:contact@easydunya.mr" className="btn-primary inline-flex mt-4">
+              📧 Nous contacter
+            </a>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -137,36 +188,57 @@ export default function DriverDashboard() {
         <div className="space-y-3">
           {trips.map((trip) => {
             const isAr = i18n.language === "ar";
+            const pending = pendingByTrip[trip.id] ?? 0;
             return (
               <Link
                 key={trip.id}
                 to={`/driver/trips/${trip.id}/bookings`}
-                className="card p-4 flex items-center justify-between gap-3 hover:shadow-md transition"
+                className="card p-4 block hover:shadow-md transition"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status={trip.status} kind="trip" />
-                    <span className="chip">
-                      {relativeDateLabel(trip.depart_at)}
-                    </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StatusBadge status={trip.status} kind="trip" />
+                      <span className="chip">
+                        {relativeDateLabel(trip.depart_at)}
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-900 mt-1">
+                      {(isAr ? trip.from_name_ar : trip.from_name_fr)} →{" "}
+                      {(isAr ? trip.to_name_ar : trip.to_name_fr)}
+                    </div>
+                    <div className="muted">
+                      {formatTime(trip.depart_at)} ·{" "}
+                      {trip.seats_available}/{trip.seats_total}{" "}
+                      {t("common.seatsAvailable")}
+                    </div>
                   </div>
-                  <div className="font-semibold text-slate-900 mt-1">
-                    {(isAr ? trip.from_name_ar : trip.from_name_fr)} →{" "}
-                    {(isAr ? trip.to_name_ar : trip.to_name_fr)}
-                  </div>
-                  <div className="muted">
-                    {formatTime(trip.depart_at)} ·{" "}
-                    {trip.seats_available}/{trip.seats_total}{" "}
-                    {t("common.seatsAvailable")}
+                  <div className="text-right shrink-0">
+                    <div className="font-bold text-brand-700">
+                      {formatPrice(trip.price_per_seat)}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      /{t("common.seats").toLowerCase()}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-bold text-brand-700">
-                    {formatPrice(trip.price_per_seat)}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    /{t("common.seats").toLowerCase()}
-                  </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+                    {t("driver.manageBookings")}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 6l6 6-6 6"/></svg>
+                  </span>
+                  {pending > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 px-3 py-1 text-xs font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      {pending} {t("driver.pendingRequests")}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">
+                      {t("driver.noPending")}
+                    </span>
+                  )}
                 </div>
               </Link>
             );

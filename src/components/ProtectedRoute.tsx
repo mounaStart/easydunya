@@ -7,10 +7,16 @@ import Spinner from "./Spinner";
 interface Props {
   children: ReactNode;
   roles?: UserRole[];
+  /** Si true, un chauffeur non-approuvé est redirigé vers /driver (page d'attente) */
+  requireDriverApproved?: boolean;
 }
 
-export default function ProtectedRoute({ children, roles }: Props) {
-  const { loading, user, role } = useAuth();
+export default function ProtectedRoute({
+  children,
+  roles,
+  requireDriverApproved,
+}: Props) {
+  const { loading, user, role, profile } = useAuth();
   const location = useLocation();
 
   if (loading) return <Spinner />;
@@ -19,6 +25,13 @@ export default function ProtectedRoute({ children, roles }: Props) {
   }
   if (roles && role && !roles.includes(role)) {
     return <Navigate to="/" replace />;
+  }
+  if (
+    requireDriverApproved &&
+    role === "driver" &&
+    profile?.driver_status !== "approved"
+  ) {
+    return <Navigate to="/driver" replace />;
   }
   return <>{children}</>;
 }

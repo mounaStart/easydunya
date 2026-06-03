@@ -8,45 +8,79 @@
   }
   html, body, #root { height: 100%; }
   body {
-    @apply bg-sand-50 text-slate-800 font-sans antialiased;
+    @apply bg-slate-50 text-ink font-sans antialiased;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
   }
   html[dir="rtl"] body { @apply font-ar; }
-  /* Leaflet z-index fix sous header */
   .leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: 1 !important; }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-soft; }
-  .btn-secondary { @apply btn bg-white text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50; }
-  .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100; }
+  /* Bouton principal dégradé bleu→orange (logo) */
+  .btn-primary {
+    @apply btn text-white shadow-soft;
+    background-image: linear-gradient(90deg, #1e88d6 0%, #2f8fd0 45%, #f97316 100%);
+  }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-secondary { @apply btn bg-white text-brand-700 ring-1 ring-slate-200 hover:bg-slate-50; }
+  .btn-ghost { @apply btn text-ink-soft hover:bg-slate-100; }
   .btn-danger { @apply btn bg-rose-600 text-white hover:bg-rose-700; }
+  .btn-success { @apply btn bg-emerald-600 text-white hover:bg-emerald-700; }
 
-  .card { @apply bg-white rounded-2xl shadow-soft border border-slate-100; }
+  .card { @apply bg-white rounded-3xl shadow-card border border-slate-100; }
   .input {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-800
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-ink
            focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500;
   }
-  .label { @apply block text-sm font-medium text-slate-700 mb-1; }
-  .chip { @apply inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 px-2.5 py-1 text-xs font-medium; }
-  .badge-pending { @apply rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-semibold; }
-  .badge-confirmed { @apply rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-semibold; }
-  .badge-rejected { @apply rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-xs font-semibold; }
-  .badge-completed { @apply rounded-full bg-sky-100 text-sky-700 px-2 py-0.5 text-xs font-semibold; }
-  .badge-cancelled { @apply rounded-full bg-slate-200 text-slate-700 px-2 py-0.5 text-xs font-semibold; }
+  .label { @apply block text-sm font-medium text-ink-soft mb-1.5; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 px-3 py-1 text-xs font-semibold; }
+  .pill-info { @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 text-brand-700 px-3 py-1.5 text-sm font-semibold; }
 
-  .page { @apply max-w-6xl mx-auto px-4 sm:px-6 py-6; }
-  .h1 { @apply text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight; }
-  .h2 { @apply text-xl font-semibold text-slate-900; }
-  .muted { @apply text-slate-500 text-sm; }
+  .badge-pending { @apply rounded-full bg-amber-100 text-amber-700 px-2.5 py-1 text-xs font-semibold; }
+  .badge-confirmed { @apply rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold; }
+  .badge-rejected { @apply rounded-full bg-rose-100 text-rose-700 px-2.5 py-1 text-xs font-semibold; }
+  .badge-completed { @apply rounded-full bg-sky-100 text-sky-700 px-2.5 py-1 text-xs font-semibold; }
+  .badge-cancelled { @apply rounded-full bg-slate-200 text-slate-700 px-2.5 py-1 text-xs font-semibold; }
+
+  .page { @apply max-w-3xl mx-auto px-4 sm:px-6 py-6; }
+  .page-wide { @apply max-w-6xl mx-auto px-4 sm:px-6 py-6; }
+  .h1 { @apply text-2xl sm:text-3xl font-extrabold text-ink tracking-tight; }
+  .h2 { @apply text-xl font-bold text-ink; }
+  .muted { @apply text-ink-muted text-sm; }
+
+  .gradient-text {
+    background-image: linear-gradient(90deg, #1e88d6 0%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .icon-tile {
+    @apply inline-flex items-center justify-center w-12 h-12 rounded-2xl text-white;
+    background-image: linear-gradient(135deg, #2aa4c4 0%, #f97316 100%);
+  }
+  .icon-tile-soft {
+    @apply inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-brand-50 text-brand-600;
+  }
 }
 
-/* Confirmation code display */
+/* Réserver de l'espace pour la bottom-nav mobile */
+@media (max-width: 767px) {
+  .has-bottom-nav { padding-bottom: 5.5rem; }
+}
+
 .code-display {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   letter-spacing: 0.25em;
+}
+
+/* Impression du reçu */
+@media print {
+  body * { visibility: hidden; }
+  #receipt, #receipt * { visibility: visible; }
+  #receipt { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
 }

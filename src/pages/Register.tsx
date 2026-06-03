@@ -2,36 +2,84 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { useCities } from "../hooks/useCities";
 import type { UserRole } from "../lib/types";
 
 export default function Register() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const { cities } = useCities();
 
   const [role, setRole] = useState<UserRole>("passenger");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [baseCityId, setBaseCityId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  function validatePhone(p: string): string | null {
+    const cleaned = p.replace(/[\s.-]/g, "");
+    if (!/^\+?[0-9]{8,15}$/.test(cleaned)) {
+      return "Numéro de téléphone invalide (8 à 15 chiffres, indicatif autorisé).";
+    }
+    return null;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
-    const { error } = await signUp({ email, password, fullName, phone, role });
+    setInfo(null);
+
+    const phoneErr = validatePhone(phone);
+    if (phoneErr) {
+      setError(phoneErr);
+      return;
+    }
+
+    if (role === "driver" && !licenseNumber.trim()) {
+      setError("Le numéro de permis est obligatoire pour les chauffeurs.");
+      return;
+    }
+
+    setLoading(true);
+    const { error, needsEmailConfirm } = await signUp({
+      email,
+      password,
+      fullName,
+      phone,
+      role,
+      licenseNumber: licenseNumber.trim() || undefined,
+      baseCityId: baseCityId || undefined,
+    });
     setLoading(false);
+
     if (error) {
       setError(error);
       return;
     }
-    if (role === "driver") {
-      alert(t("auth.driverPending"));
+
+    if (needsEmailConfirm) {
+      setInfo(
+        `Compte créé ! Vérifiez votre boîte mail (${email}) et cliquez sur le lien de confirmation, puis revenez vous connecter. ` +
+          `(Astuce dev : Supabase → Authentication → Providers → Email → décocher "Confirm email".)`
+      );
+      return;
     }
-    navigate("/", { replace: true });
+
+    // Redirection adaptée au rôle
+    if (role === "driver") {
+      navigate("/driver", { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
   }
+
+  const isDriver = role === "driver";
 
   return (
     <div className="page max-w-md">
@@ -52,18 +100,30 @@ export default function Register() {
           <button
             type="button"
             onClick={() => setRole("driver")}
-            className={`btn ${
-              role === "driver" ? "btn-primary" : "btn-secondary"
-            }`}
+            className={`btn ${isDriver ? "btn-primary" : "btn-secondary"}`}
           >
             🚗 {t("auth.registerAsDriver")}
           </button>
         </div>
 
+        {isDriver && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+            <strong>ℹ Validation requise :</strong> votre compte chauffeur sera
+            créé en statut « en attente ». L'équipe Easy Dunya vous validera
+            sous 24 h. Vous pourrez vous connecter immédiatement mais ne pourrez
+            publier des voyages qu'après validation.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">{t("common.fullName")}</label>
-            <input className="input" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <input
+              className="input"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
           </div>
           <div>
             <label className="label">{t("common.phone")}</label>
@@ -97,15 +157,53 @@ export default function Register() {
             />
           </div>
 
+          {isDriver && (
+            <>
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
+                  Informations chauffeur
+                </p>
+              </div>
+              <div>
+                <label className="label">
+                  Numéro de permis de conduire
+                  <span className="text-rose-500"> *</span>
+                </label>
+                <input
+                  className="input"
+                  required
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  placeholder="ex: MR-12345-2023"
+                />
+              </div>
+              <div>
+                <label className="label">Ville de base</label>
+                <select
+                  className="input"
+                  value={baseCityId}
+                  onChange={(e) => setBaseCityId(e.target.value)}
+                >
+                  <option value="">— Sélectionner —</option>
+                  {cities.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {i18n.language === "ar" ? c.name_ar : c.name_fr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
           {error && (
             <p className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-lg">
               {error}
             </p>
           )}
 
-          {role === "driver" && (
-            <p className="text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
-              ⚠ {t("auth.driverPending")}
+          {info && (
+            <p className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">
+              ✓ {info}
             </p>
           )}
 

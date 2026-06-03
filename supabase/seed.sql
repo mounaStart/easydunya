@@ -23,9 +23,14 @@ on conflict (id) do nothing;
 -- =====================================================================
 -- COMPTES DE DÉMO
 -- =====================================================================
--- Mot de passe : password123  (hash bcrypt pré-calculé)
--- Les triggers `on_auth_user_created` créeront automatiquement les profils,
--- on les met à jour ensuite pour fixer le rôle et le nom.
+-- ⛔ SUPABASE CLOUD : NE PAS EXÉCUTER CE BLOC (lignes insert auth.users).
+--    Cela provoque "Database error querying schema" à la connexion.
+--    Créez les comptes via Dashboard → Authentication → Add user
+--    puis scripts/fix_admin_login.sql
+--
+-- ✓ Docker local uniquement : vous pouvez exécuter tout le fichier.
+--
+-- Mot de passe démo : password123
 
 -- ----- ADMIN
 insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data, aud, role, instance_id)

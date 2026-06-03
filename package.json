@@ -6,7 +6,7 @@
   "description": "Easy Dunya - Plateforme digitale de transport interurbain en Mauritanie",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/generate-icons.mjs && tsc -b && vite build",
     "preview": "vite preview --port 4173",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
@@ -14,7 +14,7 @@
     "postinstall": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.4",
+    "@supabase/supabase-js": "^2.107.0",
     "i18next": "^23.15.1",
     "i18next-browser-languagedetector": "^8.0.0",
     "leaflet": "^1.9.4",
