@@ -4,13 +4,8 @@ const config: CapacitorConfig = {
   appId: "app.easydunya",
   appName: "Easy Dunya",
   webDir: "dist",
-  // L'APK charge le site Netlify en direct : les mises à jour web
-  // se propagent sans reconstruire l'APK. Le pont natif (plugins FCM)
-  // reste injecté dans la page distante.
-  server: {
-    url: "https://neon-trifle-a8f4fc.netlify.app",
-    cleartext: false,
-  },
+  // Le code web est embarqué dans l'APK (build CI).
+  // Cela garantit que les plugins natifs (FCM) fonctionnent correctement.
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
