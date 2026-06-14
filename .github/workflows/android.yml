@@ -19,37 +19,78 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Build web (dist)
         run: npm run build
+        env:
+          # Optionnel : si tu ajoutes ces secrets GitHub, le build embarque Supabase/VAPID
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "21"
 
-      - name: Write google-services.json
+      - name: Vérifier les secrets requis
         run: |
-          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          missing=0
+          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "::error::Secret manquant : GOOGLE_SERVICES_JSON (fichier google-services.json Firebase)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Secret manquant : KEYSTORE_BASE64 (fichier keystore.b64.txt du Bureau)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "::error::Secret manquant : KEYSTORE_PASSWORD (signing-key-info.txt)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "::error::Secret manquant : KEY_ALIAS (signing-key-info.txt → my-key-alias)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error::Secret manquant : KEY_PASSWORD (signing-key-info.txt)"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Tous les secrets requis sont présents ✓"
+
+      - name: Écrire google-services.json
+        run: |
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          python3 -c "import json; json.load(open('android/app/google-services.json'))"
+          echo "google-services.json valide ✓"
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
       - name: Capacitor sync
         run: npx cap sync android
 
-      - name: Decode keystore
+      - name: Rendre gradlew exécutable
+        run: chmod +x android/gradlew
+
+      - name: Décoder le keystore
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 --decode > android/app/release.keystore
+          test -s android/app/release.keystore
+          echo "Keystore décodé ($(wc -c < android/app/release.keystore) octets) ✓"
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Build signed release APK
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --no-daemon
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
