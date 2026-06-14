@@ -1,1 +1,6 @@
-/*    /index.html   200
+# Digital Asset Links (TWA/APK) — sert assetlinks.json sans dossier .well-known
+# (Netlify ignore les dossiers commençant par un point lors du drag & drop)
+/.well-known/assetlinks.json  /assetlinks.json  200!
+
+# Fallback SPA (react-router) — toutes les autres routes servent index.html
+/*   /index.html   200

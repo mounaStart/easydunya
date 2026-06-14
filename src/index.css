@@ -40,6 +40,17 @@
   .chip { @apply inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 px-3 py-1 text-xs font-semibold; }
   .pill-info { @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 text-brand-700 px-3 py-1.5 text-sm font-semibold; }
 
+  /* En-tête page d'accueil (fond bleu clair uniforme — maquette) */
+  .home-hero-bg {
+    background-color: #f0f7ff;
+  }
+  .home-hero-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold;
+    background-color: #e1effe;
+    color: #3b82f6;
+    border: 1px solid #dbeafe;
+  }
+
   .badge-pending { @apply rounded-full bg-amber-100 text-amber-700 px-2.5 py-1 text-xs font-semibold; }
   .badge-confirmed { @apply rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold; }
   .badge-rejected { @apply rounded-full bg-rose-100 text-rose-700 px-2.5 py-1 text-xs font-semibold; }

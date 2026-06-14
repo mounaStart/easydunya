@@ -5,7 +5,21 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Fallback SPA (react-router) — toutes les routes servent index.html
+# Digital Asset Links (TWA/APK) — réécrit vers un fichier sans dossier .well-known
+# (Netlify ignore les dossiers commençant par un point lors du drag & drop)
+[[redirects]]
+  from = "/.well-known/assetlinks.json"
+  to = "/assetlinks.json"
+  status = 200
+  force = true
+
+# Forcer le bon type MIME pour assetlinks.json
+[[headers]]
+  for = "/assetlinks.json"
+  [headers.values]
+    Content-Type = "application/json"
+
+# Fallback SPA (react-router) — toutes les autres routes servent index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"

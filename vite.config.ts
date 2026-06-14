@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         id: "/",
         name: "Easy Dunya",
-        short_name: "EasyDunya",
+        short_name: "Easy Dunya",
         description:
           "Plateforme digitale de transport interurbain en Mauritanie",
         theme_color: "#1e88d6",
@@ -45,6 +45,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest,woff2}"],
+        globIgnores: ["**/push-sw.js", "**/brand/hero-passenger.png"],
+        importScripts: ["push-sw.js"],
+        navigateFallbackDenylist: [/^\/\.well-known\//],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z]\.tile\.openstreetmap\.org\/.*/i,

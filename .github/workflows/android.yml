@@ -1,0 +1,64 @@
+name: Build Android APK
+
+# Construit l'APK Easy Dunya (Capacitor + FCM) dans le cloud.
+# Lancement manuel : onglet Actions → "Build Android APK" → Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web (dist)
+        run: npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Write google-services.json
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      - name: Decode keystore
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Build signed release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyDunya-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { cancelTripWithBroadcast } from "../../hooks/useBookings";
 import type { TripPublic, TripStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import {
   formatPrice,
-  formatTime,
+  formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
 
@@ -35,8 +36,29 @@ export default function AdminTrips() {
   }, [load]);
 
   async function cancelTrip(id: string) {
-    if (!confirm("Annuler ce voyage ? Toutes les réservations resteront en base.")) return;
-    await supabase.from("trips").update({ status: "cancelled" }).eq("id", id);
+    const reason = prompt(
+      "Motif d'annulation (optionnel) — les autres chauffeurs vers la même destination seront notifiés :"
+    );
+    if (reason === null) return;
+    if (!confirm("Confirmer l'annulation de ce voyage ?")) return;
+    const { error, notified } = await cancelTripWithBroadcast(id, reason || undefined);
+    if (error) {
+      alert(error);
+      return;
+    }
+    if (notified && notified > 0) {
+      alert(`${notified} chauffeur(s) notifié(s) pour redistribution.`);
+    }
+    load();
+  }
+
+  async function endTrip(id: string) {
+    if (!confirm("Terminer ce voyage maintenant ? (action administrateur)")) return;
+    const { error } = await supabase.rpc("driver_end_trip", { p_trip_id: id });
+    if (error) {
+      alert(error.message);
+      return;
+    }
     load();
   }
 
@@ -101,20 +123,30 @@ export default function AdminTrips() {
                     </span>
                   </div>
                   <div className="text-sm text-slate-500 flex items-center gap-3 flex-wrap mt-0.5">
-                    <span>{relativeDateLabel(t.depart_at)} · {formatTime(t.depart_at)}</span>
+                    <span>{relativeDateLabel(t.depart_at)} · {formatPeriod(t.depart_at)}</span>
                     <span>👤 {t.driver_name ?? "—"}</span>
                     <span>{formatPrice(t.price_per_seat)}/place</span>
                     <span>{t.seats_available}/{t.seats_total} dispo</span>
                   </div>
                 </div>
-                {(t.status === "scheduled" || t.status === "in_progress") && (
-                  <button
-                    onClick={() => cancelTrip(t.id)}
-                    className="btn-ghost text-rose-700 text-xs"
-                  >
-                    Annuler
-                  </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.status === "in_progress" && (
+                    <button
+                      onClick={() => endTrip(t.id)}
+                      className="btn-secondary text-xs"
+                    >
+                      ■ Terminer
+                    </button>
+                  )}
+                  {(t.status === "scheduled" || t.status === "in_progress") && (
+                    <button
+                      onClick={() => cancelTrip(t.id)}
+                      className="btn-ghost text-rose-700 text-xs"
+                    >
+                      Annuler
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

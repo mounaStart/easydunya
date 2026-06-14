@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Easy Dunya</string>
+    <string name="title_activity_main">Easy Dunya</string>
+    <string name="package_name">app.easydunya</string>
+    <string name="custom_url_scheme">app.easydunya</string>
+</resources>

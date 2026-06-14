@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.netlify.neon_trifle_a8f4fc.twa",
+      "sha256_cert_fingerprints": [
+        "EB:FC:8C:6B:CA:F2:7A:79:09:F8:CD:BC:A9:3A:E4:BD:42:3F:A9:6B:08:4C:BC:05:B7:26:88:B4:C7:C4:1C:5F"
+      ]
+    }
+  }
+]

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { DriverAdmin, DriverStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
+import { useAuth } from "../../hooks/useAuth";
+import { useCities } from "../../hooks/useCities";
+import { useTranslation } from "react-i18next";
+import { isValidPhone } from "../../lib/phone";
 
 type FilterId = "all" | "pending" | "approved" | "rejected" | "suspended";
 
@@ -18,7 +22,7 @@ interface Props {
 }
 
 export default function AdminDrivers({ onMutate }: Props) {
-  const [filter, setFilter] = useState<FilterId>("pending");
+  const [filter, setFilter] = useState<FilterId>("all");
   const [drivers, setDrivers] = useState<DriverAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -137,6 +141,8 @@ export default function AdminDrivers({ onMutate }: Props) {
 
   return (
     <div>
+      <CreateDriverForm onCreated={() => { load(); onMutate?.(); }} />
+
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {FILTERS.map((f) => (
           <button
@@ -279,6 +285,141 @@ export default function AdminDrivers({ onMutate }: Props) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function CreateDriverForm({ onCreated }: { onCreated: () => void }) {
+  const { createDriverAccount } = useAuth();
+  const { cities } = useCities();
+  const { i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [baseCityId, setBaseCityId] = useState("");
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehiclePlate, setVehiclePlate] = useState("");
+  const [vehicleSeats, setVehicleSeats] = useState(8);
+  const [vehicleFeatures, setVehicleFeatures] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Mot de passe temporaire = numéro de téléphone + "ED" (majuscules)
+  const password = `${phone.trim()}ED`;
+
+  async function submit() {
+    setError(null);
+    if (!fullName.trim()) return setError("Nom complet requis.");
+    if (!isValidPhone(phone)) return setError("Numéro de téléphone invalide.");
+    if (password.length < 6) return setError("Mot de passe : 6 caractères minimum.");
+    setBusy(true);
+    const res = await createDriverAccount({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      password,
+      baseCityId: baseCityId || undefined,
+      vehicleMake: vehicleMake.trim() || undefined,
+      vehiclePlate: vehiclePlate.trim() || undefined,
+      vehicleSeats,
+      vehicleFeatures: vehicleFeatures.trim() || undefined,
+    });
+    setBusy(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    // Réinitialise, ferme le formulaire et rafraîchit la liste des chauffeurs
+    setFullName("");
+    setPhone("");
+    setBaseCityId("");
+    setVehicleMake("");
+    setVehiclePlate("");
+    setVehicleSeats(8);
+    setVehicleFeatures("");
+    setOpen(false);
+    onCreated();
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="btn-primary text-sm mb-4"
+      >
+        + Créer un compte chauffeur
+      </button>
+    );
+  }
+
+  return (
+    <div className="border border-brand-100 bg-brand-50/40 rounded-xl p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-ink">Nouveau compte chauffeur</h3>
+        <button onClick={() => setOpen(false)} className="text-slate-400 text-sm">
+          ✕
+        </button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="label">Nom complet *</label>
+          <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Téléphone *</label>
+          <input
+            className="input"
+            inputMode="numeric"
+            maxLength={8}
+            placeholder="20000000"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))}
+          />
+        </div>
+        <div>
+          <label className="label">Mot de passe temporaire *</label>
+          <input className="input bg-slate-50" value={password} readOnly />
+          <p className="text-xs text-slate-500 mt-1">Généré : téléphone + ED</p>
+        </div>
+        <div>
+          <label className="label">Ville de base</label>
+          <select className="input" value={baseCityId} onChange={(e) => setBaseCityId(e.target.value)}>
+            <option value="">— Sélectionner —</option>
+            {cities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {i18n.language === "ar" ? c.name_ar : c.name_fr}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-brand-100">
+        <h4 className="font-semibold text-sm text-slate-600 mb-3">🚗 Véhicule</h4>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label">Marque</label>
+            <input className="input" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="Toyota, Mercedes…" />
+          </div>
+          <div>
+            <label className="label">Plaque</label>
+            <input className="input uppercase" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} placeholder="1234 AB 00" />
+          </div>
+          <div>
+            <label className="label">Places</label>
+            <input type="number" min={1} max={60} className="input" value={vehicleSeats} onChange={(e) => setVehicleSeats(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="label">Caractéristiques</label>
+            <input className="input" value={vehicleFeatures} onChange={(e) => setVehicleFeatures(e.target.value)} placeholder="Climatisé, bagages…" />
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-rose-700 bg-rose-50 px-3 py-2 rounded-lg mt-3">{error}</p>}
+      <button onClick={submit} disabled={busy} className="btn-primary w-full mt-3">
+        {busy ? "Création…" : "Créer le compte chauffeur"}
+      </button>
     </div>
   );
 }

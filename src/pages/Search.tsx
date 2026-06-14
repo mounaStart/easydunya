@@ -7,7 +7,7 @@ import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
 import {
   formatPrice,
-  formatTime,
+  formatPeriod,
   relativeDateLabel,
 } from "../lib/utils";
 
@@ -140,8 +140,8 @@ export default function Search() {
                 className="card p-4 flex items-center gap-4 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-16">
-                  <div className="text-xl font-extrabold text-brand-600 leading-none">
-                    {formatTime(tr.depart_at)}
+                  <div className="text-base font-extrabold text-brand-600 leading-none">
+                    {formatPeriod(tr.depart_at)}
                   </div>
                   <div className="text-[10px] uppercase tracking-wide text-slate-400 mt-1">
                     {relativeDateLabel(tr.depart_at)}

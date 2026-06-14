@@ -15,3 +15,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Recharge automatiquement quand une nouvelle version du service worker
+// prend le contrôle (évite de rester bloqué sur une ancienne version cachée).
+if ("serviceWorker" in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}

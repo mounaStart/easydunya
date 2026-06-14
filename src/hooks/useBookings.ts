@@ -9,6 +9,10 @@ export interface CreateBookingArgs {
   passengerId?: string | null;
   guestName?: string;
   guestPhone?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  pickupQuartier?: string;
+  isWaiting?: boolean;
 }
 
 export async function createBooking(args: CreateBookingArgs): Promise<{
@@ -26,10 +30,18 @@ export async function createBooking(args: CreateBookingArgs): Promise<{
       guest_phone: args.guestPhone ?? null,
       confirmation_code: code,
       status: "pending",
+      pickup_lat: args.pickupLat ?? null,
+      pickup_lng: args.pickupLng ?? null,
+      pickup_quartier: args.pickupQuartier ?? null,
+      is_waiting: args.isWaiting ?? false,
     })
     .select()
     .single();
   if (error) return { error: error.message };
+
+  // Le chauffeur est notifié côté base (trigger trg_booking_notify_driver),
+  // ce qui fonctionne aussi pour les passagers invités et déclenche le push.
+
   return { booking: data as Booking };
 }
 
@@ -161,5 +173,90 @@ export async function updateBookingStatus(
     .from("bookings")
     .update({ status })
     .eq("id", bookingId);
+
+  // Notifications passager : trigger SQL trg_booking_notify_status (migration 0020)
+
   return { error: error?.message };
+}
+
+/**
+ * Annulation d'une réservation PAR LE PASSAGER.
+ * Le trigger SQL restitue automatiquement les places si elle était confirmée.
+ * Le chauffeur est notifié. Un motif est requis si la réservation était
+ * déjà confirmée par le chauffeur.
+ */
+export async function cancelBooking(
+  bookingId: string,
+  reason?: string
+): Promise<{ error?: string }> {
+  const { data: before } = await supabase
+    .from("bookings")
+    .select("trip_id, seats, confirmation_code, status")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  const row = before as
+    | { trip_id: string; seats: number; confirmation_code: string; status: string }
+    | null;
+
+  if (row && (row.status === "cancelled" || row.status === "completed")) {
+    return { error: "already_closed" };
+  }
+
+  const trimmedReason = reason?.trim() || null;
+
+  // 1) RPC serveur (migration 0016) — le plus fiable
+  const { error: rpcError } = await supabase.rpc("passenger_cancel_booking", {
+    p_booking_id: bookingId,
+    p_reason: trimmedReason,
+  });
+
+  if (rpcError) {
+    const msg = rpcError.message ?? "";
+    const fnMissing =
+      /passenger_cancel_booking/i.test(msg) ||
+      /Could not find the function/i.test(msg);
+
+    if (!fnMissing) {
+      // Erreurs métier explicites
+      if (/already_closed/i.test(msg)) return { error: "already_closed" };
+      if (/reason_required/i.test(msg)) return { error: "reason_required" };
+      if (/not_allowed/i.test(msg)) return { error: "not_allowed" };
+      if (/trip_already_started/i.test(msg)) return { error: "trip_started" };
+      return { error: msg };
+    }
+
+    // 2) Repli : mise à jour directe (avant migration 0016)
+    const payload: Record<string, unknown> = { status: "cancelled" };
+    if (trimmedReason) payload.cancel_reason = trimmedReason;
+
+    let { error: updError } = await supabase
+      .from("bookings")
+      .update(payload)
+      .eq("id", bookingId);
+
+    // Colonne cancel_reason absente → annuler sans motif en base
+    if (updError && /cancel_reason/i.test(updError.message)) {
+      const retry = await supabase
+        .from("bookings")
+        .update({ status: "cancelled" })
+        .eq("id", bookingId);
+      updError = retry.error;
+    }
+
+    if (updError) return { error: updError.message };
+  }
+
+  // Notification chauffeur : trigger SQL trg_booking_notify_status (migration 0020)
+
+  return {};
+}
+
+export async function cancelTripWithBroadcast(tripId: string, reason?: string) {
+  const { data, error } = await supabase.rpc("cancel_trip_with_broadcast", {
+    p_trip_id: tripId,
+    p_reason: reason ?? null,
+  });
+  if (error) return { error: error.message };
+  return { notified: data as number };
 }

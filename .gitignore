@@ -18,3 +18,18 @@ volumes/db/data
 volumes/storage
 .tmp_docx/
 .tmp_doc.zip
+
+# Secrets natifs — NE JAMAIS committer
+**/google-services.json
+*.keystore
+*.jks
+android/app/release.keystore
+android/keystore.properties
+
+# Capacitor / Android (build & local)
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+.capacitor/

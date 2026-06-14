@@ -9,7 +9,7 @@ import StatusBadge from "../../components/StatusBadge";
 import {
   formatNumber,
   formatPrice,
-  formatTime,
+  formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
 
@@ -32,7 +32,6 @@ export default function DriverDashboard() {
     let cancelled = false;
     async function load() {
       if (!user) return;
-      setLoading(true);
 
       const { data: tripsData } = await supabase
         .from("trips_public")
@@ -50,15 +49,22 @@ export default function DriverDashboard() {
           allTrips.length > 0 ? allTrips.map((t) => t.id) : ["00000000-0000-0000-0000-000000000000"]
         );
 
-      let earnings = 0;
+      // Revenus = NET réel encaissé (après commission Easy Dunya), via la table payments
+      const { data: payData } = await supabase
+        .from("payments")
+        .select("driver_earning")
+        .eq("driver_id", user.id)
+        .eq("status", "paid");
+      const earnings = (payData as { driver_earning: number }[] | null ?? []).reduce(
+        (sum, p) => sum + (p.driver_earning ?? 0),
+        0
+      );
+
       let upcoming = 0;
       const pendingMap: Record<string, number> = {};
       for (const b of bookingsData ?? []) {
         const trip = allTrips.find((tr) => tr.id === b.trip_id);
         if (!trip) continue;
-        if (b.status === "confirmed" || b.status === "completed") {
-          earnings += (trip.price_per_seat as number) * (b.seats as number);
-        }
         if (b.status === "pending") {
           upcoming++;
           pendingMap[b.trip_id as string] =
@@ -77,8 +83,22 @@ export default function DriverDashboard() {
       }
     }
     load();
+
+    // Rafraîchissement temps réel : nouvelles réservations / changements
+    const channel = supabase
+      .channel(`driver-dashboard-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          if (!cancelled) load();
+        }
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
+      supabase.removeChannel(channel);
     };
   }, [user]);
 
@@ -140,14 +160,66 @@ export default function DriverDashboard() {
     }
   }
 
+  const activeTrip = trips.find((tr) => tr.status === "in_progress") ?? null;
+  const totalPending = Object.values(pendingByTrip).reduce((a, b) => a + b, 0);
+  const firstName = (profile?.full_name ?? "").split(/\s+/)[0] ?? "";
+
   return (
     <div className="page">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <h1 className="h1">{t("driver.dashboard")}</h1>
-        <Link to="/driver/trips/new" className="btn-primary">
-          + {t("driver.newTripTitle")}
-        </Link>
+      <div className="flex items-end justify-between mb-5 flex-wrap gap-3">
+        <div>
+          <h1 className="h1">
+            {t("driver.greeting")}{firstName ? `, ${firstName}` : ""} 👋
+          </h1>
+          <p className="muted">{t("driver.greetingSub")}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Link to="/driver/earnings" className="btn-secondary text-sm">
+            💰 {t("driver.earningsTitle")}
+          </Link>
+          <Link to="/driver/historique" className="btn-secondary text-sm">
+            {t("nav.historique")}
+          </Link>
+          <Link to="/driver/trips/new" className="btn-primary">
+            + {t("driver.newTripTitle")}
+          </Link>
+        </div>
       </div>
+
+      {/* Bannière voyage en cours */}
+      {activeTrip && (
+        <Link
+          to={`/driver/trips/${activeTrip.id}/bookings`}
+          className="card p-4 mb-5 flex items-center gap-3 bg-brand-50 border-brand-200 hover:shadow-md transition"
+        >
+          <span className="w-11 h-11 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-xl shrink-0">
+            🚗
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-brand-800">{t("driver.activeTripTitle")}</div>
+            <div className="text-sm text-brand-700 truncate">
+              {(i18n.language === "ar" ? activeTrip.from_name_ar : activeTrip.from_name_fr)} →{" "}
+              {(i18n.language === "ar" ? activeTrip.to_name_ar : activeTrip.to_name_fr)}
+            </div>
+          </div>
+          <span className="btn-primary text-sm shrink-0">{t("driver.manageActiveTrip")}</span>
+        </Link>
+      )}
+
+      {/* Demandes à traiter (mise en avant) */}
+      {totalPending > 0 && !activeTrip && (
+        <div className="card p-4 mb-5 flex items-center gap-3 bg-amber-50 border-amber-200">
+          <span className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0">
+            🔔
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-amber-900">
+              {totalPending} {t("driver.pendingRequests")}
+            </div>
+            <div className="text-sm text-amber-700">{t("driver.pendingTotal")}</div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard
@@ -208,7 +280,7 @@ export default function DriverDashboard() {
                       {(isAr ? trip.to_name_ar : trip.to_name_fr)}
                     </div>
                     <div className="muted">
-                      {formatTime(trip.depart_at)} ·{" "}
+                      {formatPeriod(trip.depart_at)} ·{" "}
                       {trip.seats_available}/{trip.seats_total}{" "}
                       {t("common.seatsAvailable")}
                     </div>

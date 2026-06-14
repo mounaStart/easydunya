@@ -4,15 +4,28 @@ import { useTranslation } from "react-i18next";
 import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
+import { getCurrentPosition, reverseQuartier } from "../lib/geocode";
+import { useTripDriverPosition } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
+import TrackingMap from "../components/TrackingMap";
 import {
   copyToClipboard,
   formatPrice,
-  formatTime,
+  formatPeriod,
   relativeDateLabel,
   shareViaWhatsApp,
 } from "../lib/utils";
+
+function initials(name: string | null): string {
+  if (!name) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 function InfoRow({
   icon,
@@ -47,6 +60,7 @@ export default function TripDetail() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const driverPos = useTripDriverPosition(tripId, trip?.status === "in_progress");
 
   if (loading) return <Spinner />;
   if (!trip) {
@@ -76,14 +90,31 @@ export default function TripDetail() {
           ? "bg-sky-100 text-sky-700"
           : "bg-slate-200 text-slate-600";
 
-  async function handleConfirm() {
+  async function handleConfirm(waiting = false) {
     if (!trip || !user) return;
     setBusy(true);
     setError(null);
+
+    let pickupLat: number | undefined;
+    let pickupLng: number | undefined;
+    let pickupQuartier: string | undefined;
+    try {
+      const pos = await getCurrentPosition();
+      pickupLat = pos.coords.latitude;
+      pickupLng = pos.coords.longitude;
+      pickupQuartier = (await reverseQuartier(pickupLat, pickupLng)) ?? undefined;
+    } catch {
+      /* GPS optionnel */
+    }
+
     const { booking, error } = await createBooking({
       tripId: trip.id,
       seats,
       passengerId: user.id,
+      pickupLat,
+      pickupLng,
+      pickupQuartier,
+      isWaiting: waiting,
     });
     setBusy(false);
     if (error || !booking) {
@@ -109,7 +140,7 @@ export default function TripDetail() {
       [
         `Easy Dunya — ${t("booking.title")}`,
         `${fromName} → ${toName}`,
-        `${relativeDateLabel(trip.depart_at)} · ${formatTime(trip.depart_at)}`,
+        `${relativeDateLabel(trip.depart_at)} · ${formatPeriod(trip.depart_at)}`,
         `${t("booking.yourCode")}: ${booking.confirmation_code}`,
       ].join("\n")
     );
@@ -143,7 +174,7 @@ export default function TripDetail() {
           <InfoRow
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}
             label={t("trip.departure")}
-            value={formatTime(trip.depart_at)}
+            value={formatPeriod(trip.depart_at)}
           />
           <InfoRow
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>}
@@ -164,23 +195,76 @@ export default function TripDetail() {
         )}
       </div>
 
-      {/* Véhicule */}
-      {trip.vehicle_label && (
-        <div className="card p-5">
-          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
-            {t("trip.vehicle")}
-          </h2>
-          <div className="flex items-center gap-3">
-            <span className="icon-tile-soft w-12 h-12 shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M5 17a2 2 0 0 1-2-2v-3l2-5h12l2 5v3a2 2 0 0 1-2 2M7 17v2M17 17v2"/><circle cx="7.5" cy="13.5" r="1"/><circle cx="16.5" cy="13.5" r="1"/></svg>
+      {/* Carte de suivi (voyage en cours) */}
+      {trip.status === "in_progress" &&
+        Number.isFinite(trip.from_lat) &&
+        Number.isFinite(trip.to_lat) && (
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
+              {t("trip.trackingMap")}
+            </h2>
+            <TrackingMap
+              from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
+              to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
+              driver={driverPos}
+            />
+            {!driverPos && (
+              <p className="muted text-sm mt-2">{t("trip.waitingDriverPos")}</p>
+            )}
+          </div>
+        )}
+
+      {/* Chauffeur & véhicule (sans numéro de téléphone) */}
+      <div className="card p-5">
+        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          {t("trip.driver")}
+        </h2>
+        <div className="flex items-center gap-3">
+          {trip.driver_photo ? (
+            <img
+              src={trip.driver_photo}
+              alt={trip.driver_name ?? ""}
+              className="w-14 h-14 rounded-full object-cover shrink-0 border border-slate-200"
+            />
+          ) : (
+            <span className="w-14 h-14 rounded-full shrink-0 bg-brand-100 text-brand-700 font-extrabold text-lg flex items-center justify-center">
+              {initials(trip.driver_name)}
             </span>
-            <div>
-              <div className="font-bold text-ink">{trip.vehicle_label}</div>
-              <div className="muted">{trip.vehicle_plate ?? ""}</div>
+          )}
+          <div className="min-w-0">
+            <div className="font-bold text-ink truncate">
+              {trip.driver_name ?? "—"}
+            </div>
+            {trip.driver_rating ? (
+              <div className="text-sm text-yellow-600 font-semibold">
+                {Number(trip.driver_rating).toFixed(1)} ★
+                <span className="text-slate-400 font-normal ml-1">
+                  ({trip.driver_rating_count})
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">
+                {t("trip.newDriver")}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="bg-slate-50 rounded-2xl px-4 py-3">
+            <div className="text-xs text-slate-400">{t("trip.vehicleMake")}</div>
+            <div className="font-bold text-ink">
+              {trip.vehicle_make ?? trip.vehicle_label ?? "—"}
+            </div>
+          </div>
+          <div className="bg-slate-50 rounded-2xl px-4 py-3">
+            <div className="text-xs text-slate-400">{t("trip.vehiclePlate")}</div>
+            <div className="font-bold text-ink code-display">
+              {trip.vehicle_plate ?? "—"}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Confirmation directe / reçu / invite connexion */}
       {booking ? (
@@ -204,7 +288,7 @@ export default function TripDetail() {
             <div className="flex justify-between">
               <span className="text-slate-500">{t("common.date")}</span>
               <span className="font-semibold">
-                {relativeDateLabel(trip.depart_at)} · {formatTime(trip.depart_at)}
+                {relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -234,9 +318,29 @@ export default function TripDetail() {
           </div>
         </div>
       ) : noSeats ? (
-        <div className="card p-6 text-center text-slate-500">
-          {t("booking.noSeats")}
-        </div>
+        !user ? (
+          <div className="card p-6 text-center space-y-3">
+            <p className="muted">{t("reservation.loginPrompt")}</p>
+            <Link to="/login" state={{ from: `/trips/${trip.id}` }} className="btn-primary w-full">
+              {t("auth.signIn")}
+            </Link>
+          </div>
+        ) : (
+          <div className="card p-6 text-center space-y-4">
+            <p className="text-slate-600">{t("booking.noSeats")}</p>
+            <p className="text-sm text-slate-500">{t("booking.waitingListHint")}</p>
+            <button
+              onClick={() => handleConfirm(true)}
+              disabled={busy}
+              className="btn-primary w-full"
+            >
+              {busy ? t("common.loading") : t("booking.joinWaitingList")}
+            </button>
+            {error && (
+              <p className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-xl">{error}</p>
+            )}
+          </div>
+        )
       ) : !user ? (
         <div className="card p-6 text-center space-y-3">
           <p className="muted">{t("reservation.loginPrompt")}</p>
@@ -317,7 +421,7 @@ export default function TripDetail() {
           )}
 
           <button
-            onClick={handleConfirm}
+            onClick={() => handleConfirm()}
             disabled={busy}
             className="btn-primary w-full py-4"
           >

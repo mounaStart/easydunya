@@ -1,0 +1,123 @@
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { subscribeToPush, getPushState, type PushState } from "../lib/push";
+import { isNativePlatform } from "../lib/nativePush";
+
+const SNOOZE_KEY = "ed_notif_snooze_until";
+const SNOOZE_MS = 1000 * 60 * 60 * 24; // 24 h
+
+function snoozed(): boolean {
+  try {
+    const until = Number(localStorage.getItem(SNOOZE_KEY) ?? "0");
+    return Date.now() < until;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bannière qui propose d'activer les notifications.
+ * Au clic sur « Autoriser », déclenche la demande de permission native
+ * (dialogue Android dans la TWA) puis enregistre l'abonnement Web Push.
+ */
+export default function NotificationPrompt() {
+  const { user } = useAuth();
+  const [state, setState] = useState<PushState>("on");
+  const [busy, setBusy] = useState(false);
+  const [hidden, setHidden] = useState(snoozed());
+
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    // Permission accordée (ex: activée dans les réglages Android) mais pas
+    // encore abonné → on abonne automatiquement.
+    if (
+      isNativePlatform() ||
+      (typeof Notification !== "undefined" &&
+        Notification.permission === "granted")
+    ) {
+      const st = await getPushState(user.id);
+      if (st === "off") await subscribeToPush(user.id);
+    }
+    setState(await getPushState(user.id));
+  }, [user]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Re-vérifie au retour sur l'app (après changement de réglages Android)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") refresh();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [refresh]);
+
+  if (!user || hidden) return null;
+  // On ne propose que si l'appareil n'est pas encore abonné et que ce n'est
+  // ni bloqué ni non supporté (dans ces cas, un bouton n'aiderait pas).
+  if (state !== "off") return null;
+
+  async function enable() {
+    if (!user) return;
+    setBusy(true);
+    const ok = await subscribeToPush(user.id);
+    setBusy(false);
+    await refresh();
+    if (ok) setHidden(true);
+  }
+
+  function later() {
+    try {
+      localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS));
+    } catch {
+      /* ignore */
+    }
+    setHidden(true);
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-20 z-50 px-3 sm:bottom-6">
+      <div className="mx-auto max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 p-4">
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 w-10 h-10 rounded-full bg-brand-50 text-brand-600 inline-flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+            </svg>
+          </span>
+          <div className="min-w-0">
+            <div className="font-bold text-ink">Activer les notifications</div>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Soyez prévenu des réservations, confirmations et départs — même
+              quand l'application est fermée.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={later}
+            disabled={busy}
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+          >
+            Plus tard
+          </button>
+          <button
+            type="button"
+            onClick={enable}
+            disabled={busy}
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 font-semibold text-white bg-brand-600 hover:bg-brand-700 transition disabled:opacity-60"
+          >
+            {busy ? "Activation…" : "Autoriser"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

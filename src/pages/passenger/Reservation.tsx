@@ -3,16 +3,18 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  cancelBooking,
   findBookingByCode,
   getRememberedCodes,
   useMyBookings,
 } from "../../hooks/useBookings";
 import { supabase } from "../../lib/supabase";
+import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import type { Booking, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import TrackingMap from "../../components/TrackingMap";
-import { formatPrice, formatTime, relativeDateLabel } from "../../lib/utils";
+import { formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
 
 const ACTIVE = ["pending", "confirmed"];
 
@@ -26,6 +28,10 @@ export default function Reservation() {
   const [driverPhone, setDriverPhone] = useState<string | null>(null);
   const [byCode, setByCode] = useState<Booking | null>(null);
   const [codeChecked, setCodeChecked] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [reasonChoice, setReasonChoice] = useState<string>("");
+  const [otherReason, setOtherReason] = useState("");
 
   // Réservation active liée au compte
   const fromAccount: Booking | undefined = useMemo(
@@ -66,6 +72,10 @@ export default function Reservation() {
 
   const active: Booking | undefined = fromAccount ?? byCode ?? undefined;
   const busy = (user ? loading : false) || (!active && !codeChecked);
+  const driverPos = useTripDriverPosition(
+    active?.trip_id,
+    trip?.status === "in_progress"
+  );
 
   useEffect(() => {
     if (!active) {
@@ -122,6 +132,52 @@ export default function Reservation() {
   const toName = trip ? (isAr ? trip.to_name_ar : trip.to_name_fr) : "";
   const accepted = active.status === "confirmed";
   const started = trip?.status === "in_progress";
+  // Annulation possible tant que le voyage n'a pas démarré / n'est pas clôturé
+  const canCancel =
+    !!user &&
+    active.passenger_id === user.id &&
+    ACTIVE.includes(active.status) &&
+    !started &&
+    trip?.status !== "completed" &&
+    trip?.status !== "cancelled";
+
+  // Motif obligatoire seulement si la réservation est déjà confirmée
+  const reasonOptions = [
+    { id: "driver_late", label: t("reservation.reasonDriverLate") },
+    { id: "no_travel", label: t("reservation.reasonNoTravel") },
+    { id: "other", label: t("reservation.reasonOther") },
+  ];
+
+  function resolvedReason(): string | undefined {
+    if (!accepted) return undefined;
+    if (reasonChoice === "other") return otherReason.trim();
+    return reasonOptions.find((o) => o.id === reasonChoice)?.label;
+  }
+
+  const reasonValid =
+    !accepted ||
+    (reasonChoice !== "" &&
+      (reasonChoice !== "other" || otherReason.trim().length > 0));
+
+  async function handleCancel() {
+    if (!active || !reasonValid) return;
+    setCancelling(true);
+    const { error } = await cancelBooking(active.id, resolvedReason());
+    setCancelling(false);
+    if (error && error !== "already_closed") {
+      const msg =
+        error === "reason_required"
+          ? t("reservation.reasonRequired")
+          : error === "trip_started"
+            ? t("reservation.cancelTripStarted")
+            : t("reservation.cancelError");
+      alert(msg);
+      return;
+    }
+    setConfirmCancel(false);
+    setReasonChoice("");
+    setOtherReason("");
+  }
 
   return (
     <div className="page max-w-2xl space-y-4">
@@ -148,7 +204,7 @@ export default function Reservation() {
           <tbody>
             {trip && (
               <Tr label={t("common.date")}>
-                {relativeDateLabel(trip.depart_at)} · {formatTime(trip.depart_at)}
+                {relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}
               </Tr>
             )}
             <Tr label={t("reservation.colSeats")}>{active.seats}</Tr>
@@ -250,11 +306,93 @@ export default function Reservation() {
           )}
           <div className="p-5 pt-3">
             <TrackingMap
-              from={[trip.from_lat, trip.from_lng]}
-              to={[trip.to_lat, trip.to_lng]}
+              from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
+              to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
+              driver={driverPos}
             />
-            <p className="muted text-center mt-3">{t("trip.waitingGps")}</p>
+            {started && !driverPos && (
+              <p className="muted text-center mt-3">{t("trip.waitingGps")}</p>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Annuler la réservation (passager) */}
+      {canCancel && (
+        <div className="card p-5">
+          {!confirmCancel ? (
+            <button
+              type="button"
+              onClick={() => setConfirmCancel(true)}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 font-semibold text-rose-700 bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100 transition"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+              {t("reservation.cancelBtn")}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-ink">
+                {t("reservation.cancelConfirm")}
+              </p>
+
+              {/* Motif obligatoire si la réservation est déjà confirmée */}
+              {accepted && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-slate-500">
+                    {t("reservation.reasonTitle")}
+                  </p>
+                  {reasonOptions.map((o) => (
+                    <label
+                      key={o.id}
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 cursor-pointer ring-1 transition ${
+                        reasonChoice === o.id
+                          ? "bg-brand-50 ring-brand-300"
+                          : "bg-slate-50 ring-transparent hover:bg-slate-100"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancel-reason"
+                        value={o.id}
+                        checked={reasonChoice === o.id}
+                        onChange={(e) => setReasonChoice(e.target.value)}
+                        className="accent-brand-600"
+                      />
+                      <span className="text-sm font-medium text-ink">{o.label}</span>
+                    </label>
+                  ))}
+                  {reasonChoice === "other" && (
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={otherReason}
+                      onChange={(e) => setOtherReason(e.target.value)}
+                      placeholder={t("reservation.reasonOtherPlaceholder")}
+                    />
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmCancel(false)}
+                  disabled={cancelling}
+                  className="inline-flex items-center justify-center rounded-2xl px-4 py-3 font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  {t("reservation.cancelKeep")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelling || !reasonValid}
+                  className="inline-flex items-center justify-center rounded-2xl px-4 py-3 font-semibold text-white bg-rose-600 hover:bg-rose-700 transition disabled:opacity-60"
+                >
+                  {cancelling ? t("common.loading") : t("reservation.cancelYes")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

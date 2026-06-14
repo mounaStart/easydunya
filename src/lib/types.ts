@@ -36,15 +36,56 @@ export interface Profile {
   driver_status: DriverStatus | null;
   rating_avg: number | null;
   rating_count: number;
+  must_change_password: boolean;
+  current_trip_id: string | null;
+  license_number?: string | null;
+  base_city_id?: string | null;
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CityPrice {
+  id: string;
+  from_city_id: string;
+  to_city_id: string;
+  price_per_seat: number;
+  distance_km: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  type: string | null;
+  data: Record<string, unknown> | null;
+  read: boolean;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  booking_id: string | null;
+  trip_id: string | null;
+  passenger_id: string | null;
+  driver_id: string | null;
+  amount: number;
+  commission: number;
+  driver_earning: number;
+  method: string;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
 }
 
 export interface Vehicle {
   id: string;
   driver_id: string;
   make: string;
-  model: string;
+  model: string | null;
   plate: string;
   seats: number;
   features: string | null;
@@ -66,6 +107,9 @@ export interface Trip {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
+  depart_lat?: number | null;
+  depart_lng?: number | null;
+  depart_quartier?: string | null;
 }
 
 export interface TripPublic extends Trip {
@@ -73,8 +117,10 @@ export interface TripPublic extends Trip {
   driver_rating: number | null;
   driver_rating_count: number;
   vehicle_label: string | null;
+  vehicle_make: string | null;
   vehicle_plate: string | null;
   vehicle_seats: number | null;
+  driver_photo: string | null;
   from_name_fr: string;
   from_name_ar: string;
   from_lat: number;
@@ -83,6 +129,9 @@ export interface TripPublic extends Trip {
   to_name_ar: string;
   to_lat: number;
   to_lng: number;
+  depart_lat: number | null;
+  depart_lng: number | null;
+  depart_quartier: string | null;
 }
 
 export interface Booking {
@@ -94,6 +143,11 @@ export interface Booking {
   seats: number;
   confirmation_code: string;
   status: BookingStatus;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  pickup_quartier: string | null;
+  is_waiting: boolean;
+  cancel_reason: string | null;
   created_at: string;
   updated_at: string;
 }

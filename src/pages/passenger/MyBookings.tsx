@@ -9,7 +9,7 @@ import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import {
   formatPrice,
-  formatTime,
+  formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
 
@@ -70,7 +70,7 @@ export default function MyBookings() {
                       </div>
                       <div className="muted">
                         {relativeDateLabel(trip.depart_at)} ·{" "}
-                        {formatTime(trip.depart_at)} ·{" "}
+                        {formatPeriod(trip.depart_at)} ·{" "}
                         {formatPrice(trip.price_per_seat * b.seats)}
                       </div>
                     </>

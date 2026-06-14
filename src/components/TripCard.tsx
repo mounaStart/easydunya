@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TripPublic } from "../lib/types";
-import { formatPrice, formatTime, relativeDateLabel } from "../lib/utils";
+import { formatPrice, formatPeriod, relativeDateLabel } from "../lib/utils";
 
 interface Props {
   trip: TripPublic;
@@ -13,7 +13,7 @@ export default function TripCard({ trip }: Props) {
   const fromName = isAr ? trip.from_name_ar : trip.from_name_fr;
   const toName = isAr ? trip.to_name_ar : trip.to_name_fr;
   const date = relativeDateLabel(trip.depart_at);
-  const time = formatTime(trip.depart_at);
+  const time = formatPeriod(trip.depart_at);
 
   return (
     <Link

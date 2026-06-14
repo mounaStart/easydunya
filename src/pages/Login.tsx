@@ -5,35 +5,43 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function Login() {
   const { t } = useTranslation();
-  const { signIn } = useAuth();
+  const { signInWithPhone } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string })?.from ?? "/";
 
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function mapError(msg: string, code?: string): string {
+    const lower = msg.toLowerCase();
+    if (code === "email_not_confirmed" || lower.includes("not confirmed")) {
+      return "Compte non confirmé. Contactez l'administrateur.";
+    }
+    if (
+      code === "invalid_credentials" ||
+      lower.includes("invalid login credentials")
+    ) {
+      return "Numéro de téléphone ou mot de passe incorrect.";
+    }
+    if (lower.includes("failed to fetch") || lower.includes("network")) {
+      return "Impossible de joindre le serveur. Vérifiez votre connexion Internet.";
+    }
+    return msg;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await signIn(email, password);
+
+    const { error, code } = await signInWithPhone(phone.trim(), password);
+
     setLoading(false);
     if (error) {
-      const lower = error.toLowerCase();
-      if (lower.includes("not confirmed") || lower.includes("email_not_confirmed")) {
-        setError(
-          "Votre email n'est pas encore confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation."
-        );
-      } else if (lower.includes("invalid login credentials")) {
-        setError(
-          "Email ou mot de passe incorrect. (Si vous venez de vous inscrire, votre email n'est peut-être pas encore confirmé.)"
-        );
-      } else {
-        setError(error);
-      }
+      setError(mapError(error, code));
       return;
     }
     navigate(from, { replace: true });
@@ -47,16 +55,19 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">{t("common.email")}</label>
+            <label className="label">{t("common.phone")}</label>
             <input
-              type="email"
+              type="tel"
               required
-              autoComplete="email"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+222…"
               className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
+
           <div>
             <label className="label">{t("common.password")}</label>
             <input

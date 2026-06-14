@@ -15,13 +15,15 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const now = new Date().toISOString();
+    // Début du jour local : inclut les voyages programmés aujourd'hui même si l'heure est passée
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     const end = new Date(Date.now() + days * 86400000).toISOString();
     let q = supabase
       .from("trips_public")
       .select("*")
       .eq("status", "scheduled")
-      .gte("depart_at", now)
+      .gte("depart_at", startOfToday.toISOString())
       .lte("depart_at", end)
       .order("depart_at", { ascending: true });
     if (cityId) q = q.eq("from_city_id", cityId);

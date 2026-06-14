@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
@@ -10,135 +10,24 @@ export default function MyVehicles() {
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
 
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
-  const [plate, setPlate] = useState("");
-  const [seats, setSeats] = useState(8);
-  const [features, setFeatures] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
+  useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    supabase
       .from("vehicles")
       .select("*")
       .eq("driver_id", user.id)
-      .order("created_at", { ascending: false });
-    setVehicles((data as Vehicle[] | null) ?? []);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setVehicles((data as Vehicle[] | null) ?? []);
+        setLoading(false);
+      });
   }, [user]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-    setBusy(true);
-    await supabase.from("vehicles").insert({
-      driver_id: user.id,
-      make,
-      model,
-      plate,
-      seats,
-      features: features || null,
-    });
-    setBusy(false);
-    setShowForm(false);
-    setMake("");
-    setModel("");
-    setPlate("");
-    setSeats(8);
-    setFeatures("");
-    load();
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Supprimer ce véhicule ?")) return;
-    await supabase.from("vehicles").delete().eq("id", id);
-    load();
-  }
 
   return (
     <div className="page max-w-3xl">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-        <h1 className="h1">{t("driver.myVehicles")}</h1>
-        <button onClick={() => setShowForm((s) => !s)} className="btn-primary">
-          + {t("driver.addVehicle")}
-        </button>
-      </div>
-
-      {showForm && (
-        <form onSubmit={handleSubmit} className="card p-5 mb-5 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="label">{t("driver.make")}</label>
-              <input
-                className="input"
-                required
-                value={make}
-                onChange={(e) => setMake(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label">{t("driver.model")}</label>
-              <input
-                className="input"
-                required
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label">{t("driver.plate")}</label>
-              <input
-                className="input uppercase"
-                required
-                value={plate}
-                onChange={(e) => setPlate(e.target.value.toUpperCase())}
-              />
-            </div>
-            <div>
-              <label className="label">{t("common.seats")}</label>
-              <input
-                type="number"
-                className="input"
-                required
-                min={1}
-                max={60}
-                value={seats}
-                onChange={(e) => setSeats(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label">{t("driver.features")}</label>
-            <input
-              className="input"
-              value={features}
-              onChange={(e) => setFeatures(e.target.value)}
-              placeholder="Climatisé, bagages, etc."
-            />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="btn-ghost"
-            >
-              {t("common.cancel")}
-            </button>
-            <button type="submit" disabled={busy} className="btn-primary">
-              {busy ? t("common.loading") : t("common.save")}
-            </button>
-          </div>
-        </form>
-      )}
+      <h1 className="h1 mb-5">{t("driver.myVehicles")}</h1>
 
       {loading ? (
         <Spinner />
@@ -149,10 +38,13 @@ export default function MyVehicles() {
       ) : (
         <div className="space-y-2">
           {vehicles.map((v) => (
-            <div key={v.id} className="card p-4 flex items-center justify-between">
+            <div key={v.id} className="card p-4 flex items-center gap-3">
+              <span className="icon-tile-soft w-12 h-12 shrink-0">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M5 17a2 2 0 0 1-2-2v-3l2-5h12l2 5v3a2 2 0 0 1-2 2M7 17v2M17 17v2"/><circle cx="7.5" cy="13.5" r="1"/><circle cx="16.5" cy="13.5" r="1"/></svg>
+              </span>
               <div>
-                <div className="font-semibold">
-                  {v.make} {v.model}{" "}
+                <div className="font-semibold text-ink">
+                  {v.make} {v.model ?? ""}{" "}
                   <span className="text-slate-400">· {v.plate}</span>
                 </div>
                 <div className="muted">
@@ -160,12 +52,6 @@ export default function MyVehicles() {
                   {v.features ? ` · ${v.features}` : ""}
                 </div>
               </div>
-              <button
-                onClick={() => handleDelete(v.id)}
-                className="btn-ghost text-rose-600 text-sm"
-              >
-                {t("common.delete")}
-              </button>
             </div>
           ))}
         </div>

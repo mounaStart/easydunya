@@ -2,8 +2,9 @@ import { useState } from "react";
 import AdminDrivers from "./AdminDrivers";
 import AdminUsers from "./AdminUsers";
 import AdminTrips from "./AdminTrips";
+import AdminCityPrices from "./AdminCityPrices";
 
-type TabId = "drivers" | "users" | "trips";
+type TabId = "drivers" | "users" | "trips" | "prices";
 
 interface Props {
   onChange?: () => void;
@@ -15,6 +16,7 @@ export default function AdminTabs({ onChange }: Props) {
   const tabs: Array<{ id: TabId; label: string; icon: string }> = [
     { id: "drivers", label: "Chauffeurs", icon: "🚗" },
     { id: "trips", label: "Voyages", icon: "🛣" },
+    { id: "prices", label: "Prix villes", icon: "💵" },
     { id: "users", label: "Utilisateurs", icon: "👥" },
   ];
 
@@ -40,6 +42,7 @@ export default function AdminTabs({ onChange }: Props) {
       <div className="p-4 sm:p-5">
         {tab === "drivers" && <AdminDrivers onMutate={onChange} />}
         {tab === "trips" && <AdminTrips />}
+        {tab === "prices" && <AdminCityPrices />}
         {tab === "users" && <AdminUsers />}
       </div>
     </div>
