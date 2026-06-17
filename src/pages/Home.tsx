@@ -127,31 +127,32 @@ export default function Home() {
   return (
     <div className="page max-w-2xl space-y-6">
       {/* Hero avec photo */}
-      <div className="relative overflow-hidden rounded-3xl -mx-4 sm:mx-0 -mt-6 sm:-mt-2">
+      <div className="relative overflow-hidden rounded-3xl -mt-6 sm:-mt-2">
         <div
-          className="absolute inset-0 bg-cover bg-center"
+          className="absolute inset-0 bg-cover bg-[82%_center] sm:bg-center"
           style={{
             backgroundColor: "#cfe3f5",
             backgroundImage: "url('/brand/hero-passenger.png')",
           }}
         />
-        {/* Voile léger pour la lisibilité du texte (concentré en haut-gauche) */}
+        {/* Léger voile en haut-gauche — l'image reste nette */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(130% 95% at 0% 0%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.35) 30%, rgba(255,255,255,0) 55%)",
+              "radial-gradient(110% 80% at 0% 0%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.15) 40%, transparent 58%)",
           }}
         />
-        <div className="relative px-5 sm:px-8 pt-8 pb-24 sm:pb-28 max-w-md">
-          <h1 className="text-3xl sm:text-4xl font-extrabold leading-tight">
+        <div className="relative z-10 max-w-[50%] sm:max-w-md px-5 sm:px-8 pt-8 pb-24 sm:pb-28">
+          <h1 className="text-[1.45rem] sm:text-4xl font-extrabold leading-tight [text-shadow:0_1px_12px_rgba(255,255,255,0.85)]">
             <span className="text-ink">{t("search.heroTitle1")}</span>
             <br />
             <span className="text-brand-600">{t("search.heroTitle2a")}</span>
             <span className="text-accent-500">{t("search.heroTitle2b")}</span>
           </h1>
-          <p className="mt-3 text-[0.95rem] sm:text-base text-slate-600 leading-relaxed max-w-xs">
-            {t("search.heroSubtitle")}
+          <p className="mt-3 text-[0.75rem] sm:text-base text-slate-600 leading-snug sm:leading-relaxed [text-shadow:0_1px_10px_rgba(255,255,255,0.9)]">
+            <span className="md:hidden">{t("search.heroSubtitleShort")}</span>
+            <span className="hidden md:inline">{t("search.heroSubtitle")}</span>
           </p>
         </div>
       </div>

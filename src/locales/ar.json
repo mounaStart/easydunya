@@ -23,7 +23,8 @@
     "profile": "الملف الشخصي",
     "logout": "تسجيل الخروج",
     "login": "تسجيل الدخول",
-    "register": "إنشاء حساب"
+    "register": "إنشاء حساب",
+    "registerShort": "تسجيل"
   },
   "common": {
     "loading": "جار التحميل…",
@@ -106,6 +107,7 @@
     "heroTitle2a": "أولويتنا ",
     "heroTitle2b": "",
     "heroSubtitle": "تنقّل بسهولة وأمان عبر موريتانيا.",
+    "heroSubtitleShort": "سافر بأمان في موريتانيا.",
     "tabQuick": "بحث سريع",
     "tabMap": "على الخريطة",
     "fromCity": "مدينة الانطلاق",

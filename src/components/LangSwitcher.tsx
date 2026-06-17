@@ -9,10 +9,10 @@ export default function LangSwitcher() {
   }
 
   return (
-    <div className="inline-flex bg-slate-100 rounded-full p-1 text-xs font-semibold">
+    <div className="inline-flex bg-slate-100 rounded-full p-0.5 sm:p-1 text-[10px] sm:text-xs font-semibold shrink-0">
       <button
         onClick={() => set("fr")}
-        className={`px-2.5 py-1 rounded-full transition ${
+        className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full transition ${
           current === "fr" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500"
         }`}
       >
@@ -20,7 +20,7 @@ export default function LangSwitcher() {
       </button>
       <button
         onClick={() => set("ar")}
-        className={`px-2.5 py-1 rounded-full transition ${
+        className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full transition ${
           current === "ar" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500"
         }`}
       >

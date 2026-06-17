@@ -74,13 +74,13 @@ export default function Header() {
   }
 
   return (
-    <header className="app-header sticky top-0 z-30 bg-white border-b border-slate-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
-        <Link to="/" className="shrink-0" aria-label="Easy Dunya">
+    <header className="app-header sticky top-0 z-30 bg-white border-b border-slate-100 w-full max-w-[100vw] overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2 sm:gap-3">
+        <Link to="/" className="min-w-0 flex-1 overflow-hidden" aria-label="Easy Dunya">
           <BrandLogo />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1 shrink-0">
           {links.map((l) => (
             <NavLink
               key={l.to}
@@ -105,7 +105,7 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <NotificationBell />
           <LangSwitcher />
           {user ? (
@@ -129,13 +129,13 @@ export default function Header() {
             <>
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center rounded-xl px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-slate-100 sm:btn-ghost sm:text-sm sm:rounded-2xl sm:px-5 sm:py-3"
+                className="inline-flex items-center justify-center rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-soft bg-brand-gradient transition active:scale-[0.98] sm:btn-primary whitespace-nowrap"
               >
                 {t("nav.login")}
               </Link>
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs font-semibold text-white shadow-soft bg-brand-gradient transition active:scale-[0.98] sm:btn-primary sm:text-sm sm:rounded-2xl sm:px-5 sm:py-3"
+                className="hidden sm:inline-flex btn-primary text-sm"
               >
                 {t("nav.register")}
               </Link>

@@ -21,7 +21,7 @@ function PasswordChangeGate() {
 
 export default function Layout() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden max-w-[100vw]">
       <PasswordChangeGate />
       <PassengerLocationSync />
       <Header />

@@ -23,7 +23,8 @@
     "profile": "Profil",
     "logout": "Déconnexion",
     "login": "Connexion",
-    "register": "Inscription"
+    "register": "Inscription",
+    "registerShort": "Inscr."
   },
   "common": {
     "loading": "Chargement…",
@@ -106,6 +107,7 @@
     "heroTitle2a": "notre ",
     "heroTitle2b": "priorité",
     "heroSubtitle": "Déplacez-vous facilement et en toute sécurité à travers la Mauritanie.",
+    "heroSubtitleShort": "Voyagez en sécurité en Mauritanie.",
     "tabQuick": "Recherche rapide",
     "tabMap": "Sur la carte",
     "fromCity": "Ville de départ",
