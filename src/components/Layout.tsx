@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import NotificationPrompt from "./NotificationPrompt";
+import LocationPrompt from "./LocationPrompt";
 import PassengerLocationSync from "./PassengerLocationSync";
 import { useAuth } from "../hooks/useAuth";
 
@@ -32,6 +33,7 @@ export default function Layout() {
         © {new Date().getFullYear()} Easy Dunya — Adam Ba &amp; Maimouna Dia
       </footer>
       <NotificationPrompt />
+      <LocationPrompt />
       <BottomNav />
     </div>
   );

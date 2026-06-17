@@ -1,25 +1,33 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { syncPassengerLocation } from "../lib/passengerLocation";
+import { queryLocationPermission } from "../lib/locationPermission";
 import { isStreetLikeName } from "../lib/geocode";
+import { syncPassengerLocation } from "../lib/passengerLocation";
 
-/** À la connexion : enregistre automatiquement quartier + GPS du passager. */
+/** Sync passager uniquement si le GPS est déjà autorisé (la bannière gère la 1ère demande). */
 export default function PassengerLocationSync() {
   const { user, profile, refreshProfile } = useAuth();
   const syncing = useRef(false);
 
-  useEffect(() => {
+  async function syncIfAllowed() {
     if (!user || profile?.role !== "passenger" || syncing.current) return;
 
-    syncing.current = true;
-    syncPassengerLocation(user.id, profile)
-      .then(() => refreshProfile())
-      .finally(() => {
-        syncing.current = false;
-      });
-  }, [user?.id, profile?.role, refreshProfile]);
+    const permission = await queryLocationPermission();
+    if (permission !== "granted") return;
 
-  // Au retour sur l'app : met à jour si quartier ou GPS manquant
+    syncing.current = true;
+    try {
+      await syncPassengerLocation(user.id, profile);
+      await refreshProfile();
+    } finally {
+      syncing.current = false;
+    }
+  }
+
+  useEffect(() => {
+    syncIfAllowed();
+  }, [user?.id, profile?.role]);
+
   useEffect(() => {
     if (!user || profile?.role !== "passenger") return;
 
@@ -33,13 +41,7 @@ export default function PassengerLocationSync() {
       ) {
         return;
       }
-
-      syncing.current = true;
-      syncPassengerLocation(user.id, profile)
-        .then(() => refreshProfile())
-        .finally(() => {
-          syncing.current = false;
-        });
+      syncIfAllowed();
     }
 
     document.addEventListener("visibilitychange", onVisible);

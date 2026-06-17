@@ -1,3 +1,6 @@
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
+
 type OsmAddress = {
   suburb?: string;
   neighbourhood?: string;
@@ -124,17 +127,101 @@ export async function reverseQuartier(
   return quartier;
 }
 
-export function getCurrentPosition(): Promise<GeolocationPosition> {
+function toGeolocationPosition(pos: {
+  coords: { latitude: number; longitude: number; accuracy: number };
+  timestamp: number;
+}): GeolocationPosition {
+  return {
+    coords: {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+      toJSON() {
+        return {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        };
+      },
+    },
+    timestamp: pos.timestamp,
+    toJSON() {
+      return {
+        coords: this.coords.toJSON(),
+        timestamp: this.timestamp,
+      };
+    },
+  };
+}
+
+async function getNativePosition(): Promise<GeolocationPosition> {
+  const status = await Geolocation.checkPermissions();
+  if (status.location !== "granted") {
+    const requested = await Geolocation.requestPermissions();
+    if (requested.location !== "granted") {
+      const err = new Error("Geolocation permission denied") as Error & { code?: number };
+      err.code = 1;
+      throw err;
+    }
+  }
+  const pos = await Geolocation.getCurrentPosition({
+    enableHighAccuracy: true,
+    timeout: 20_000,
+    maximumAge: 60_000,
+  });
+  return toGeolocationPosition(pos);
+}
+
+function getBrowserPosition(options: PositionOptions): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation unavailable"));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 15_000,
-    });
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
   });
+}
+
+/** Position actuelle — API native Capacitor sur APK, navigateur sinon. */
+export async function getCurrentPosition(): Promise<GeolocationPosition> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      return await getNativePosition();
+    } catch (err) {
+      const code = (err as GeolocationPositionError)?.code;
+      if (code === 1) throw err;
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: false,
+        timeout: 20_000,
+        maximumAge: 120_000,
+      });
+      return toGeolocationPosition(pos);
+    }
+  }
+
+  try {
+    return await getBrowserPosition({
+      enableHighAccuracy: true,
+      timeout: 20_000,
+      maximumAge: 60_000,
+    });
+  } catch (err) {
+    const code = (err as GeolocationPositionError)?.code;
+    if (code === 1) throw err;
+    return getBrowserPosition({
+      enableHighAccuracy: false,
+      timeout: 20_000,
+      maximumAge: 120_000,
+    });
+  }
 }
 
 export function geolocationErrorReason(err: unknown): "denied" | "unavailable" {

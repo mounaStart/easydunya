@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
-import { resolveBookingPickup, requireBookingLocation } from "../lib/passengerLocation";
+import { resolveBookingPickup, requireBookingLocation, locationFromProfile, type PassengerLocation } from "../lib/passengerLocation";
 import { isStreetLikeName } from "../lib/geocode";
 import { useTripDriverPosition } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
@@ -61,9 +61,10 @@ export default function TripDetail() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [gpsQuartier, setGpsQuartier] = useState<string | null>(() => {
-    const q = profile?.quartier?.trim();
-    return q && !isStreetLikeName(q) ? q : null;
+  const [sessionLocation, setSessionLocation] = useState<PassengerLocation | null>(() => {
+    const loc = locationFromProfile(profile);
+    if (loc?.quartier?.trim() && !isStreetLikeName(loc.quartier)) return loc;
+    return null;
   });
   const [gpsBusy, setGpsBusy] = useState(false);
   const driverPos = useTripDriverPosition(tripId, trip?.status === "in_progress");
@@ -75,7 +76,7 @@ export default function TripDetail() {
     const result = await requireBookingLocation(user.id, profile);
     setGpsBusy(false);
     if (result.ok) {
-      setGpsQuartier(result.location.quartier);
+      setSessionLocation(result.location);
     } else {
       setError(
         result.reason === "denied"
@@ -87,12 +88,15 @@ export default function TripDetail() {
     }
   }
 
+  const gpsQuartier = sessionLocation?.quartier ?? null;
   const gpsReady = Boolean(gpsQuartier?.trim());
 
   useEffect(() => {
-    const q = profile?.quartier?.trim();
-    if (q && !isStreetLikeName(q)) setGpsQuartier(q);
-  }, [profile?.quartier]);
+    const loc = locationFromProfile(profile);
+    if (loc?.quartier?.trim() && !isStreetLikeName(loc.quartier)) {
+      setSessionLocation(loc);
+    }
+  }, [profile?.quartier, profile?.location_lat, profile?.location_lng]);
 
   if (loading) return <Spinner />;
   if (!trip) {
@@ -127,7 +131,7 @@ export default function TripDetail() {
     setBusy(true);
     setError(null);
 
-    const pickup = await resolveBookingPickup(user.id, profile);
+    const pickup = await resolveBookingPickup(user.id, profile, sessionLocation);
     if (pickup.error) {
       setBusy(false);
       setError(

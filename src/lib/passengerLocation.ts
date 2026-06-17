@@ -154,6 +154,30 @@ export async function syncPassengerLocation(
   return captured;
 }
 
+export function hasValidBookingLocation(profile: Profile | null): boolean {
+  const loc = locationFromProfile(profile);
+  return Boolean(loc?.quartier?.trim() && !isStreetLikeName(loc.quartier));
+}
+
+/** Repli sur le profil si le GPS frais échoue mais qu'une position valide existe déjà. */
+async function bookingLocationFromProfile(
+  userId: string,
+  profile: Profile | null
+): Promise<PassengerLocation | null> {
+  if (!profile) return null;
+
+  if (profile.location_lat != null && profile.location_lng != null) {
+    const backfilled = await backfillQuartierFromProfile(userId, profile);
+    if (backfilled?.quartier && !isStreetLikeName(backfilled.quartier)) {
+      return backfilled;
+    }
+  }
+
+  const loc = locationFromProfile(profile);
+  if (loc?.quartier && !isStreetLikeName(loc.quartier)) return loc;
+  return null;
+}
+
 /** GPS obligatoire avant réservation — refuse si pas de position ou quartier. */
 export async function requireBookingLocation(
   userId: string,
@@ -169,6 +193,8 @@ export async function requireBookingLocation(
     const { quartier, cityName } = await reverseLocation(lat, lng);
     const resolved = resolveQuartierLabel(quartier, cityName, profile?.city_label);
     if (!resolved || isStreetLikeName(resolved)) {
+      const fallback = await bookingLocationFromProfile(userId, profile);
+      if (fallback) return { ok: true, location: fallback };
       return { ok: false, reason: "no_quartier" };
     }
     const loc: PassengerLocation = {
@@ -180,14 +206,17 @@ export async function requireBookingLocation(
     await savePassengerLocation(userId, loc);
     return { ok: true, location: loc };
   } catch (err) {
+    const fallback = await bookingLocationFromProfile(userId, profile);
+    if (fallback) return { ok: true, location: fallback };
     return { ok: false, reason: geolocationErrorReason(err) };
   }
 }
 
-/** Pickup pour une réservation : GPS frais obligatoire. */
+/** Pickup pour une réservation (réutilise une position déjà validée si fournie). */
 export async function resolveBookingPickup(
   userId: string | undefined,
-  profile: Profile | null
+  profile: Profile | null,
+  cached?: PassengerLocation | null
 ): Promise<{
   pickupLat?: number;
   pickupLng?: number;
@@ -195,6 +224,19 @@ export async function resolveBookingPickup(
   error?: "denied" | "unavailable" | "no_quartier";
 }> {
   if (!userId) return { error: "unavailable" };
+
+  if (
+    cached?.lat != null &&
+    cached.lng != null &&
+    cached.quartier?.trim() &&
+    !isStreetLikeName(cached.quartier)
+  ) {
+    return {
+      pickupLat: cached.lat,
+      pickupLng: cached.lng,
+      pickupQuartier: cached.quartier,
+    };
+  }
 
   const result = await requireBookingLocation(userId, profile);
   if (!result.ok) return { error: result.reason };

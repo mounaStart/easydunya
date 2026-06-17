@@ -373,6 +373,16 @@
     "reasonOther": "Autre",
     "reasonOtherPlaceholder": "Précisez le motif…"
   },
+  "locationPrompt": {
+    "title": "Activer la localisation",
+    "passengerBody": "Easy Dunya a besoin de votre position pour enregistrer votre quartier et permettre au chauffeur de vous retrouver.",
+    "driverBody": "Easy Dunya a besoin du GPS pour publier vos voyages et partager votre position avec les passagers.",
+    "later": "Plus tard",
+    "enable": "Activer le GPS",
+    "enabling": "Activation…",
+    "denied": "GPS refusé. Autorisez la localisation dans les paramètres du téléphone.",
+    "unavailable": "La localisation n'est pas disponible sur cet appareil."
+  },
   "profile": {
     "title": "Mon profil",
     "memberSince": "Membre depuis",
