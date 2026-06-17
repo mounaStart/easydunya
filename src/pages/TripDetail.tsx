@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
-import { resolveBookingPickup } from "../lib/passengerLocation";
+import { resolveBookingPickup, requireBookingLocation } from "../lib/passengerLocation";
+import { isStreetLikeName } from "../lib/geocode";
 import { useTripDriverPosition } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
@@ -60,7 +61,38 @@ export default function TripDetail() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [gpsQuartier, setGpsQuartier] = useState<string | null>(() => {
+    const q = profile?.quartier?.trim();
+    return q && !isStreetLikeName(q) ? q : null;
+  });
+  const [gpsBusy, setGpsBusy] = useState(false);
   const driverPos = useTripDriverPosition(tripId, trip?.status === "in_progress");
+
+  async function handleEnableGps() {
+    if (!user) return;
+    setGpsBusy(true);
+    setError(null);
+    const result = await requireBookingLocation(user.id, profile);
+    setGpsBusy(false);
+    if (result.ok) {
+      setGpsQuartier(result.location.quartier);
+    } else {
+      setError(
+        result.reason === "denied"
+          ? t("booking.gpsDenied")
+          : result.reason === "no_quartier"
+            ? t("booking.gpsNoQuartier")
+            : t("booking.gpsRequired")
+      );
+    }
+  }
+
+  const gpsReady = Boolean(gpsQuartier?.trim());
+
+  useEffect(() => {
+    const q = profile?.quartier?.trim();
+    if (q && !isStreetLikeName(q)) setGpsQuartier(q);
+  }, [profile?.quartier]);
 
   if (loading) return <Spinner />;
   if (!trip) {
@@ -95,10 +127,18 @@ export default function TripDetail() {
     setBusy(true);
     setError(null);
 
-    const { pickupLat, pickupLng, pickupQuartier } = await resolveBookingPickup(
-      user.id,
-      profile
-    );
+    const pickup = await resolveBookingPickup(user.id, profile);
+    if (pickup.error) {
+      setBusy(false);
+      setError(
+        pickup.error === "denied"
+          ? t("booking.gpsDenied")
+          : pickup.error === "no_quartier"
+            ? t("booking.gpsNoQuartier")
+            : t("booking.gpsRequired")
+      );
+      return;
+    }
 
     const { booking, error } = await createBooking({
       tripId: trip.id,
@@ -106,9 +146,9 @@ export default function TripDetail() {
       passengerId: user.id,
       guestName: profile?.full_name ?? undefined,
       guestPhone: profile?.phone ?? undefined,
-      pickupLat,
-      pickupLng,
-      pickupQuartier,
+      pickupLat: pickup.pickupLat,
+      pickupLng: pickup.pickupLng,
+      pickupQuartier: pickup.pickupQuartier,
       isWaiting: waiting,
     });
     setBusy(false);
@@ -317,10 +357,29 @@ export default function TripDetail() {
           <div className="card p-6 text-center space-y-4">
             <p className="text-slate-600">{t("booking.noSeats")}</p>
             <p className="text-sm text-slate-500">{t("booking.waitingListHint")}</p>
+            <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 space-y-2 text-left">
+              <p className="text-[11px] text-brand-800 font-medium leading-snug">
+                {t("booking.gpsRequiredHint")}
+              </p>
+              {gpsReady ? (
+                <p className="text-xs text-brand-700 font-semibold">
+                  📍 {t("booking.pickupQuartier")} : {gpsQuartier}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleEnableGps}
+                  disabled={gpsBusy}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition w-full"
+                >
+                  {gpsBusy ? t("common.loading") : t("booking.enableGps")}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => handleConfirm(true)}
-              disabled={busy}
-              className="btn-primary w-full"
+              disabled={busy || !gpsReady}
+              className="btn-primary w-full disabled:opacity-50"
             >
               {busy ? t("common.loading") : t("booking.joinWaitingList")}
             </button>
@@ -394,6 +453,27 @@ export default function TripDetail() {
             />
           </div>
 
+          <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 space-y-2">
+            <p className="text-[11px] text-brand-800 font-medium leading-snug">
+              {t("booking.gpsRequiredHint")}
+            </p>
+            {gpsReady ? (
+              <p className="text-xs text-brand-700 font-semibold">
+                📍 {t("booking.pickupQuartier")} : {gpsQuartier}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleEnableGps}
+                disabled={gpsBusy}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition w-full"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                {gpsBusy ? t("common.loading") : t("booking.enableGps")}
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs">
             <span className="text-slate-500">
               {seats} × {formatPrice(trip.price_per_seat)}
@@ -414,8 +494,8 @@ export default function TripDetail() {
 
           <button
             onClick={() => handleConfirm()}
-            disabled={busy}
-            className="btn-primary w-full py-2.5 text-sm"
+            disabled={busy || !gpsReady}
+            className="btn-primary w-full py-2.5 text-sm disabled:opacity-50"
           >
             {busy ? t("common.loading") : t("booking.confirmBtn")}
           </button>

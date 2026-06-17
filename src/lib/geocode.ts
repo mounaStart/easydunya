@@ -39,54 +39,55 @@ function cityFromAddress(a?: OsmAddress): string | null {
   return a.city ?? a.town ?? a.municipality ?? a.state ?? null;
 }
 
-/** Extrait le quartier : rue/lieu d'abord, arrondissement OSM (ex. Arafat) en secours. */
-function extractQuartier(a?: OsmAddress, allowCounty = false): string | null {
+/** Nom de rue / ruelle — pas un quartier (ex. « Rue Mohamed… »). */
+export function isStreetLikeName(name: string | null | undefined): boolean {
+  if (!name?.trim()) return false;
+  return /^(rue|r\.|avenue|av\.|boulevard|bd\.|route|chemin|impasse|allée|allee|street|st\.|place|pl\.)/i.test(
+    name.trim()
+  );
+}
+
+/**
+ * Quartier / arrondissement uniquement (Arafat, Tevragh Zeina…).
+ * Exclut les rues retournées par Nominatim au zoom élevé.
+ */
+function extractAreaQuartier(a?: OsmAddress, allowCounty = false): string | null {
   if (!a) return null;
-  const primary =
-    a.suburb ??
-    a.neighbourhood ??
-    a.quarter ??
-    a.city_district ??
-    a.district ??
-    a.borough ??
-    a.hamlet ??
-    a.village ??
-    a.road ??
-    a.amenity ??
-    null;
-  if (primary?.trim()) return primary.trim();
-  if (allowCounty && a.county?.trim()) return a.county.trim();
+  const candidates = [
+    a.suburb,
+    a.neighbourhood,
+    a.quarter,
+    a.city_district,
+    a.district,
+    a.borough,
+    ...(allowCounty ? [a.county] : []),
+    a.hamlet,
+    a.village,
+  ];
+  for (const c of candidates) {
+    const label = c?.trim();
+    if (label && !isStreetLikeName(label)) return label;
+  }
   return null;
 }
 
-/** Reverse geocoding via Nominatim (OpenStreetMap), multi-zoom pour Nouakchott. */
+/** Reverse geocoding : priorité arrondissement/quartier, jamais une rue en premier. */
 export async function reverseLocation(
   lat: number,
   lng: number
 ): Promise<{ quartier: string | null; cityName: string | null }> {
   try {
-    // 1) Rue / lieu précis (ex. Tevragh Zeina → nom de rue plutôt que l'arrondissement)
-    const fine = await fetchReverse(lat, lng, 18);
-    const fineQuartier = extractQuartier(fine?.address, false);
-    const cityName =
-      cityFromAddress(fine?.address) ??
-      cityFromAddress((await fetchReverse(lat, lng, 14))?.address) ??
-      null;
-    if (fineQuartier) return { quartier: fineQuartier, cityName };
-
-    // 2) Secteur / carrefour (ex. Carrefour, Arafatt Secteur 1…)
     const area = await fetchReverse(lat, lng, 14);
-    const areaQuartier = extractQuartier(area?.address, true);
-    if (areaQuartier) {
-      return {
-        quartier: areaQuartier,
-        cityName: cityName ?? cityFromAddress(area?.address),
-      };
-    }
+    const areaQuartier = extractAreaQuartier(area?.address, true);
+    const cityName =
+      cityFromAddress(area?.address) ??
+      cityFromAddress((await fetchReverse(lat, lng, 12))?.address) ??
+      null;
 
-    // 3) Arrondissement (ex. Arafat quand zoom 18 n'a que county)
+    if (areaQuartier) return { quartier: areaQuartier, cityName };
+
     const wide = await fetchReverse(lat, lng, 12);
-    const wideQuartier = extractQuartier(wide?.address, true);
+    const wideQuartier = extractAreaQuartier(wide?.address, true);
     if (wideQuartier) {
       return {
         quartier: wideQuartier,
@@ -94,15 +95,21 @@ export async function reverseLocation(
       };
     }
 
+    const mid = await fetchReverse(lat, lng, 16);
+    const midQuartier = extractAreaQuartier(mid?.address, false);
+    if (midQuartier) {
+      return {
+        quartier: midQuartier,
+        cityName: cityName ?? cityFromAddress(mid?.address),
+      };
+    }
+
     const parts =
-      fine?.display_name?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+      area?.display_name?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+    const fromDisplay = parts.find((p) => !isStreetLikeName(p) && !/mauritanie/i.test(p));
     return {
-      quartier: parts[0] ?? null,
-      cityName:
-        cityName ??
-        parts.find((p) => !/mauritanie/i.test(p)) ??
-        parts[1] ??
-        null,
+      quartier: fromDisplay ?? null,
+      cityName: cityName ?? parts.find((p) => !/mauritanie/i.test(p)) ?? null,
     };
   } catch {
     return { quartier: null, cityName: null };
@@ -128,4 +135,10 @@ export function getCurrentPosition(): Promise<GeolocationPosition> {
       timeout: 15_000,
     });
   });
+}
+
+export function geolocationErrorReason(err: unknown): "denied" | "unavailable" {
+  const code = (err as GeolocationPositionError)?.code;
+  if (code === 1) return "denied";
+  return "unavailable";
 }

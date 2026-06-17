@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { syncPassengerLocation } from "../lib/passengerLocation";
+import { isStreetLikeName } from "../lib/geocode";
 
 /** À la connexion : enregistre automatiquement quartier + GPS du passager. */
 export default function PassengerLocationSync() {
@@ -26,6 +27,7 @@ export default function PassengerLocationSync() {
       if (document.visibilityState !== "visible" || syncing.current || !user) return;
       if (
         profile?.quartier?.trim() &&
+        !isStreetLikeName(profile.quartier) &&
         profile.location_lat != null &&
         profile.location_lng != null
       ) {

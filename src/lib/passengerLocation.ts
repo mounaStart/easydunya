@@ -1,4 +1,9 @@
-import { getCurrentPosition, reverseLocation } from "./geocode";
+import {
+  getCurrentPosition,
+  geolocationErrorReason,
+  isStreetLikeName,
+  reverseLocation,
+} from "./geocode";
 import { supabase } from "./supabase";
 import type { Booking, Profile } from "./types";
 
@@ -97,7 +102,7 @@ export async function backfillQuartierFromProfile(
   const resolved = resolveQuartierLabel(quartier, cityName, profile.city_label);
   if (!resolved) return locationFromProfile(profile);
 
-  if (profile.quartier?.trim() === resolved) {
+  if (profile.quartier?.trim() === resolved && !isStreetLikeName(resolved)) {
     return locationFromProfile(profile);
   }
 
@@ -114,7 +119,7 @@ export async function backfillQuartierFromProfile(
 function needsLocationRefresh(profile: Profile | null): boolean {
   if (!profile || profile.role !== "passenger") return false;
   if (profile.location_lat == null || profile.location_lng == null) return true;
-  if (!profile.quartier?.trim()) return true;
+  if (!profile.quartier?.trim() || isStreetLikeName(profile.quartier)) return true;
   if (!profile.location_updated_at) return true;
   return Date.now() - new Date(profile.location_updated_at).getTime() > SYNC_MAX_AGE_MS;
 }
@@ -149,7 +154,37 @@ export async function syncPassengerLocation(
   return captured;
 }
 
-/** Pickup pour une réservation : GPS frais, sinon profil enregistré. */
+/** GPS obligatoire avant réservation — refuse si pas de position ou quartier. */
+export async function requireBookingLocation(
+  userId: string,
+  profile: Profile | null
+): Promise<
+  | { ok: true; location: PassengerLocation }
+  | { ok: false; reason: "denied" | "unavailable" | "no_quartier" }
+> {
+  try {
+    const pos = await getCurrentPosition();
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const { quartier, cityName } = await reverseLocation(lat, lng);
+    const resolved = resolveQuartierLabel(quartier, cityName, profile?.city_label);
+    if (!resolved || isStreetLikeName(resolved)) {
+      return { ok: false, reason: "no_quartier" };
+    }
+    const loc: PassengerLocation = {
+      lat,
+      lng,
+      quartier: resolved,
+      cityLabel: cityName,
+    };
+    await savePassengerLocation(userId, loc);
+    return { ok: true, location: loc };
+  } catch (err) {
+    return { ok: false, reason: geolocationErrorReason(err) };
+  }
+}
+
+/** Pickup pour une réservation : GPS frais obligatoire. */
 export async function resolveBookingPickup(
   userId: string | undefined,
   profile: Profile | null
@@ -157,32 +192,28 @@ export async function resolveBookingPickup(
   pickupLat?: number;
   pickupLng?: number;
   pickupQuartier?: string;
+  error?: "denied" | "unavailable" | "no_quartier";
 }> {
-  const fresh = await capturePassengerLocation();
-  if (fresh) {
-    if (userId) await savePassengerLocation(userId, fresh);
-    return {
-      pickupLat: fresh.lat,
-      pickupLng: fresh.lng,
-      pickupQuartier: fresh.quartier ?? fresh.cityLabel ?? undefined,
-    };
-  }
+  if (!userId) return { error: "unavailable" };
 
-  const stored = locationFromProfile(profile);
-  if (stored) {
-    let quartier = stored.quartier;
-    if (!quartier?.trim() && userId && profile) {
-      const backfilled = await backfillQuartierFromProfile(userId, profile);
-      quartier = backfilled?.quartier ?? stored.cityLabel;
-    }
-    return {
-      pickupLat: stored.lat,
-      pickupLng: stored.lng,
-      pickupQuartier: quartier ?? stored.cityLabel ?? undefined,
-    };
-  }
+  const result = await requireBookingLocation(userId, profile);
+  if (!result.ok) return { error: result.reason };
 
-  return {};
+  return {
+    pickupLat: result.location.lat,
+    pickupLng: result.location.lng,
+    pickupQuartier: result.location.quartier ?? result.location.cityLabel ?? undefined,
+  };
+}
+
+function pickDisplayQuartier(
+  ...candidates: (string | null | undefined)[]
+): string | null {
+  for (const c of candidates) {
+    const label = c?.trim();
+    if (label && !isStreetLikeName(label)) return label;
+  }
+  return null;
 }
 
 /** Coordonnées + quartier effectifs d'une réservation (repli sur le profil passager). */
@@ -193,10 +224,7 @@ export function enrichBookingPickup(
   const lat = booking.pickup_lat ?? profile?.location_lat ?? null;
   const lng = booking.pickup_lng ?? profile?.location_lng ?? null;
   const quartier =
-    booking.pickup_quartier?.trim() ||
-    profile?.quartier?.trim() ||
-    profile?.city_label?.trim() ||
-    null;
+    pickDisplayQuartier(booking.pickup_quartier, profile?.quartier, profile?.city_label) ?? null;
   return {
     pickup_lat: lat,
     pickup_lng: lng,

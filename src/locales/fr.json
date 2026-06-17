@@ -208,6 +208,11 @@
     "waitingListHint": "Rejoignez la liste d'attente : vous serez notifié si une place se libère.",
     "joinWaitingList": "Rejoindre la liste d'attente",
     "pickupQuartier": "Quartier de prise en charge",
+    "gpsRequired": "Activez votre GPS pour réserver.",
+    "gpsRequiredHint": "La localisation est obligatoire avant la réservation. Votre quartier (ex. Arafat, Tevragh Zeina) sera partagé avec le chauffeur.",
+    "gpsDenied": "GPS refusé. Autorisez la localisation dans les réglages du téléphone.",
+    "gpsNoQuartier": "Quartier introuvable. Déplacez-vous légèrement et réessayez.",
+    "enableGps": "Activer ma position",
     "status": {
       "pending": "En attente",
       "confirmed": "Confirmée",
