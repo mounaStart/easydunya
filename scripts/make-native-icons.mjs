@@ -1,6 +1,5 @@
-// Génère les sources d'icônes (1024x1024) pour @capacitor/assets à partir
-// de l'emblème Easy Dunya (public/brand/emblem.png).
-// Utilise sharp (fourni par @capacitor/assets).
+// Génère les sources d'icônes (1024x1024) pour @capacitor/assets :
+// fond dégradé bleu → orange (comme l'icône PWABuilder) + emblème Easy Dunya.
 import sharp from "sharp";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,33 +9,59 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "public", "brand", "emblem.png");
 const OUT = path.join(ROOT, "assets");
+const SIZE = 1024;
+const RADIUS = Math.round(SIZE * 0.22);
+const BLUE = "#1e88d6";
+const ORANGE = "#f97316";
+
 fs.mkdirSync(OUT, { recursive: true });
 
-const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
-const TRANSPARENT = { r: 255, g: 255, b: 255, alpha: 0 };
-
-async function squareWith(innerSize, bg, outFile) {
-  const inner = await sharp(SRC)
-    .resize({ width: innerSize, height: innerSize, fit: "contain", background: WHITE })
-    .png()
-    .toBuffer();
-  await sharp({
-    create: { width: 1024, height: 1024, channels: 4, background: bg },
-  })
-    .composite([{ input: inner, gravity: "center" }])
-    .png()
-    .toFile(path.join(OUT, outFile));
-  console.log(`✓ assets/${outFile}`);
+/** Fond dégradé diagonal avec coins arrondis (style icône 1). */
+async function gradientBg() {
+  const svg = `<svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${BLUE}"/>
+        <stop offset="100%" stop-color="${ORANGE}"/>
+      </linearGradient>
+    </defs>
+    <rect width="${SIZE}" height="${SIZE}" rx="${RADIUS}" ry="${RADIUS}" fill="url(#g)"/>
+  </svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-// Icône legacy (carré plein) : emblème centré sur blanc
-await squareWith(920, WHITE, "icon-only.png");
-// Icône adaptative — premier plan dans la zone de sécurité (~62%)
-await squareWith(640, TRANSPARENT, "icon-foreground.png");
-// Icône adaptative — fond blanc
-await sharp({
-  create: { width: 1024, height: 1024, channels: 4, background: WHITE },
-})
+/** Emblème recadré (sans bord blanc) sur fond transparent. */
+async function emblemLayer(innerSize) {
+  return sharp(SRC)
+    .trim({ threshold: 10 })
+    .resize(innerSize, innerSize, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
+const bg = await gradientBg();
+
+// Icône launcher complète : dégradé + emblème (comme icône 1 mais logo Easy Dunya)
+const emblemFull = await emblemLayer(820);
+await sharp(bg)
+  .composite([{ input: emblemFull, gravity: "center" }])
   .png()
-  .toFile(path.join(OUT, "icon-background.png"));
+  .toFile(path.join(OUT, "icon-only.png"));
+console.log("✓ assets/icon-only.png");
+
+// Icône adaptative Android — premier plan : emblème seul
+const emblemFg = await emblemLayer(660);
+await sharp({
+  create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+})
+  .composite([{ input: emblemFg, gravity: "center" }])
+  .png()
+  .toFile(path.join(OUT, "icon-foreground.png"));
+console.log("✓ assets/icon-foreground.png");
+
+// Icône adaptative Android — arrière-plan : dégradé
+await sharp(bg).png().toFile(path.join(OUT, "icon-background.png"));
 console.log("✓ assets/icon-background.png");

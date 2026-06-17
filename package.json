@@ -11,6 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/generate-icons.mjs",
+    "native-icons": "node scripts/make-native-icons.mjs && npx capacitor-assets generate --android",
     "vapid": "node scripts/generate-vapid.mjs",
     "postinstall": "node scripts/generate-icons.mjs"
   },
