@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
 import LangSwitcher from "./LangSwitcher";
 import NotificationBell from "./NotificationBell";
+import BrandLogo from "./BrandLogo";
 import { cn } from "../lib/utils";
 
 interface NavLinkItem {
@@ -20,6 +21,7 @@ function initials(name?: string | null, email?: string | null) {
 
 export default function Header() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user, profile, isAdmin, isDriver, signOut } = useAuth();
   const [pendingDriversCount, setPendingDriversCount] = useState(0);
 
@@ -46,12 +48,12 @@ export default function Header() {
 
   const links: NavLinkItem[] = [{ to: "/", label: t("nav.home") }];
   if (isDriver) {
-    links.push({ to: "/driver", label: t("nav.dashboard") });
+    links.push(
+      { to: "/driver", label: t("nav.dashboard") },
+      { to: "/driver/historique", label: t("nav.historique") }
+    );
     if (driverApproved) {
-      links.push(
-        { to: "/driver/trips/new", label: t("nav.newTrip") },
-        { to: "/driver/vehicles", label: t("nav.vehicles") }
-      );
+      links.push({ to: "/driver/vehicles", label: t("nav.vehicles") });
     }
   } else if (isAdmin) {
     links.push({
@@ -68,23 +70,14 @@ export default function Header() {
 
   async function handleLogout() {
     await signOut();
+    navigate("/login", { replace: true });
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-white ring-1 ring-slate-100 shadow-soft shrink-0 flex items-center justify-center">
-            <img
-              src="/brand/emblem.png"
-              alt="Easy Dunya"
-              className="w-full h-full object-contain"
-            />
-          </span>
-          <span className="text-xl sm:text-2xl font-extrabold tracking-tight">
-            <span className="text-brand-600">Easy</span>
-            <span className="text-accent-500">Dunya</span>
-          </span>
+    <header className="app-header sticky top-0 z-30 bg-white border-b border-slate-100">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
+        <Link to="/" className="shrink-0" aria-label="Easy Dunya">
+          <BrandLogo />
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -112,14 +105,14 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <NotificationBell />
           <LangSwitcher />
           {user ? (
             <>
               <Link
                 to="/profile"
-                className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft"
+                className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft"
                 style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
                 title={profile?.full_name ?? user.email ?? ""}
               >
@@ -134,12 +127,15 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-ghost text-sm hidden sm:inline-flex">
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center rounded-xl px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-slate-100 sm:btn-ghost sm:text-sm sm:rounded-2xl sm:px-5 sm:py-3"
+              >
                 {t("nav.login")}
               </Link>
               <Link
                 to="/register"
-                className="btn-primary text-sm hidden sm:inline-flex"
+                className="inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-xs font-semibold text-white shadow-soft bg-brand-gradient transition active:scale-[0.98] sm:btn-primary sm:text-sm sm:rounded-2xl sm:px-5 sm:py-3"
               >
                 {t("nav.register")}
               </Link>

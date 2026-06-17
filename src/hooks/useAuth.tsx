@@ -293,7 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await unsubscribeFromPush();
+    void unsubscribeFromPush();
     await supabase.auth.signOut();
     setProfile(null);
     setSession(null);

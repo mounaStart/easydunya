@@ -172,6 +172,7 @@ Deno.serve(async (req) => {
   const endpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
   let sent = 0;
   const staleIds: string[] = [];
+  const errors: string[] = [];
 
   await Promise.all(
     tokens.map(async (t) => {
@@ -202,9 +203,15 @@ Deno.serve(async (req) => {
         if (res.ok) {
           sent++;
         } else {
-          const errJson = await res.json().catch(() => ({}));
+          const errText = await res.text();
+          errors.push(`token ${t.token.slice(0, 20)}… → ${res.status}: ${errText}`);
+          let errJson: { error?: { details?: { errorCode?: string }[]; status?: string } } = {};
+          try {
+            errJson = JSON.parse(errText);
+          } catch {
+            /* ignore */
+          }
           const code = errJson?.error?.details?.[0]?.errorCode ?? errJson?.error?.status;
-          // Jeton invalide / non enregistré → on le supprime
           if (
             res.status === 404 ||
             code === "UNREGISTERED" ||
@@ -213,8 +220,8 @@ Deno.serve(async (req) => {
             staleIds.push(t.id);
           }
         }
-      } catch {
-        /* réseau : on réessaiera au prochain envoi */
+      } catch (e) {
+        errors.push(`token ${t.token.slice(0, 20)}… → réseau: ${String(e)}`);
       }
     }),
   );
@@ -223,7 +230,7 @@ Deno.serve(async (req) => {
     await admin.from("device_tokens").delete().in("id", staleIds);
   }
 
-  return new Response(JSON.stringify({ sent, removed: staleIds.length }), {
+  return new Response(JSON.stringify({ sent, removed: staleIds.length, errors }), {
     headers: { "Content-Type": "application/json" },
   });
 });

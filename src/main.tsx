@@ -3,12 +3,14 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
+import { initNativeChrome } from "./lib/nativeChrome";
 import { initNativePush, isNativePlatform } from "./lib/nativePush";
 import "./i18n";
 import "./index.css";
 
 // Initialise les listeners FCM dès le démarrage (avant connexion).
 initNativePush();
+initNativeChrome();
 
 // Le service worker PWA (web-push) perturbe FCM natif dans l'APK.
 if (isNativePlatform() && "serviceWorker" in navigator) {

@@ -41,6 +41,11 @@ export interface Profile {
   license_number?: string | null;
   base_city_id?: string | null;
   photo_url?: string | null;
+  quartier?: string | null;
+  city_label?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -23,6 +23,7 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
       .from("trips_public")
       .select("*")
       .eq("status", "scheduled")
+      .gt("seats_available", 0)
       .gte("depart_at", startOfToday.toISOString())
       .lte("depart_at", end)
       .order("depart_at", { ascending: true });

@@ -35,7 +35,9 @@ export default function DriverHistorique() {
   }, [user]);
 
   const filtered = useMemo(() => {
-    let list = [...trips];
+    let list = trips.filter(
+      (tr) => tr.status === "completed" || tr.status === "cancelled"
+    );
     if (statusFilter !== "all") list = list.filter((t) => t.status === statusFilter);
     if (periodFilter !== "all") {
       const ms = periodFilter === "week" ? 7 * 86400000 : 30 * 86400000;
@@ -47,10 +49,8 @@ export default function DriverHistorique() {
 
   return (
     <div className="page max-w-2xl">
-      <Link to="/driver" className="text-sm text-brand-700 hover:underline">
-        ← {t("nav.dashboard")}
-      </Link>
-      <h1 className="h1 mt-3 mb-4">{t("nav.historique")}</h1>
+      <h1 className="h1 mb-1">{t("nav.historique")}</h1>
+      <p className="muted mb-4">{t("driver.historiqueSub")}</p>
 
       <div className="flex flex-wrap gap-2 mb-4">
         <select
@@ -59,8 +59,6 @@ export default function DriverHistorique() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
         >
           <option value="all">{t("historique.allStatus")}</option>
-          <option value="scheduled">{t("trip.status.scheduled")}</option>
-          <option value="in_progress">{t("trip.status.in_progress")}</option>
           <option value="completed">{t("trip.status.completed")}</option>
           <option value="cancelled">{t("trip.status.cancelled")}</option>
         </select>

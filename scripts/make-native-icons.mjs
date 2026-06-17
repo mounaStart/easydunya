@@ -1,5 +1,7 @@
-// Génère les sources d'icônes (1024x1024) pour @capacitor/assets :
-// fond dégradé bleu → orange (comme l'icône PWABuilder) + emblème Easy Dunya.
+// Génère les icônes Easy Dunya : fond blanc + emblème centré (style Authenticator).
+// Produit :
+//   assets/icon-only.png, icon-foreground.png, icon-background.png  → Capacitor APK
+//   public/icons/icon-192.png, icon-512.png                           → PWA / notifications
 import sharp from "sharp";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,36 +10,35 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "public", "brand", "emblem.png");
-const OUT = path.join(ROOT, "assets");
+const ASSETS = path.join(ROOT, "assets");
+const PUBLIC_ICONS = path.join(ROOT, "public", "icons");
 const SIZE = 1024;
-const RADIUS = Math.round(SIZE * 0.22);
-const BLUE = "#1e88d6";
-const ORANGE = "#f97316";
+const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 
-fs.mkdirSync(OUT, { recursive: true });
+/** Largeur de l'emblème en % de la taille de l'icône (style Authenticator). */
+const EMBLEM_RATIO_LAUNCHER = 0.82;
+const EMBLEM_RATIO_ADAPTIVE = 0.72;
+const EMBLEM_RATIO_WEB = 0.78;
 
-/** Fond dégradé diagonal avec coins arrondis (style icône 1). */
-async function gradientBg() {
-  const svg = `<svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${BLUE}"/>
-        <stop offset="100%" stop-color="${ORANGE}"/>
-      </linearGradient>
-    </defs>
-    <rect width="${SIZE}" height="${SIZE}" rx="${RADIUS}" ry="${RADIUS}" fill="url(#g)"/>
-  </svg>`;
-  return sharp(Buffer.from(svg)).png().toBuffer();
+fs.mkdirSync(ASSETS, { recursive: true });
+fs.mkdirSync(PUBLIC_ICONS, { recursive: true });
+
+async function whiteSquare(size = SIZE) {
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: WHITE },
+  })
+    .png()
+    .toBuffer();
 }
 
 /**
- * Emblème sans fond blanc.
- * L'image source est en paysage → on force la largeur pour remplir ~96% de l'icône.
+ * Emblème Easy Dunya sans fond blanc (pour composition sur fond blanc).
+ * L'image source est en paysage → redimensionnement par largeur.
  */
-async function emblemLayer(widthPx) {
+async function emblemLayer(maxWidthPx) {
   const { data, info } = await sharp(SRC)
     .ensureAlpha()
-    .resize({ width: widthPx, withoutEnlargement: false })
+    .resize({ width: maxWidthPx, withoutEnlargement: false })
     .raw()
     .toBuffer({ resolveWithObject: true });
 
@@ -55,25 +56,38 @@ async function emblemLayer(widthPx) {
     .toBuffer();
 }
 
-const bg = await gradientBg();
+async function composeWhiteIcon(size, emblemRatio) {
+  const bg = await whiteSquare(size);
+  const emblem = await emblemLayer(Math.round(size * emblemRatio));
+  return sharp(bg).composite([{ input: emblem, gravity: "center" }]).png().toBuffer();
+}
 
-// Icône launcher : emblème large (~96% de la largeur)
-const emblemFull = await emblemLayer(Math.round(SIZE * 0.96));
+// --- Sources Capacitor (@capacitor/assets) ---
+const bg = await whiteSquare();
+
+const emblemLauncher = await emblemLayer(Math.round(SIZE * EMBLEM_RATIO_LAUNCHER));
 await sharp(bg)
-  .composite([{ input: emblemFull, gravity: "center" }])
+  .composite([{ input: emblemLauncher, gravity: "center" }])
   .png()
-  .toFile(path.join(OUT, "icon-only.png"));
+  .toFile(path.join(ASSETS, "icon-only.png"));
 console.log("✓ assets/icon-only.png");
 
-// Icône adaptative — premier plan (zone de sécurité ~66%)
-const emblemFg = await emblemLayer(Math.round(SIZE * 0.66));
+const emblemAdaptive = await emblemLayer(Math.round(SIZE * EMBLEM_RATIO_ADAPTIVE));
 await sharp({
   create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
-  .composite([{ input: emblemFg, gravity: "center" }])
+  .composite([{ input: emblemAdaptive, gravity: "center" }])
   .png()
-  .toFile(path.join(OUT, "icon-foreground.png"));
+  .toFile(path.join(ASSETS, "icon-foreground.png"));
 console.log("✓ assets/icon-foreground.png");
 
-await sharp(bg).png().toFile(path.join(OUT, "icon-background.png"));
+await sharp(bg).png().toFile(path.join(ASSETS, "icon-background.png"));
 console.log("✓ assets/icon-background.png");
+
+// --- Icônes PWA ---
+for (const size of [192, 512]) {
+  const buf = await composeWhiteIcon(size, EMBLEM_RATIO_WEB);
+  const out = path.join(PUBLIC_ICONS, `icon-${size}.png`);
+  fs.writeFileSync(out, buf);
+  console.log(`✓ public/icons/icon-${size}.png (${buf.length} bytes)`);
+}

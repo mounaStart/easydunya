@@ -6,20 +6,21 @@
   "description": "Easy Dunya - Plateforme digitale de transport interurbain en Mauritanie",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/generate-icons.mjs && tsc -b && vite build",
+    "build": "node scripts/make-native-icons.mjs && tsc -b && vite build",
     "preview": "vite preview --port 4173",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "icons": "node scripts/generate-icons.mjs",
+    "icons": "node scripts/make-native-icons.mjs",
     "native-icons": "node scripts/make-native-icons.mjs && npx capacitor-assets generate --android",
     "vapid": "node scripts/generate-vapid.mjs",
-    "postinstall": "node scripts/generate-icons.mjs"
+    "postinstall": "node scripts/make-native-icons.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@supabase/supabase-js": "^2.107.0",
     "i18next": "^23.15.1",
     "i18next-browser-languagedetector": "^8.0.0",

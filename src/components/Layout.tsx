@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
 import NotificationPrompt from "./NotificationPrompt";
+import PassengerLocationSync from "./PassengerLocationSync";
 import { useAuth } from "../hooks/useAuth";
 
 /** Force le changement de mot de passe (1ère connexion chauffeur). */
@@ -22,6 +23,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <PasswordChangeGate />
+      <PassengerLocationSync />
       <Header />
       <main className="flex-1 has-bottom-nav">
         <Outlet />

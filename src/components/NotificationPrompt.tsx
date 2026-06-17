@@ -25,6 +25,7 @@ export default function NotificationPrompt() {
   const [state, setState] = useState<PushState>("on");
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(snoozed());
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -64,12 +65,28 @@ export default function NotificationPrompt() {
   if (state !== "off") return null;
 
   async function enable() {
-    if (!user) return;
+    if (!user || busy) return;
     setBusy(true);
-    const ok = await subscribeToPush(user.id);
-    setBusy(false);
-    await refresh();
-    if (ok) setHidden(true);
+    setError(null);
+    try {
+      const ok = await subscribeToPush(user.id);
+      await refresh();
+      if (ok) {
+        setHidden(true);
+        return;
+      }
+      if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+        setHidden(true);
+        return;
+      }
+      setError(
+        "Impossible d'activer les notifications. Vérifiez que VITE_VAPID_PUBLIC_KEY est configuré, puis réessayez."
+      );
+    } catch {
+      setError("Une erreur est survenue. Réessayez dans un instant.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function later() {
@@ -99,6 +116,11 @@ export default function NotificationPrompt() {
             </p>
           </div>
         </div>
+        {error && (
+          <p className="mt-2 text-sm text-rose-600 bg-rose-50 rounded-xl px-3 py-2">
+            {error}
+          </p>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"

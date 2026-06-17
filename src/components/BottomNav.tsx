@@ -40,13 +40,6 @@ function IconDashboard(props: { className?: string }) {
     </svg>
   );
 }
-function IconPlus(props: { className?: string }) {
-  return (
-    <svg className={props.className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" />
-    </svg>
-  );
-}
 function IconShield(props: { className?: string }) {
   return (
     <svg className={props.className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -72,7 +65,7 @@ export default function BottomNav() {
     items = [
       home,
       { to: "/driver", label: t("nav.dashboardShort"), Icon: IconDashboard, end: true },
-      { to: "/driver/trips/new", label: t("nav.publishShort"), Icon: IconPlus, end: false },
+      { to: "/driver/historique", label: t("nav.historique"), Icon: IconHistory, end: false },
       profile,
     ];
   } else if (isAdmin) {

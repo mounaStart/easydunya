@@ -39,6 +39,64 @@ function isPushSupported(): boolean {
   );
 }
 
+/** SW enregistré (évite `.ready` qui bloque indéfiniment sans PWA, ex. localhost). */
+async function getPushRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (!isPushSupported()) return null;
+  return (await navigator.serviceWorker.getRegistration()) ?? null;
+}
+
+async function waitForActivation(
+  reg: ServiceWorkerRegistration,
+  timeoutMs = 10_000
+): Promise<boolean> {
+  if (reg.active) return true;
+  return new Promise((resolve) => {
+    const timeout = window.setTimeout(() => resolve(false), timeoutMs);
+    const sw = reg.installing ?? reg.waiting;
+    if (!sw) {
+      window.clearTimeout(timeout);
+      resolve(!!reg.active);
+      return;
+    }
+    sw.addEventListener("statechange", () => {
+      if (sw.state === "activated") {
+        window.clearTimeout(timeout);
+        resolve(true);
+      }
+    });
+  });
+}
+
+/** En dev (PWA off), enregistre un SW minimal pour que Web Push fonctionne. */
+async function ensurePushRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (!isPushSupported()) return null;
+
+  const existing = await navigator.serviceWorker.getRegistration();
+  if (existing?.active) return existing;
+
+  if (import.meta.env.DEV) {
+    try {
+      const reg = await navigator.serviceWorker.register("/push-sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      });
+      const ready = await waitForActivation(reg);
+      return ready ? reg : null;
+    } catch (e) {
+      console.warn("[push] échec enregistrement SW dev:", e);
+      return null;
+    }
+  }
+
+  // Production : SW Workbox enregistré par vite-plugin-pwa au chargement
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return reg;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Abonne l'appareil courant aux notifications Web Push et enregistre
  * l'abonnement côté Supabase. À appeler une fois l'utilisateur connecté,
@@ -67,7 +125,11 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
   }
 
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await ensurePushRegistration();
+    if (!reg) {
+      console.warn("[push] pas de service worker (PWA non active)");
+      return false;
+    }
 
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
@@ -134,7 +196,8 @@ export async function getPushState(userId?: string): Promise<PushState> {
   if (!isPushSupported() || !VAPID_PUBLIC_KEY) return "unsupported";
   if (Notification.permission === "denied") return "denied";
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await getPushRegistration();
+    if (!reg) return "off";
     const sub = await reg.pushManager.getSubscription();
     if (!sub?.endpoint) return "off";
     if (!userId) return "on";
@@ -166,7 +229,8 @@ export async function unsubscribeFromPush(): Promise<void> {
   }
   if (!isPushSupported()) return;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await getPushRegistration();
+    if (!reg) return;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
       await supabase

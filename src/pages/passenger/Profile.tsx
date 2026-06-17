@@ -6,7 +6,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 last:border-0">
       <span className="text-slate-500 text-sm">{label}</span>
-      <span className="font-semibold text-ink">{value}</span>
+      <span className="font-semibold text-ink text-right max-w-[60%]">{value}</span>
     </div>
   );
 }
@@ -31,6 +31,8 @@ export default function Profile() {
       }).format(new Date(profile.created_at))
     : "—";
 
+  const isPassenger = profile?.role === "passenger";
+
   async function handleLogout() {
     await signOut();
     navigate("/");
@@ -52,8 +54,18 @@ export default function Profile() {
       <div className="card overflow-hidden">
         <Row label={t("common.email")} value={user?.email ?? "—"} />
         <Row label={t("common.phone")} value={profile?.phone ?? "—"} />
+        {isPassenger && (
+          <>
+            <Row label={t("profile.city")} value={profile?.city_label ?? "—"} />
+            <Row label={t("profile.quartier")} value={profile?.quartier ?? "—"} />
+          </>
+        )}
         <Row label={t("profile.memberSince")} value={memberSince} />
       </div>
+
+      {isPassenger && !profile?.quartier?.trim() && (
+        <p className="text-xs text-slate-500 text-center px-2">{t("profile.locationHint")}</p>
+      )}
 
       <button onClick={handleLogout} className="btn-secondary w-full text-rose-600">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>

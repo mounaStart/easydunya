@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
-import { getCurrentPosition, reverseQuartier } from "../lib/geocode";
+import { resolveBookingPickup } from "../lib/passengerLocation";
 import { useTripDriverPosition } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
@@ -37,11 +37,11 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3">
-      <span className="icon-tile-soft w-10 h-10 shrink-0">{icon}</span>
-      <div>
-        <div className="text-xs text-slate-400">{label}</div>
-        <div className="font-bold text-ink">{value}</div>
+    <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-2.5 py-2">
+      <span className="icon-tile-soft w-8 h-8 shrink-0 [&_svg]:w-4 [&_svg]:h-4">{icon}</span>
+      <div className="min-w-0">
+        <div className="text-[10px] text-slate-400 leading-none">{label}</div>
+        <div className="font-bold text-sm text-ink truncate">{value}</div>
       </div>
     </div>
   );
@@ -51,7 +51,7 @@ export default function TripDetail() {
   const { tripId } = useParams();
   const { trip, loading } = useTrip(tripId);
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [seats, setSeats] = useState(1);
@@ -95,22 +95,17 @@ export default function TripDetail() {
     setBusy(true);
     setError(null);
 
-    let pickupLat: number | undefined;
-    let pickupLng: number | undefined;
-    let pickupQuartier: string | undefined;
-    try {
-      const pos = await getCurrentPosition();
-      pickupLat = pos.coords.latitude;
-      pickupLng = pos.coords.longitude;
-      pickupQuartier = (await reverseQuartier(pickupLat, pickupLng)) ?? undefined;
-    } catch {
-      /* GPS optionnel */
-    }
+    const { pickupLat, pickupLng, pickupQuartier } = await resolveBookingPickup(
+      user.id,
+      profile
+    );
 
     const { booking, error } = await createBooking({
       tripId: trip.id,
       seats,
       passengerId: user.id,
+      guestName: profile?.full_name ?? undefined,
+      guestPhone: profile?.phone ?? undefined,
       pickupLat,
       pickupLng,
       pickupQuartier,
@@ -147,124 +142,117 @@ export default function TripDetail() {
   }
 
   return (
-    <div className="page max-w-2xl space-y-4">
+    <div className="page max-w-2xl space-y-3 py-3">
       <button
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-ink font-semibold"
+        className="inline-flex items-center gap-1.5 text-sm text-ink font-semibold"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
         {t("common.back")}
       </button>
 
-      {/* En-tête voyage */}
-      <div className="card p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-2xl font-extrabold text-ink leading-tight">
-            {fromName}
-            <span className="mx-2 text-slate-400">→</span>
-            {toName}
-          </h1>
-          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>
+      {/* En-tête voyage + chauffeur */}
+      <div className="card p-3.5 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-extrabold text-ink leading-tight">
+              {fromName}
+              <span className="mx-1.5 text-slate-400">→</span>
+              {toName}
+            </h1>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {relativeDateLabel(trip.depart_at)}
+            </div>
+          </div>
+          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusClass}`}>
             {statusLabel}
           </span>
         </div>
-        <div className="muted mt-1">{relativeDateLabel(trip.depart_at)}</div>
 
-        <div className="grid sm:grid-cols-3 gap-3 mt-5">
+        <div className="grid grid-cols-3 gap-2 mt-3">
           <InfoRow
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}
             label={t("trip.departure")}
             value={formatPeriod(trip.depart_at)}
           />
           <InfoRow
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>}
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>}
             label={t("trip.places")}
-            value={`${trip.seats_available} / ${trip.seats_total}`}
+            value={`${trip.seats_available}/${trip.seats_total}`}
           />
           <InfoRow
-            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>}
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>}
             label={t("common.price")}
             value={formatPrice(trip.price_per_seat)}
           />
         </div>
 
         {trip.notes && (
-          <div className="mt-4 bg-slate-50 rounded-2xl px-4 py-3 text-sm text-slate-600">
+          <div className="mt-2.5 bg-slate-50 rounded-xl px-3 py-2 text-xs text-slate-600">
             {trip.notes}
           </div>
         )}
+
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            {t("trip.driver")}
+          </div>
+          <div className="flex items-center gap-2.5">
+            {trip.driver_photo ? (
+              <img
+                src={trip.driver_photo}
+                alt={trip.driver_name ?? ""}
+                className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200"
+              />
+            ) : (
+              <span className="w-10 h-10 rounded-full shrink-0 bg-brand-100 text-brand-700 font-bold text-sm flex items-center justify-center">
+                {initials(trip.driver_name)}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-sm text-ink truncate">
+                {trip.driver_name ?? "—"}
+              </div>
+              {trip.driver_rating ? (
+                <div className="text-xs text-yellow-600 font-semibold">
+                  {Number(trip.driver_rating).toFixed(1)} ★
+                  <span className="text-slate-400 font-normal ml-1">
+                    ({trip.driver_rating_count})
+                  </span>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400">{t("trip.newDriver")}</div>
+              )}
+            </div>
+            <div className="text-right shrink-0 text-xs">
+              <div className="text-slate-400">{trip.vehicle_make ?? trip.vehicle_label ?? "—"}</div>
+              <div className="font-bold text-ink code-display text-[11px] mt-0.5">
+                {trip.vehicle_plate ?? "—"}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Carte de suivi (voyage en cours) */}
       {trip.status === "in_progress" &&
         Number.isFinite(trip.from_lat) &&
         Number.isFinite(trip.to_lat) && (
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          <div className="card p-3.5">
+            <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
               {t("trip.trackingMap")}
             </h2>
             <TrackingMap
               from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
               to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
               driver={driverPos}
+              height={240}
             />
             {!driverPos && (
               <p className="muted text-sm mt-2">{t("trip.waitingDriverPos")}</p>
             )}
           </div>
         )}
-
-      {/* Chauffeur & véhicule (sans numéro de téléphone) */}
-      <div className="card p-5">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
-          {t("trip.driver")}
-        </h2>
-        <div className="flex items-center gap-3">
-          {trip.driver_photo ? (
-            <img
-              src={trip.driver_photo}
-              alt={trip.driver_name ?? ""}
-              className="w-14 h-14 rounded-full object-cover shrink-0 border border-slate-200"
-            />
-          ) : (
-            <span className="w-14 h-14 rounded-full shrink-0 bg-brand-100 text-brand-700 font-extrabold text-lg flex items-center justify-center">
-              {initials(trip.driver_name)}
-            </span>
-          )}
-          <div className="min-w-0">
-            <div className="font-bold text-ink truncate">
-              {trip.driver_name ?? "—"}
-            </div>
-            {trip.driver_rating ? (
-              <div className="text-sm text-yellow-600 font-semibold">
-                {Number(trip.driver_rating).toFixed(1)} ★
-                <span className="text-slate-400 font-normal ml-1">
-                  ({trip.driver_rating_count})
-                </span>
-              </div>
-            ) : (
-              <div className="text-sm text-slate-400">
-                {t("trip.newDriver")}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="bg-slate-50 rounded-2xl px-4 py-3">
-            <div className="text-xs text-slate-400">{t("trip.vehicleMake")}</div>
-            <div className="font-bold text-ink">
-              {trip.vehicle_make ?? trip.vehicle_label ?? "—"}
-            </div>
-          </div>
-          <div className="bg-slate-50 rounded-2xl px-4 py-3">
-            <div className="text-xs text-slate-400">{t("trip.vehiclePlate")}</div>
-            <div className="font-bold text-ink code-display">
-              {trip.vehicle_plate ?? "—"}
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Confirmation directe / reçu / invite connexion */}
       {booking ? (
@@ -356,66 +344,70 @@ export default function TripDetail() {
           </Link>
         </div>
       ) : (
-        <div className="card p-5 sm:p-6 space-y-5">
-          <div>
-            <h2 className="text-xl font-extrabold text-ink">
-              {t("booking.confirmTitle")}
-            </h2>
-            <p className="muted">{t("booking.cashOnBoard")}</p>
-          </div>
-
-          {/* Stepper places */}
-          <div>
-            <label className="label">{t("booking.numberSeats")}</label>
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => setSeats((s) => Math.max(1, s - 1))}
-                className="w-12 h-12 rounded-2xl border border-slate-200 text-2xl font-bold text-ink-soft active:scale-95 transition"
-              >
-                −
-              </button>
-              <span className="text-3xl font-extrabold text-ink">{seats}</span>
-              <button
-                type="button"
-                onClick={() => setSeats((s) => Math.min(maxSeats, s + 1))}
-                className="w-12 h-12 rounded-2xl border border-slate-200 text-2xl font-bold text-ink-soft active:scale-95 transition"
-              >
-                +
-              </button>
+        <div className="card p-3 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-extrabold text-ink leading-tight">
+                {t("booking.confirmTitle")}
+              </h2>
+              <p className="text-[10px] text-slate-500 mt-0.5">{t("booking.cashOnBoard")}</p>
             </div>
-            <p className="muted mt-2">
-              {trip.seats_available} {t("booking.seatRemaining")}
-            </p>
+            <div className="shrink-0 text-right">
+              <div className="text-[10px] text-slate-400 mb-1">{t("booking.numberSeats")}</div>
+              <div className="inline-flex items-center gap-1 rounded-xl bg-slate-50 border border-slate-100 px-1 py-0.5">
+                <button
+                  type="button"
+                  onClick={() => setSeats((s) => Math.max(1, s - 1))}
+                  className="w-7 h-7 rounded-lg text-base font-bold text-ink-soft active:scale-95 transition"
+                  aria-label="−"
+                >
+                  −
+                </button>
+                <span className="min-w-[1.25rem] text-center text-lg font-extrabold text-ink">
+                  {seats}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSeats((s) => Math.min(maxSeats, s + 1))}
+                  className="w-7 h-7 rounded-lg text-base font-bold text-ink-soft active:scale-95 transition"
+                  aria-label="+"
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                {trip.seats_available} {t("booking.seatRemaining")}
+              </p>
+            </div>
           </div>
 
-          {/* Notes */}
           <div>
-            <label className="label">{t("booking.notesOptional")}</label>
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+              {t("booking.notesOptional")}
+            </label>
             <textarea
-              className="input min-h-[90px] resize-none"
+              rows={2}
+              className="input mt-1 min-h-0 resize-none text-xs py-2 px-3 leading-snug"
               placeholder={t("booking.notesPlaceholder")}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
 
-          {/* Détail prix */}
-          <div className="border-t border-slate-100 pt-4 space-y-2 text-sm">
-            <div className="flex justify-between text-slate-500">
-              <span>{seats} × {formatPrice(trip.price_per_seat)}</span>
-              <span>{formatPrice(subtotal)}</span>
-            </div>
-            <div className="flex justify-between items-center border-t border-slate-100 pt-3">
-              <span className="font-bold text-ink">{t("booking.total")}</span>
-              <span className="text-xl font-extrabold text-brand-600">
+          <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs">
+            <span className="text-slate-500">
+              {seats} × {formatPrice(trip.price_per_seat)}
+            </span>
+            <div className="text-right">
+              <span className="text-[10px] text-slate-400 mr-1.5">{t("booking.total")}</span>
+              <span className="text-base font-extrabold text-brand-600">
                 {formatPrice(subtotal)}
               </span>
             </div>
           </div>
 
           {error && (
-            <p className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-xl">
+            <p className="text-[11px] text-rose-600 bg-rose-50 px-2.5 py-1.5 rounded-lg">
               {error}
             </p>
           )}
@@ -423,7 +415,7 @@ export default function TripDetail() {
           <button
             onClick={() => handleConfirm()}
             disabled={busy}
-            className="btn-primary w-full py-4"
+            className="btn-primary w-full py-2.5 text-sm"
           >
             {busy ? t("common.loading") : t("booking.confirmBtn")}
           </button>

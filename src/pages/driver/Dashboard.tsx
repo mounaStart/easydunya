@@ -161,8 +161,19 @@ export default function DriverDashboard() {
   }
 
   const activeTrip = trips.find((tr) => tr.status === "in_progress") ?? null;
+  const activeTrips = trips
+    .filter((tr) => tr.status === "scheduled" || tr.status === "in_progress")
+    .sort((a, b) => {
+      const pendingA = pendingByTrip[a.id] ?? 0;
+      const pendingB = pendingByTrip[b.id] ?? 0;
+      if (pendingB !== pendingA) return pendingB - pendingA;
+      return new Date(a.depart_at).getTime() - new Date(b.depart_at).getTime();
+    });
   const totalPending = Object.values(pendingByTrip).reduce((a, b) => a + b, 0);
   const firstName = (profile?.full_name ?? "").split(/\s+/)[0] ?? "";
+  const hasTripHistory = trips.some(
+    (t) => t.status === "completed" || t.status === "cancelled"
+  );
 
   return (
     <div className="page">
@@ -176,9 +187,6 @@ export default function DriverDashboard() {
         <div className="flex gap-2 flex-wrap">
           <Link to="/driver/earnings" className="btn-secondary text-sm">
             💰 {t("driver.earningsTitle")}
-          </Link>
-          <Link to="/driver/historique" className="btn-secondary text-sm">
-            {t("nav.historique")}
           </Link>
           <Link to="/driver/trips/new" className="btn-primary">
             + {t("driver.newTripTitle")}
@@ -248,17 +256,17 @@ export default function DriverDashboard() {
         />
       </div>
 
-      <h2 className="h2 mb-3">{t("nav.myTrips")}</h2>
-      {trips.length === 0 ? (
+      <h2 className="h2 mb-3">{t("driver.activeTripsTitle")}</h2>
+      {activeTrips.length === 0 ? (
         <div className="card p-8 text-center">
-          <p className="text-slate-500 mb-4">{t("driver.noTrips")}</p>
+          <p className="text-slate-500 mb-4">{t("driver.noActiveTrips")}</p>
           <Link to="/driver/trips/new" className="btn-primary inline-flex">
-            {t("driver.publishFirst")}
+            {t(hasTripHistory ? "driver.publishTrip" : "driver.publishFirst")}
           </Link>
         </div>
       ) : (
         <div className="space-y-3">
-          {trips.map((trip) => {
+          {activeTrips.map((trip) => {
             const isAr = i18n.language === "ar";
             const pending = pendingByTrip[trip.id] ?? 0;
             return (
