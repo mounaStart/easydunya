@@ -30,18 +30,17 @@ async function gradientBg() {
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-/** Emblème sans fond blanc, sur fond transparent. */
-async function emblemLayer(innerSize) {
+/**
+ * Emblème sans fond blanc.
+ * L'image source est en paysage → on force la largeur pour remplir ~96% de l'icône.
+ */
+async function emblemLayer(widthPx) {
   const { data, info } = await sharp(SRC)
     .ensureAlpha()
-    .resize(innerSize, innerSize, {
-      fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
+    .resize({ width: widthPx, withoutEnlargement: false })
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  // Retire le fond blanc du PNG emblème
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -58,16 +57,16 @@ async function emblemLayer(innerSize) {
 
 const bg = await gradientBg();
 
-// Icône launcher complète : dégradé + emblème (comme icône 1 mais logo Easy Dunya)
-const emblemFull = await emblemLayer(880);
+// Icône launcher : emblème large (~96% de la largeur)
+const emblemFull = await emblemLayer(Math.round(SIZE * 0.96));
 await sharp(bg)
   .composite([{ input: emblemFull, gravity: "center" }])
   .png()
   .toFile(path.join(OUT, "icon-only.png"));
 console.log("✓ assets/icon-only.png");
 
-// Icône adaptative Android — premier plan : emblème seul
-const emblemFg = await emblemLayer(720);
+// Icône adaptative — premier plan (zone de sécurité ~66%)
+const emblemFg = await emblemLayer(Math.round(SIZE * 0.66));
 await sharp({
   create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
@@ -76,6 +75,5 @@ await sharp({
   .toFile(path.join(OUT, "icon-foreground.png"));
 console.log("✓ assets/icon-foreground.png");
 
-// Icône adaptative Android — arrière-plan : dégradé
 await sharp(bg).png().toFile(path.join(OUT, "icon-background.png"));
 console.log("✓ assets/icon-background.png");

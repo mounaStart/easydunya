@@ -27,10 +27,10 @@ jobs:
       - name: Build web (dist)
         run: npm run build
         env:
-          # Optionnel : si tu ajoutes ces secrets GitHub, le build embarque Supabase/VAPID
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_URL: https://pqljcsnsyvacobdmpqgn.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_DEFAULT_LOCALE: fr
 
       - name: Generate Android launcher icons
         run: npm run native-icons

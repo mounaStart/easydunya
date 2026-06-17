@@ -4,8 +4,12 @@ const config: CapacitorConfig = {
   appId: "app.easydunya",
   appName: "Easy Dunya",
   webDir: "dist",
-  // Le code web est embarqué dans l'APK (build CI).
-  // Cela garantit que les plugins natifs (FCM) fonctionnent correctement.
+  // Charge le site Netlify (toujours à jour + variables d'env correctes).
+  // L'icône et le FCM natif restent dans la couche Android.
+  server: {
+    url: "https://neon-trifle-a8f4fc.netlify.app",
+    cleartext: false,
+  },
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
