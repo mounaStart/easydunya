@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { subscribeToPush, getPushState, type PushState } from "../lib/push";
 import { isNativePlatform } from "../lib/nativePush";
+import { onLocationPromptSettled } from "../lib/startupPrompts";
 
 const SNOOZE_KEY = "ed_notif_snooze_until";
 const SNOOZE_MS = 1000 * 60 * 60 * 24; // 24 h
@@ -16,9 +17,8 @@ function snoozed(): boolean {
 }
 
 /**
- * Bannière qui propose d'activer les notifications.
- * Au clic sur « Autoriser », déclenche la demande de permission native
- * (dialogue Android dans la TWA) puis enregistre l'abonnement Web Push.
+ * Notifications : une seule demande, après le GPS.
+ * Sur APK → boîte système Android directement (pas de bannière intermédiaire).
  */
 export default function NotificationPrompt() {
   const { user } = useAuth();
@@ -26,11 +26,11 @@ export default function NotificationPrompt() {
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(snoozed());
   const [error, setError] = useState<string | null>(null);
+  const [locationReady, setLocationReady] = useState(false);
+  const nativeRequested = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    // Permission accordée (ex: activée dans les réglages Android) mais pas
-    // encore abonné → on abonne automatiquement.
     if (
       isNativePlatform() ||
       (typeof Notification !== "undefined" &&
@@ -46,7 +46,11 @@ export default function NotificationPrompt() {
     refresh();
   }, [refresh]);
 
-  // Re-vérifie au retour sur l'app (après changement de réglages Android)
+  useEffect(() => {
+    setLocationReady(false);
+    return onLocationPromptSettled(() => setLocationReady(true));
+  }, [user?.id]);
+
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState === "visible") refresh();
@@ -59,10 +63,23 @@ export default function NotificationPrompt() {
     };
   }, [refresh]);
 
-  if (!user || hidden) return null;
-  // On ne propose que si l'appareil n'est pas encore abonné et que ce n'est
-  // ni bloqué ni non supporté (dans ces cas, un bouton n'aiderait pas).
+  // APK : une seule boîte système, après la localisation
+  useEffect(() => {
+    if (!user || hidden || !locationReady || nativeRequested.current) return;
+    if (!isNativePlatform() || state !== "off") return;
+
+    nativeRequested.current = true;
+    subscribeToPush(user.id)
+      .then((ok) => refresh().then(() => ok))
+      .then((ok) => {
+        if (ok) setHidden(true);
+      })
+      .catch(() => {});
+  }, [user, hidden, locationReady, state, refresh]);
+
+  if (!user || hidden || !locationReady) return null;
   if (state !== "off") return null;
+  if (isNativePlatform()) return null;
 
   async function enable() {
     if (!user || busy) return;

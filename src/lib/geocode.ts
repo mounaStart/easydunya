@@ -24,6 +24,34 @@ type ReversePayload = {
   display_name?: string;
 };
 
+/** Quartiers / arrondissements connus de Nouakchott (priorité sur les POI OSM). */
+const NOUAKCHOTT_QUARTIERS = [
+  "Tevragh Zeina",
+  "Tevragh-Zeina",
+  "Arafat",
+  "Dar Naim",
+  "Dar Naïm",
+  "Toujounine",
+  "Teyarett",
+  "Ksar",
+  "Sebkha",
+  "El Mina",
+  "Riyad",
+  "Las Palmas",
+  "Las Palomas",
+  "Cinquième",
+  "Cinquieme",
+  "Kadesh",
+  "Tafargh",
+  "Toujoune",
+];
+
+const POSITION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: false,
+  timeout: 20_000,
+  maximumAge: 120_000,
+};
+
 async function fetchReverse(
   lat: number,
   lng: number,
@@ -42,6 +70,15 @@ function cityFromAddress(a?: OsmAddress): string | null {
   return a.city ?? a.town ?? a.municipality ?? a.state ?? null;
 }
 
+function normalizeLabel(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[-_]/g, " ");
+}
+
 /** Nom de rue / ruelle — pas un quartier (ex. « Rue Mohamed… »). */
 export function isStreetLikeName(name: string | null | undefined): boolean {
   if (!name?.trim()) return false;
@@ -51,68 +88,108 @@ export function isStreetLikeName(name: string | null | undefined): boolean {
 }
 
 /**
- * Quartier / arrondissement uniquement (Arafat, Tevragh Zeina…).
- * Exclut les rues retournées par Nominatim au zoom élevé.
+ * Labels OSM trop précis (carrefour, rond-point, commerce…) — pas un quartier.
+ * « Carrefour » = rond-point en français OSM, pas le supermarché.
  */
-function extractAreaQuartier(a?: OsmAddress, allowCounty = false): string | null {
-  if (!a) return null;
-  const candidates = [
+export function isUnusableQuartierLabel(name: string | null | undefined): boolean {
+  if (!name?.trim()) return true;
+  const n = normalizeLabel(name);
+  if (isStreetLikeName(name)) return true;
+  if (/^carrefour$/i.test(name.trim())) return true;
+  return /^(carrefour|rond[\s-]?point|roundabout|junction|croisement|echangeur|échangeur|station|gare|arret|arrêt|marche|marché|market|supermarche|supermarché|pharmacie|mosquee|mosquée|ecole|école|hopital|hôpital|clinique|banque|restaurant|cafe|café|hotel|hôtel|station[\s-]?service|pharmacy|mosque|school|hospital|stade|parking|terminal|port|aeroport|aéroport)\b/i.test(
+    n
+  );
+}
+
+export function isValidQuartierLabel(name: string | null | undefined): boolean {
+  return Boolean(name?.trim()) && !isUnusableQuartierLabel(name);
+}
+
+function matchKnownQuartier(candidates: (string | null | undefined)[]): string | null {
+  for (const known of NOUAKCHOTT_QUARTIERS) {
+    const kn = normalizeLabel(known);
+    for (const c of candidates) {
+      const label = c?.trim();
+      if (!label) continue;
+      const ln = normalizeLabel(label);
+      if (ln === kn || ln.includes(kn) || kn.includes(ln)) {
+        return known.replace("Tevragh-Zeina", "Tevragh Zeina").replace("Dar Naïm", "Dar Naim");
+      }
+    }
+  }
+  return null;
+}
+
+function addressCandidates(a?: OsmAddress): string[] {
+  if (!a) return [];
+  return [
     a.suburb,
     a.neighbourhood,
     a.quarter,
     a.city_district,
     a.district,
     a.borough,
-    ...(allowCounty ? [a.county] : []),
+    a.county,
     a.hamlet,
     a.village,
-  ];
-  for (const c of candidates) {
-    const label = c?.trim();
-    if (label && !isStreetLikeName(label)) return label;
+    a.municipality,
+    a.city,
+    a.town,
+  ].filter((x): x is string => Boolean(x?.trim()));
+}
+
+/**
+ * Quartier / arrondissement uniquement (Arafat, Tevragh Zeina…).
+ * Exclut rues, carrefours et autres POI.
+ */
+function extractAreaQuartier(a?: OsmAddress, allowCounty = false): string | null {
+  const candidates = addressCandidates(a).filter((_, i) => allowCounty || i < 6);
+  const known = matchKnownQuartier(candidates);
+  if (known) return known;
+  for (const label of candidates) {
+    if (isValidQuartierLabel(label)) return label.trim();
   }
   return null;
 }
 
-/** Reverse geocoding : priorité arrondissement/quartier, jamais une rue en premier. */
+function pickFromDisplayName(displayName?: string): string | null {
+  const parts =
+    displayName?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const known = matchKnownQuartier(parts);
+  if (known) return known;
+  return (
+    parts.find((p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p)) ?? null
+  );
+}
+
+/** Reverse geocoding : priorité quartier/arrondissement (zoom large), jamais un POI précis. */
 export async function reverseLocation(
   lat: number,
   lng: number
 ): Promise<{ quartier: string | null; cityName: string | null }> {
   try {
-    const area = await fetchReverse(lat, lng, 14);
-    const areaQuartier = extractAreaQuartier(area?.address, true);
-    const cityName =
-      cityFromAddress(area?.address) ??
-      cityFromAddress((await fetchReverse(lat, lng, 12))?.address) ??
-      null;
+    let cityName: string | null = null;
 
-    if (areaQuartier) return { quartier: areaQuartier, cityName };
+    for (const zoom of [10, 12, 14]) {
+      const payload = await fetchReverse(lat, lng, zoom);
+      if (!payload) continue;
 
-    const wide = await fetchReverse(lat, lng, 12);
-    const wideQuartier = extractAreaQuartier(wide?.address, true);
-    if (wideQuartier) {
-      return {
-        quartier: wideQuartier,
-        cityName: cityName ?? cityFromAddress(wide?.address),
-      };
+      cityName = cityName ?? cityFromAddress(payload.address);
+      const known = matchKnownQuartier([
+        ...addressCandidates(payload.address),
+        ...((payload.display_name ?? "").split(",").map((s) => s.trim()) ?? []),
+      ]);
+      if (known) return { quartier: known, cityName };
+
+      const areaQuartier = extractAreaQuartier(payload.address, zoom <= 12);
+      if (areaQuartier) return { quartier: areaQuartier, cityName };
     }
 
-    const mid = await fetchReverse(lat, lng, 16);
-    const midQuartier = extractAreaQuartier(mid?.address, false);
-    if (midQuartier) {
-      return {
-        quartier: midQuartier,
-        cityName: cityName ?? cityFromAddress(mid?.address),
-      };
-    }
-
-    const parts =
-      area?.display_name?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
-    const fromDisplay = parts.find((p) => !isStreetLikeName(p) && !/mauritanie/i.test(p));
+    const fallback = await fetchReverse(lat, lng, 10);
+    const fromDisplay = pickFromDisplayName(fallback?.display_name);
     return {
-      quartier: fromDisplay ?? null,
-      cityName: cityName ?? parts.find((p) => !/mauritanie/i.test(p)) ?? null,
+      quartier: fromDisplay,
+      cityName: cityName ?? cityFromAddress(fallback?.address),
     };
   } catch {
     return { quartier: null, cityName: null };
@@ -162,66 +239,51 @@ function toGeolocationPosition(pos: {
   };
 }
 
-async function getNativePosition(): Promise<GeolocationPosition> {
-  const status = await Geolocation.checkPermissions();
-  if (status.location !== "granted") {
+/** Demande la permission une seule fois (sans lire la position). */
+export async function ensureLocationPermission(): Promise<boolean> {
+  if (Capacitor.isNativePlatform()) {
+    const status = await Geolocation.checkPermissions();
+    if (status.location === "granted") return true;
     const requested = await Geolocation.requestPermissions();
-    if (requested.location !== "granted") {
-      const err = new Error("Geolocation permission denied") as Error & { code?: number };
-      err.code = 1;
-      throw err;
-    }
+    return requested.location === "granted";
+  }
+  return true;
+}
+
+async function getNativePosition(): Promise<GeolocationPosition> {
+  const allowed = await ensureLocationPermission();
+  if (!allowed) {
+    const err = new Error("Geolocation permission denied") as Error & { code?: number };
+    err.code = 1;
+    throw err;
   }
   const pos = await Geolocation.getCurrentPosition({
-    enableHighAccuracy: true,
-    timeout: 20_000,
-    maximumAge: 60_000,
+    enableHighAccuracy: false,
+    timeout: POSITION_OPTIONS.timeout,
+    maximumAge: POSITION_OPTIONS.maximumAge,
   });
   return toGeolocationPosition(pos);
 }
 
-function getBrowserPosition(options: PositionOptions): Promise<GeolocationPosition> {
+function getBrowserPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation unavailable"));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    navigator.geolocation.getCurrentPosition(resolve, reject, POSITION_OPTIONS);
   });
 }
 
-/** Position actuelle — API native Capacitor sur APK, navigateur sinon. */
+/**
+ * Position actuelle — localisation de l'appareil uniquement (pas de haute précision Google).
+ * Une seule boîte système : autoriser la localisation.
+ */
 export async function getCurrentPosition(): Promise<GeolocationPosition> {
   if (Capacitor.isNativePlatform()) {
-    try {
-      return await getNativePosition();
-    } catch (err) {
-      const code = (err as GeolocationPositionError)?.code;
-      if (code === 1) throw err;
-      const pos = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: false,
-        timeout: 20_000,
-        maximumAge: 120_000,
-      });
-      return toGeolocationPosition(pos);
-    }
+    return getNativePosition();
   }
-
-  try {
-    return await getBrowserPosition({
-      enableHighAccuracy: true,
-      timeout: 20_000,
-      maximumAge: 60_000,
-    });
-  } catch (err) {
-    const code = (err as GeolocationPositionError)?.code;
-    if (code === 1) throw err;
-    return getBrowserPosition({
-      enableHighAccuracy: false,
-      timeout: 20_000,
-      maximumAge: 120_000,
-    });
-  }
+  return getBrowserPosition();
 }
 
 export function geolocationErrorReason(err: unknown): "denied" | "unavailable" {

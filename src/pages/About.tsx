@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCities } from "../hooks/useCities";
@@ -9,6 +9,7 @@ export default function About() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const navigate = useNavigate();
+  const topRef = useRef<HTMLElement>(null);
   const { cities } = useCities();
   const { trips } = useUpcomingTrips({ days: 30 });
 
@@ -30,30 +31,40 @@ export default function About() {
     return Array.from(map.values()).sort((a, b) => a.price - b.price);
   }, [trips, isAr]);
 
+  useLayoutEffect(() => {
+    topRef.current?.scrollIntoView({ block: "start" });
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
+
   return (
     <div className="page max-w-xl space-y-8">
       {/* Hero (le fond dégradé démarre tout en haut) */}
       <section
-        className="relative -mx-4 sm:-mx-6 -mt-6 px-4 sm:px-6 pt-5 pb-7"
+        ref={topRef}
+        className="relative -mx-4 sm:-mx-6 -mt-6 px-4 sm:px-6 pt-5 pb-7 scroll-mt-0"
         style={{
           backgroundImage:
             "linear-gradient(160deg, #d3e6f6 0%, #e6f0fa 38%, #f6ede6 70%, #fbe5d6 100%)",
         }}
       >
-        {/* Barre retour */}
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-brand-700 font-semibold mb-4"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-          {t("common.back")}
-        </button>
+        {/* Barre retour + badge */}
+        <div className="flex flex-col items-start gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-brand-700 font-semibold"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="rtl:rotate-180"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+            {t("common.back")}
+          </button>
 
-        <span className="pill-info">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 2 2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg>
-          {t("home.badge")}
-        </span>
+          <span className="pill-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 2 2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg>
+            {t("home.badge")}
+          </span>
+        </div>
         <h1 className="mt-4 text-4xl font-extrabold text-ink leading-[1.1] text-start">
           {t("home.heroTitle1")}
           <br />
@@ -63,14 +74,10 @@ export default function About() {
         </h1>
         <p className="muted mt-4 leading-relaxed text-start">{t("home.heroLead")}</p>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6">
           <Link to="/" className="btn-primary w-full py-4">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
             {t("home.ctaSearch")}
-          </Link>
-          <Link to="/register" className="btn-secondary w-full py-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 16H9m10 0h1a2 2 0 0 0 2-2v-3l-2-5H5L3 11v3a2 2 0 0 0 2 2h1"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/></svg>
-            {t("home.ctaBecomeDriver")}
           </Link>
         </div>
 

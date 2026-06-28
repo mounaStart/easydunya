@@ -4,6 +4,12 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Date locale du jour (YYYY-MM-DD) — min pour les champs date passager. */
+export function isoToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function formatPrice(amount: number): string {
   const formatted = new Intl.NumberFormat(i18n.language === "ar" ? "ar-MR" : "fr-FR", {
     maximumFractionDigits: 0,

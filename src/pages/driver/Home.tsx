@@ -10,6 +10,7 @@ import type { Booking, Payment, Profile, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import TrackingMap from "../../components/TrackingMap";
 import { clusterBookingsByQuartier } from "../../lib/mapClusters";
+import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import { cn, formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
 
@@ -249,14 +250,14 @@ export default function DriverHome() {
     const p = b.passenger_id ? profiles[b.passenger_id] : null;
     const name = b.guest_name?.trim() || p?.full_name?.trim();
     if (name) return name;
-    const phone = b.guest_phone?.trim() || p?.phone?.trim();
+    const phone = driverPassengerPhone(b, p);
     if (phone) return phone;
     return t("driver.unknownPassenger");
   }
 
   function bookingPhone(b: Booking) {
     const p = b.passenger_id ? profiles[b.passenger_id] : null;
-    return b.guest_phone ?? p?.phone ?? null;
+    return driverPassengerPhone(b, p);
   }
 
   const route = (tr: TripPublic) =>

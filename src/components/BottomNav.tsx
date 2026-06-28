@@ -10,11 +10,10 @@ function IconHome(props: { className?: string }) {
     </svg>
   );
 }
-function IconTicket(props: { className?: string }) {
+function IconBriefcase(props: { className?: string }) {
   return (
     <svg className={props.className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
-      <path d="M13 7v10" strokeDasharray="2 2" />
+      <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
     </svg>
   );
 }
@@ -77,18 +76,17 @@ export default function BottomNav() {
   } else {
     items = [
       home,
-      { to: "/reservation", label: t("nav.reservation"), Icon: IconTicket, end: false },
+      { to: "/reservation", label: t("nav.reservation"), Icon: IconBriefcase, end: false },
       { to: "/historique", label: t("nav.historique"), Icon: IconHistory, end: false },
       profile,
     ];
   }
 
+  const isPassengerNav = !isDriver && !isAdmin;
+
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-slate-100 pb-[env(safe-area-inset-bottom)]">
-      <div
-        className="grid"
-        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0,1fr))` }}
-      >
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-100 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+      <div className="max-w-[379px] mx-auto grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0,1fr))` }}>
         {items.map(({ to, label, Icon, end }) => (
           <NavLink
             key={label}
@@ -96,18 +94,21 @@ export default function BottomNav() {
             end={end}
             className={({ isActive }) =>
               cn(
-                "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
-                isActive ? "text-brand-600" : "text-slate-400"
+                "flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition",
+                isActive ? "text-[#2196f3]" : "text-slate-400"
               )
             }
           >
             {({ isActive }) => (
               <>
-                <Icon className={cn("transition", isActive && "scale-110")} />
-                <span>{label}</span>
-                {isActive && (
-                  <span className="absolute top-0 h-0.5 w-10 rounded-full bg-brand-gradient" />
+                {isPassengerNav && isActive ? (
+                  <span className="w-9 h-9 rounded-2xl bg-[#e3f2fd] inline-flex items-center justify-center">
+                    <Icon className="text-[#2196f3]" />
+                  </span>
+                ) : (
+                  <Icon className={cn("w-6 h-6", isActive && !isPassengerNav && "text-brand-600")} />
                 )}
+                <span>{label}</span>
               </>
             )}
           </NavLink>

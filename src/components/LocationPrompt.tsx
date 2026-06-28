@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { queryLocationPermission, requestAppLocation } from "../lib/locationPermission";
 import { syncPassengerLocation } from "../lib/passengerLocation";
-import { isStreetLikeName } from "../lib/geocode";
+import { isValidQuartierLabel } from "../lib/geocode";
+import { signalLocationPromptSettled } from "../lib/startupPrompts";
 
 const SNOOZE_KEY = "ed_location_snooze_until";
 const SNOOZE_MS = 1000 * 60 * 60 * 4; // 4 h
@@ -28,29 +29,35 @@ export default function LocationPrompt() {
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(snoozed());
   const [error, setError] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
 
   const isPassenger = profile?.role === "passenger";
+  const visible = Boolean(
+    checked && user && !hidden && needsPrompt && (isPassenger || isDriver)
+  );
 
   const refresh = useCallback(async () => {
     if (!user || hidden || (!isPassenger && !isDriver)) {
       setNeedsPrompt(false);
+      setChecked(true);
       return;
     }
 
     const permission = await queryLocationPermission();
     if (permission === "unsupported") {
       setNeedsPrompt(false);
+      setChecked(true);
       return;
     }
     if (permission === "denied") {
       setNeedsPrompt(true);
+      setChecked(true);
       return;
     }
     if (permission === "granted") {
       if (isPassenger) {
         const hasQuartier =
-          Boolean(profile?.quartier?.trim()) &&
-          !isStreetLikeName(profile.quartier) &&
+          isValidQuartierLabel(profile?.quartier) &&
           profile?.location_lat != null &&
           profile?.location_lng != null;
         setNeedsPrompt(!hasQuartier);
@@ -61,15 +68,22 @@ export default function LocationPrompt() {
       } else {
         setNeedsPrompt(false);
       }
+      setChecked(true);
       return;
     }
 
     setNeedsPrompt(true);
+    setChecked(true);
   }, [user, hidden, isPassenger, isDriver, profile, refreshProfile]);
 
   useEffect(() => {
+    setChecked(false);
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (checked && !visible) signalLocationPromptSettled();
+  }, [checked, visible]);
 
   useEffect(() => {
     function onVisible() {
@@ -83,7 +97,7 @@ export default function LocationPrompt() {
     };
   }, [refresh]);
 
-  if (!user || hidden || !needsPrompt || (!isPassenger && !isDriver)) return null;
+  if (!visible) return null;
 
   async function enable() {
     if (!user || busy) return;
@@ -97,7 +111,10 @@ export default function LocationPrompt() {
             ? t("locationPrompt.denied")
             : t("locationPrompt.unavailable")
         );
-        if (result.reason === "denied") setHidden(true);
+        if (result.reason === "denied") {
+          setHidden(true);
+          signalLocationPromptSettled();
+        }
         return;
       }
 
@@ -108,6 +125,7 @@ export default function LocationPrompt() {
 
       setNeedsPrompt(false);
       setHidden(true);
+      signalLocationPromptSettled();
     } catch {
       setError(t("locationPrompt.unavailable"));
     } finally {
@@ -123,6 +141,7 @@ export default function LocationPrompt() {
     }
     setHidden(true);
     setNeedsPrompt(false);
+    signalLocationPromptSettled();
   }
 
   const body = isDriver

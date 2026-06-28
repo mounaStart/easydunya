@@ -8,6 +8,7 @@ import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
 import {
   formatPrice,
   formatPeriod,
+  isoToday,
   relativeDateLabel,
 } from "../lib/utils";
 
@@ -84,7 +85,12 @@ export default function Search() {
               type="date"
               className="input"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              min={isoToday()}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v && v < isoToday()) return;
+                setDate(v);
+              }}
             />
           </div>
           <button className="btn-primary w-full py-4" type="button">

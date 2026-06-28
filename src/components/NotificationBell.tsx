@@ -5,7 +5,12 @@ import { getPushState, subscribeToPush } from "../lib/push";
 import { isNativePlatform } from "../lib/nativePush";
 import { cn } from "../lib/utils";
 
-export default function NotificationBell() {
+type NotificationBellProps = {
+  /** Affiche l’icône même sans connexion (maquette accueil passager). */
+  alwaysVisible?: boolean;
+};
+
+export default function NotificationBell({ alwaysVisible = false }: NotificationBellProps) {
   const { user } = useAuth();
   const { items, unread, markRead, markAllRead } = useNotifications(user?.id);
   const [open, setOpen] = useState(false);
@@ -50,28 +55,30 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  if (!user) return null;
+  if (!user && !alwaysVisible) return null;
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-full text-slate-500 hover:bg-slate-100"
+        onClick={() => user && setOpen((o) => !o)}
+        className="relative w-10 h-10 inline-flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-50"
         aria-label="notifications"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
         </svg>
-        {unread > 0 && (
+        {!user && alwaysVisible ? (
+          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+        ) : unread > 0 ? (
           <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
             {unread > 9 ? "9+" : unread}
           </span>
-        )}
+        ) : null}
       </button>
 
-      {open && (
+      {user && open && (
         <>
           {/* Fond sombre sur mobile pour bien détacher le panneau */}
           <div

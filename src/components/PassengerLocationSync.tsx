@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { queryLocationPermission } from "../lib/locationPermission";
-import { isStreetLikeName } from "../lib/geocode";
+import { isValidQuartierLabel } from "../lib/geocode";
 import { syncPassengerLocation } from "../lib/passengerLocation";
 
 /** Sync passager uniquement si le GPS est déjà autorisé (la bannière gère la 1ère demande). */
@@ -35,7 +35,7 @@ export default function PassengerLocationSync() {
       if (document.visibilityState !== "visible" || syncing.current || !user) return;
       if (
         profile?.quartier?.trim() &&
-        !isStreetLikeName(profile.quartier) &&
+        isValidQuartierLabel(profile.quartier) &&
         profile.location_lat != null &&
         profile.location_lng != null
       ) {

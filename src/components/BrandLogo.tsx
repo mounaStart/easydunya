@@ -2,8 +2,10 @@ import { cn } from "../lib/utils";
 
 interface BrandLogoProps {
   showText?: boolean;
+  showEmblem?: boolean;
   className?: string;
   emblemClassName?: string;
+  textClassName?: string;
 }
 
 function BrandEmblem({ className }: { className?: string }) {
@@ -24,16 +26,18 @@ function BrandEmblem({ className }: { className?: string }) {
 
 export default function BrandLogo({
   showText = true,
+  showEmblem = true,
   className,
   emblemClassName,
+  textClassName,
 }: BrandLogoProps) {
   return (
     <div className={cn("flex items-center gap-1.5 sm:gap-2.5 min-w-0 max-w-full", className)}>
-      <BrandEmblem className={emblemClassName} />
+      {showEmblem && <BrandEmblem className={emblemClassName} />}
       {showText && (
-        <span className="text-sm sm:text-xl md:text-2xl font-extrabold tracking-tight leading-none truncate">
-          <span className="text-brand-600">Easy</span>
-          <span className="text-accent-500">Dunya</span>
+        <span className={cn("text-sm sm:text-xl md:text-2xl font-extrabold tracking-tight leading-none truncate", textClassName)}>
+          <span className="text-[#1565c0]">Easy</span>
+          <span className="text-[#f97316]">Dunya</span>
         </span>
       )}
     </div>

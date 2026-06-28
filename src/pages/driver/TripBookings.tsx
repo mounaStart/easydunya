@@ -10,6 +10,7 @@ import type { Booking, Profile, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import { clusterBookingsByQuartier } from "../../lib/mapClusters";
+import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import {
   distanceKm,
@@ -217,7 +218,7 @@ export default function TripBookings() {
   function renderBookingCard(b: Booking) {
     const profile = b.passenger_id ? profiles[b.passenger_id] : null;
     const name = b.guest_name ?? profile?.full_name ?? "—";
-    const phone = b.guest_phone ?? profile?.phone ?? null;
+    const phone = driverPassengerPhone(b, profile);
     return (
       <div key={b.id} className="card p-3">
         <div className="flex items-center justify-between gap-2">

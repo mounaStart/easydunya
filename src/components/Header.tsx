@@ -19,7 +19,7 @@ function initials(name?: string | null, email?: string | null) {
   return base.charAt(0).toUpperCase();
 }
 
-export default function Header() {
+export default function Header({ className }: { className?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, profile, isAdmin, isDriver, signOut } = useAuth();
@@ -74,7 +74,7 @@ export default function Header() {
   }
 
   return (
-    <header className="app-header sticky top-0 z-30 bg-white border-b border-slate-100 w-full max-w-[100vw] overflow-hidden">
+    <header className={cn("app-header sticky top-0 z-30 bg-white border-b border-slate-100 w-full max-w-[100vw] overflow-hidden", className)}>
       <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2 sm:gap-3">
         <Link to="/" className="min-w-0 flex-1 overflow-hidden" aria-label="Easy Dunya">
           <BrandLogo />

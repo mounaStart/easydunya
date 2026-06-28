@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
 import { resolveBookingPickup, requireBookingLocation, locationFromProfile, type PassengerLocation } from "../lib/passengerLocation";
-import { isStreetLikeName } from "../lib/geocode";
 import { useTripDriverPosition } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
@@ -17,6 +16,49 @@ import {
   relativeDateLabel,
   shareViaWhatsApp,
 } from "../lib/utils";
+
+function hasGpsCoords(loc: PassengerLocation | null): boolean {
+  return (
+    loc != null &&
+    Number.isFinite(loc.lat) &&
+    Number.isFinite(loc.lng)
+  );
+}
+
+function GpsBookingPanel({
+  gpsReady,
+  gpsBusy,
+  onEnable,
+}: {
+  gpsReady: boolean;
+  gpsBusy: boolean;
+  onEnable: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 space-y-2">
+      <p className="text-[11px] text-brand-800 font-medium leading-snug">
+        {t("booking.gpsRequiredHint")}
+      </p>
+      {gpsReady ? (
+        <p className="text-xs text-brand-700 font-semibold inline-flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          {t("booking.gpsActivated")}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={onEnable}
+          disabled={gpsBusy}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition w-full"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          {gpsBusy ? t("common.loading") : t("booking.enableGps")}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function initials(name: string | null): string {
   if (!name) return "?";
@@ -61,12 +103,11 @@ export default function TripDetail() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [sessionLocation, setSessionLocation] = useState<PassengerLocation | null>(() => {
-    const loc = locationFromProfile(profile);
-    if (loc?.quartier?.trim() && !isStreetLikeName(loc.quartier)) return loc;
-    return null;
-  });
+  const [sessionLocation, setSessionLocation] = useState<PassengerLocation | null>(() =>
+    locationFromProfile(profile)
+  );
   const [gpsBusy, setGpsBusy] = useState(false);
+  const autoGpsTried = useRef(false);
   const driverPos = useTripDriverPosition(tripId, trip?.status === "in_progress");
 
   async function handleEnableGps() {
@@ -88,15 +129,18 @@ export default function TripDetail() {
     }
   }
 
-  const gpsQuartier = sessionLocation?.quartier ?? null;
-  const gpsReady = Boolean(gpsQuartier?.trim());
+  const gpsReady = hasGpsCoords(sessionLocation);
 
   useEffect(() => {
     const loc = locationFromProfile(profile);
-    if (loc?.quartier?.trim() && !isStreetLikeName(loc.quartier)) {
-      setSessionLocation(loc);
-    }
-  }, [profile?.quartier, profile?.location_lat, profile?.location_lng]);
+    if (hasGpsCoords(loc)) setSessionLocation(loc);
+  }, [profile?.location_lat, profile?.location_lng, profile?.quartier, profile?.city_label]);
+
+  useEffect(() => {
+    if (!user || gpsReady || gpsBusy || autoGpsTried.current) return;
+    autoGpsTried.current = true;
+    void handleEnableGps();
+  }, [user?.id, tripId, gpsReady, gpsBusy]);
 
   if (loading) return <Spinner />;
   if (!trip) {
@@ -361,25 +405,11 @@ export default function TripDetail() {
           <div className="card p-6 text-center space-y-4">
             <p className="text-slate-600">{t("booking.noSeats")}</p>
             <p className="text-sm text-slate-500">{t("booking.waitingListHint")}</p>
-            <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 space-y-2 text-left">
-              <p className="text-[11px] text-brand-800 font-medium leading-snug">
-                {t("booking.gpsRequiredHint")}
-              </p>
-              {gpsReady ? (
-                <p className="text-xs text-brand-700 font-semibold">
-                  📍 {t("booking.pickupQuartier")} : {gpsQuartier}
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleEnableGps}
-                  disabled={gpsBusy}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition w-full"
-                >
-                  {gpsBusy ? t("common.loading") : t("booking.enableGps")}
-                </button>
-              )}
-            </div>
+            <GpsBookingPanel
+              gpsReady={gpsReady}
+              gpsBusy={gpsBusy}
+              onEnable={handleEnableGps}
+            />
             <button
               onClick={() => handleConfirm(true)}
               disabled={busy || !gpsReady}
@@ -457,26 +487,11 @@ export default function TripDetail() {
             />
           </div>
 
-          <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 space-y-2">
-            <p className="text-[11px] text-brand-800 font-medium leading-snug">
-              {t("booking.gpsRequiredHint")}
-            </p>
-            {gpsReady ? (
-              <p className="text-xs text-brand-700 font-semibold">
-                📍 {t("booking.pickupQuartier")} : {gpsQuartier}
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleEnableGps}
-                disabled={gpsBusy}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition w-full"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                {gpsBusy ? t("common.loading") : t("booking.enableGps")}
-              </button>
-            )}
-          </div>
+          <GpsBookingPanel
+            gpsReady={gpsReady}
+            gpsBusy={gpsBusy}
+            onEnable={handleEnableGps}
+          />
 
           <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs">
             <span className="text-slate-500">

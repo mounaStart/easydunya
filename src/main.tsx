@@ -12,6 +12,10 @@ import "./index.css";
 initNativePush();
 initNativeChrome();
 
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
 // Le service worker PWA (web-push) perturbe FCM natif dans l'APK.
 if (isNativePlatform() && "serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {

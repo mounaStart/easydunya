@@ -1,7 +1,7 @@
 import {
   getCurrentPosition,
   geolocationErrorReason,
-  isStreetLikeName,
+  isValidQuartierLabel,
   reverseLocation,
 } from "./geocode";
 import { supabase } from "./supabase";
@@ -102,7 +102,7 @@ export async function backfillQuartierFromProfile(
   const resolved = resolveQuartierLabel(quartier, cityName, profile.city_label);
   if (!resolved) return locationFromProfile(profile);
 
-  if (profile.quartier?.trim() === resolved && !isStreetLikeName(resolved)) {
+  if (profile.quartier?.trim() === resolved && isValidQuartierLabel(resolved)) {
     return locationFromProfile(profile);
   }
 
@@ -119,7 +119,7 @@ export async function backfillQuartierFromProfile(
 function needsLocationRefresh(profile: Profile | null): boolean {
   if (!profile || profile.role !== "passenger") return false;
   if (profile.location_lat == null || profile.location_lng == null) return true;
-  if (!profile.quartier?.trim() || isStreetLikeName(profile.quartier)) return true;
+  if (!profile.quartier?.trim() || !isValidQuartierLabel(profile.quartier)) return true;
   if (!profile.location_updated_at) return true;
   return Date.now() - new Date(profile.location_updated_at).getTime() > SYNC_MAX_AGE_MS;
 }
@@ -156,7 +156,7 @@ export async function syncPassengerLocation(
 
 export function hasValidBookingLocation(profile: Profile | null): boolean {
   const loc = locationFromProfile(profile);
-  return Boolean(loc?.quartier?.trim() && !isStreetLikeName(loc.quartier));
+  return Boolean(loc?.quartier?.trim() && isValidQuartierLabel(loc.quartier));
 }
 
 /** Repli sur le profil si le GPS frais échoue mais qu'une position valide existe déjà. */
@@ -168,13 +168,25 @@ async function bookingLocationFromProfile(
 
   if (profile.location_lat != null && profile.location_lng != null) {
     const backfilled = await backfillQuartierFromProfile(userId, profile);
-    if (backfilled?.quartier && !isStreetLikeName(backfilled.quartier)) {
+    if (backfilled?.quartier && isValidQuartierLabel(backfilled.quartier)) {
       return backfilled;
     }
   }
 
   const loc = locationFromProfile(profile);
-  if (loc?.quartier && !isStreetLikeName(loc.quartier)) return loc;
+  if (
+    loc &&
+    Number.isFinite(loc.lat) &&
+    Number.isFinite(loc.lng)
+  ) {
+    if (!loc.quartier || !isValidQuartierLabel(loc.quartier)) {
+      return {
+        ...loc,
+        quartier: loc.cityLabel ?? profile.city_label ?? loc.quartier,
+      };
+    }
+    return loc;
+  }
   return null;
 }
 
@@ -192,15 +204,20 @@ export async function requireBookingLocation(
     const lng = pos.coords.longitude;
     const { quartier, cityName } = await reverseLocation(lat, lng);
     const resolved = resolveQuartierLabel(quartier, cityName, profile?.city_label);
-    if (!resolved || isStreetLikeName(resolved)) {
+    const areaLabel = isValidQuartierLabel(resolved)
+      ? resolved
+      : cityName ?? profile?.city_label ?? null;
+    if (!areaLabel) {
       const fallback = await bookingLocationFromProfile(userId, profile);
       if (fallback) return { ok: true, location: fallback };
-      return { ok: false, reason: "no_quartier" };
+      const coordsOnly: PassengerLocation = { lat, lng, quartier: null, cityLabel: cityName };
+      await savePassengerLocation(userId, coordsOnly);
+      return { ok: true, location: coordsOnly };
     }
     const loc: PassengerLocation = {
       lat,
       lng,
-      quartier: resolved,
+      quartier: areaLabel,
       cityLabel: cityName,
     };
     await savePassengerLocation(userId, loc);
@@ -227,14 +244,14 @@ export async function resolveBookingPickup(
 
   if (
     cached?.lat != null &&
-    cached.lng != null &&
-    cached.quartier?.trim() &&
-    !isStreetLikeName(cached.quartier)
+    cached?.lng != null &&
+    Number.isFinite(cached.lat) &&
+    Number.isFinite(cached.lng)
   ) {
     return {
       pickupLat: cached.lat,
       pickupLng: cached.lng,
-      pickupQuartier: cached.quartier,
+      pickupQuartier: cached.quartier ?? cached.cityLabel ?? undefined,
     };
   }
 
@@ -253,7 +270,7 @@ function pickDisplayQuartier(
 ): string | null {
   for (const c of candidates) {
     const label = c?.trim();
-    if (label && !isStreetLikeName(label)) return label;
+    if (label && isValidQuartierLabel(label)) return label;
   }
   return null;
 }
