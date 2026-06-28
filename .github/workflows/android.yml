@@ -79,6 +79,8 @@ jobs:
 
       - name: Capacitor sync
         run: npx cap sync android
+        env:
+          CAPACITOR_SERVER_URL: https://easydunya.netlify.app
 
       - name: Rendre gradlew exécutable
         run: chmod +x android/gradlew

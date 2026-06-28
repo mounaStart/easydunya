@@ -1,5 +1,10 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
+/** URL Netlify liée à GitHub (Site configuration → Domain management). */
+const NETLIFY_URL =
+  process.env.CAPACITOR_SERVER_URL?.replace(/\/$/, "") ||
+  "https://easydunya.netlify.app";
+
 const config: CapacitorConfig = {
   appId: "app.easydunya",
   appName: "Easy Dunya",
@@ -7,7 +12,7 @@ const config: CapacitorConfig = {
   // Charge le site Netlify (toujours à jour + variables d'env correctes).
   // L'icône et le FCM natif restent dans la couche Android.
   server: {
-    url: "https://neon-trifle-a8f4fc.netlify.app",
+    url: NETLIFY_URL,
     cleartext: false,
   },
   plugins: {
