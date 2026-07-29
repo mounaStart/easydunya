@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -17,6 +18,115 @@ interface NavLinkItem {
 function initials(name?: string | null, email?: string | null) {
   const base = (name || email || "?").trim();
   return base.charAt(0).toUpperCase();
+}
+
+function UserAvatarMenu({
+  name,
+  email,
+  onLogout,
+}: {
+  name?: string | null;
+  email?: string | null;
+  onLogout: () => void;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    const timer = window.setTimeout(() => {
+      document.addEventListener("mousedown", onPointerDown);
+    }, 0);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const menu =
+    open && menuPos
+      ? createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[60] bg-black/25 md:hidden"
+              aria-hidden
+              onClick={() => setOpen(false)}
+            />
+            <div
+              ref={menuRef}
+              role="menu"
+              className="fixed z-[70] min-w-[11.5rem] rounded-2xl border border-slate-100 bg-white py-1 shadow-xl"
+              style={{ top: menuPos.top, right: menuPos.right }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-4 py-3.5 text-start text-sm font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100"
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/profile");
+                }}
+              >
+                {t("nav.profile")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full px-4 py-3.5 text-start text-sm font-semibold text-rose-600 hover:bg-rose-50 active:bg-rose-100"
+                onClick={() => {
+                  setOpen(false);
+                  onLogout();
+                }}
+              >
+                {t("nav.logout")}
+              </button>
+            </div>
+          </>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft shrink-0"
+        style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+        title={name ?? email ?? t("nav.profile")}
+        aria-label={t("nav.profile")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {initials(name, email)}
+      </button>
+      {menu}
+    </>
+  );
 }
 
 export default function Header({ className }: { className?: string }) {
@@ -74,7 +184,7 @@ export default function Header({ className }: { className?: string }) {
   }
 
   return (
-    <header className={cn("app-header sticky top-0 z-30 bg-white border-b border-slate-100 w-full max-w-[100vw] overflow-hidden", className)}>
+    <header className={cn("app-header sticky top-0 z-30 bg-white border-b border-slate-100 w-full max-w-[100vw] overflow-x-hidden", className)}>
       <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2 sm:gap-3">
         <Link to="/" className="min-w-0 flex-1 overflow-hidden" aria-label="Easy Dunya">
           <BrandLogo />
@@ -109,22 +219,11 @@ export default function Header({ className }: { className?: string }) {
           <NotificationBell />
           <LangSwitcher />
           {user ? (
-            <>
-              <Link
-                to="/profile"
-                className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft"
-                style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
-                title={profile?.full_name ?? user.email ?? ""}
-              >
-                {initials(profile?.full_name, user.email)}
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="hidden md:inline-flex btn-ghost text-sm"
-              >
-                {t("nav.logout")}
-              </button>
-            </>
+            <UserAvatarMenu
+              name={profile?.full_name}
+              email={user.email}
+              onLogout={handleLogout}
+            />
           ) : (
             <>
               <Link

@@ -8,7 +8,8 @@ alter table public.profiles
   add column if not exists base_city_id uuid references public.cities(id) on delete set null;
 
 -- Vue admin enrichie (recréation avec nouvelles colonnes)
-create or replace view public.drivers_admin as
+drop view if exists public.drivers_admin;
+create view public.drivers_admin as
 select
   p.id,
   p.full_name,

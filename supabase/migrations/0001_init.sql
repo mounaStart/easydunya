@@ -7,8 +7,8 @@
 -- Vues : trips_public (jointures pré-calculées), city_trip_counts
 -- =====================================================================
 
-create extension if not exists "uuid-ossp";
-create extension if not exists "pgcrypto";
+create extension if not exists "uuid-ossp" with schema extensions;
+create extension if not exists "pgcrypto" with schema extensions;
 
 -- ---------------------------------------------------------------------
 -- ENUMS
@@ -33,7 +33,7 @@ exception when duplicate_object then null; end $$;
 -- TABLE: cities
 -- ---------------------------------------------------------------------
 create table if not exists public.cities (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   name_fr      text not null,
   name_ar      text not null,
   region       text,
@@ -65,7 +65,7 @@ create index if not exists idx_profiles_role on public.profiles(role);
 -- TABLE: vehicles (appartiennent aux chauffeurs)
 -- ---------------------------------------------------------------------
 create table if not exists public.vehicles (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   driver_id    uuid not null references public.profiles(id) on delete cascade,
   make         text not null,
   model        text not null,
@@ -81,7 +81,7 @@ create index if not exists idx_vehicles_driver on public.vehicles(driver_id);
 -- TABLE: trips (voyages programmés)
 -- ---------------------------------------------------------------------
 create table if not exists public.trips (
-  id                uuid primary key default uuid_generate_v4(),
+  id                uuid primary key default gen_random_uuid(),
   driver_id         uuid not null references public.profiles(id) on delete cascade,
   vehicle_id        uuid references public.vehicles(id) on delete set null,
   from_city_id      uuid not null references public.cities(id),
@@ -107,7 +107,7 @@ create index if not exists idx_trips_driver on public.trips(driver_id);
 -- TABLE: bookings (réservations — passager peut être invité)
 -- ---------------------------------------------------------------------
 create table if not exists public.bookings (
-  id                uuid primary key default uuid_generate_v4(),
+  id                uuid primary key default gen_random_uuid(),
   trip_id           uuid not null references public.trips(id) on delete cascade,
   passenger_id      uuid references public.profiles(id) on delete set null, -- null = invité
   guest_name        text,
@@ -132,7 +132,7 @@ create index if not exists idx_bookings_status on public.bookings(status);
 -- TABLE: ratings (notes données par passagers aux chauffeurs)
 -- ---------------------------------------------------------------------
 create table if not exists public.ratings (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   booking_id    uuid not null unique references public.bookings(id) on delete cascade,
   trip_id       uuid not null references public.trips(id) on delete cascade,
   driver_id     uuid not null references public.profiles(id) on delete cascade,
@@ -162,7 +162,7 @@ create index if not exists idx_positions_trip_time on public.driver_positions(tr
 -- TABLE: push_subscriptions (abonnements Web Push)
 -- ---------------------------------------------------------------------
 create table if not exists public.push_subscriptions (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references public.profiles(id) on delete cascade,
   endpoint    text not null unique,
   p256dh      text not null,

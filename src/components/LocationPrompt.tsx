@@ -19,8 +19,8 @@ function snoozed(): boolean {
 }
 
 /**
- * Au démarrage : vérifie si le GPS est activé, sinon propose l'activation
- * (passager et chauffeur), comme les applications de transport classiques.
+ * Bannière Easy Dunya : une seule invite visible dans l'app.
+ * La boîte navigateur n'apparaît que si l'utilisateur clique « Activer le GPS ».
  */
 export default function LocationPrompt() {
   const { t } = useTranslation();

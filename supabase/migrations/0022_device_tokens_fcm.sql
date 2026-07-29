@@ -13,7 +13,7 @@
 -- 1) Jetons d'appareils (un par appareil natif)
 -- ---------------------------------------------------------------------
 create table if not exists public.device_tokens (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.profiles(id) on delete cascade,
   token      text not null unique,
   platform   text not null default 'android',

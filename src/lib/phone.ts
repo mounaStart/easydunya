@@ -1,9 +1,13 @@
-// Utilitaires téléphone : l'auth Supabase est basée email. Pour les passagers
-// et chauffeurs (qui s'authentifient par numéro), on dérive un email synthétique
-// stable à partir du numéro normalisé (chiffres uniquement).
+// Utilitaires téléphone : l'auth Supabase est basée email. Passagers, chauffeurs
+// et admin se connectent par numéro + mot de passe via un email synthétique stable.
 
 export function normalizePhone(raw: string): string {
-  return (raw || "").replace(/\D/g, "");
+  let digits = (raw || "").replace(/\D/g, "");
+  // Mauritanie (+222) : accepter 20986280 ou +22220986280 → même identifiant
+  if (digits.startsWith("222") && digits.length === 11) {
+    digits = digits.slice(3);
+  }
+  return digits;
 }
 
 export function phoneToEmail(raw: string): string {

@@ -30,6 +30,12 @@ export default function Login() {
     if (lower.includes("failed to fetch") || lower.includes("network")) {
       return "Impossible de joindre le serveur. Vérifiez votre connexion Internet.";
     }
+    if (lower.includes("invalid api key")) {
+      return "Clé Supabase invalide. Vérifiez VITE_SUPABASE_ANON_KEY dans le fichier .env, puis relancez npm run dev.";
+    }
+    if (lower.includes("email logins are disabled")) {
+      return "Connexion par email/mot de passe désactivée dans Supabase. Activez le provider Email : Authentication → Sign In / Providers → Email.";
+    }
     return msg;
   }
 
@@ -52,7 +58,9 @@ export default function Login() {
     <div className="page max-w-md">
       <div className="card p-6 sm:p-8">
         <h1 className="h1 mb-1">{t("auth.loginTitle")}</h1>
-        <p className="muted mb-6">Easy Dunya</p>
+        <p className="muted mb-6">
+          Easy Dunya — passager, chauffeur ou admin : téléphone + mot de passe
+        </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

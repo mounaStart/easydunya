@@ -26,7 +26,7 @@ interface AuthContextValue {
   isDriver: boolean;
   isPassenger: boolean;
   mustChangePassword: boolean;
-  /** Passager / chauffeur : connexion par téléphone + mot de passe */
+  /** Tous les rôles (passager, chauffeur, admin) : téléphone + mot de passe */
   signInWithPhone: (
     phone: string,
     password: string

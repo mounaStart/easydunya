@@ -4,6 +4,15 @@ name: Build Android APK
 # Lancement manuel : onglet Actions → "Build Android APK" → Run workflow.
 on:
   workflow_dispatch:
+    inputs:
+      capacitor_server_url:
+        description: "URL du site (prod ou Deploy Preview Netlify)"
+        required: false
+        default: "https://easydunya.netlify.app"
+      ref:
+        description: "Branche ou tag Git à builder (ex. preview/local-updates)"
+        required: false
+        default: "main"
   push:
     tags:
       - "v*"
@@ -14,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -80,7 +91,7 @@ jobs:
       - name: Capacitor sync
         run: npx cap sync android
         env:
-          CAPACITOR_SERVER_URL: https://easydunya.netlify.app
+          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacitor_server_url || 'https://easydunya.netlify.app' }}
 
       - name: Rendre gradlew exécutable
         run: chmod +x android/gradlew

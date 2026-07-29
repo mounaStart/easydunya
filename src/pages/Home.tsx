@@ -192,13 +192,13 @@ export default function Home() {
 
   return (
     <div className="w-full max-w-[379px] mx-auto bg-[#eef5fc] min-h-full pb-6">
-      {/* Hero pleine largeur + carte recherche inset à l'intérieur (maquette) */}
+      {/* Hero + carte recherche en dessous (sans chevauchement) */}
       <div className="px-3 pt-4">
         <div className="relative w-full">
           <PassengerHero />
 
-          {/* Carte plus étroite, centrée dans le hero — route visible sur les côtés */}
-          <div className="relative z-10 -mt-[1.625rem] mx-4">
+          {/* Carte sous le hero — même largeur que le hero */}
+          <div className="relative z-10 mt-3 w-full">
             <div className="w-full rounded-[20px] overflow-hidden shadow-[0_10px_36px_rgba(30,136,214,0.16)] bg-white">
               <div className="p-2.5 pb-0">
                 <div className="grid grid-cols-2 gap-1 p-1 bg-[#eceff3] rounded-[14px]">
@@ -326,7 +326,7 @@ export default function Home() {
                 cities={cityCounts}
                 selectedCityId={fromId || null}
                 onSelectCity={(id) => setFromId(id ?? "")}
-                height={220}
+                height="min(360px, 52vh)"
               />
               <SearchTripsButton onClick={handleSearch} label={t("search.searchTripsBtn")} />
             </div>

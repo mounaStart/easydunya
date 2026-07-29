@@ -35,11 +35,11 @@ export default function Profile() {
 
   async function handleLogout() {
     await signOut();
-    navigate("/");
+    navigate("/login", { replace: true });
   }
 
   return (
-    <div className="page max-w-md space-y-4">
+    <div className="page max-w-md space-y-4 pb-4">
       <div className="card p-6 text-center">
         <span
           className="w-20 h-20 rounded-full inline-flex items-center justify-center text-white font-bold text-3xl mb-3"
@@ -67,10 +67,18 @@ export default function Profile() {
         <p className="text-xs text-slate-500 text-center px-2">{t("profile.locationHint")}</p>
       )}
 
-      <button onClick={handleLogout} className="btn-secondary w-full text-rose-600">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        {t("profile.logout")}
-      </button>
+      <div className="card overflow-hidden">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 px-4 py-4 text-rose-600 font-semibold hover:bg-rose-50 active:bg-rose-100 transition"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          {t("nav.logout")}
+        </button>
+      </div>
     </div>
   );
 }

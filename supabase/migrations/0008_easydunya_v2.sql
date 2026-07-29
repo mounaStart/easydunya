@@ -15,7 +15,7 @@
 -- 1) TABLE DES PRIX PAR VILLE
 -- ---------------------------------------------------------------------
 create table if not exists public.city_prices (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   from_city_id   uuid not null references public.cities(id) on delete cascade,
   to_city_id     uuid not null references public.cities(id) on delete cascade,
   price_per_seat integer not null check (price_per_seat > 0),
@@ -74,7 +74,7 @@ alter table public.bookings
 -- 5) NOTIFICATIONS IN-APP
 -- ---------------------------------------------------------------------
 create table if not exists public.notifications (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.profiles(id) on delete cascade,
   title      text not null,
   body       text,
@@ -141,7 +141,7 @@ grant execute on function public.broadcast_drivers_same_destination(uuid,date,te
 -- 6) PAIEMENTS
 -- ---------------------------------------------------------------------
 create table if not exists public.payments (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   booking_id     uuid references public.bookings(id) on delete cascade,
   trip_id        uuid references public.trips(id) on delete set null,
   passenger_id   uuid references public.profiles(id) on delete set null,
