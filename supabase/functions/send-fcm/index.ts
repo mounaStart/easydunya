@@ -18,6 +18,13 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
+/** Logo affiché dans la notification Android (grande icône / image). */
+const FCM_NOTIFICATION_IMAGE =
+  Deno.env.get("FCM_NOTIFICATION_IMAGE") ??
+  "https://easydunya.netlify.app/icons/icon-192.png";
+/** Couleur de teinte de l'icône (orange Easy Dunya, pas le bleu #1E88D6). */
+const FCM_NOTIFICATION_COLOR =
+  Deno.env.get("FCM_NOTIFICATION_COLOR") ?? "#F57C00";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -204,11 +211,19 @@ Deno.serve(async (req) => {
       const message = {
         message: {
           token: t.token,
-          notification: { title, body: body ?? "" },
+          notification: {
+            title,
+            body: body ?? "",
+            image: FCM_NOTIFICATION_IMAGE,
+          },
           android: {
             priority: "HIGH",
             notification: {
               sound: "default",
+              channel_id: "easydunya_default",
+              icon: "ic_stat_notify",
+              color: FCM_NOTIFICATION_COLOR,
+              image: FCM_NOTIFICATION_IMAGE,
               default_vibrate_timings: true,
               notification_priority: "PRIORITY_HIGH",
             },

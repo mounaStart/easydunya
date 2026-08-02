@@ -95,6 +95,36 @@ create trigger trg_booking_notify_status
   after update on public.bookings
   for each row execute function public.tg_booking_notify_status();
 
+-- Passager connecté : confirmation que la demande est bien partie (test APK + UX)
+create or replace function public.tg_booking_notify_passenger_pending()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if new.passenger_id is null then
+    return new;
+  end if;
+
+  perform public.notify_user(
+    new.passenger_id,
+    'Demande envoyée au chauffeur',
+    'Code ' || new.confirmation_code || ' · en attente de confirmation',
+    'booking_pending',
+    jsonb_build_object('booking_id', new.id, 'trip_id', new.trip_id)
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_booking_notify_passenger_pending on public.bookings;
+create trigger trg_booking_notify_passenger_pending
+  after insert on public.bookings
+  for each row execute function public.tg_booking_notify_passenger_pending();
+
 -- Vérification
 select tgname from pg_trigger
-where tgname in ('trg_booking_notify_driver', 'trg_booking_notify_status');
+where tgname in (
+  'trg_booking_notify_driver',
+  'trg_booking_notify_status',
+  'trg_booking_notify_passenger_pending'
+);

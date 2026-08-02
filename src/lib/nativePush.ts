@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "./supabase";
 import type { PushState } from "./push";
@@ -15,6 +16,47 @@ export function isNativePlatform(): boolean {
 let listenersBound = false;
 let currentUserId: string | null = null;
 let pendingToken: string | null = null;
+
+async function ensureLocalNotificationPermission(): Promise<boolean> {
+  let perm = await LocalNotifications.checkPermissions();
+  if (perm.display === "prompt" || perm.display === "prompt-with-rationale") {
+    perm = await LocalNotifications.requestPermissions();
+  }
+  return perm.display === "granted";
+}
+
+/** Affiche une notification système quand l'APK est au premier plan (Android). */
+export async function showNativeForegroundNotification(
+  title: string,
+  body?: string,
+  tag?: string
+): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    if (!(await ensureLocalNotificationPermission())) return;
+    const id =
+      Math.abs(
+        (tag ?? title + (body ?? ""))
+          .split("")
+          .reduce((a, c) => a + c.charCodeAt(0), 0)
+      ) % 2147483646 || 1;
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id,
+          title: title || "Easy Dunya",
+          body: body ?? "",
+          channelId: "easydunya_default",
+          smallIcon: "ic_stat_notify",
+          largeIcon: "ic_notify_large",
+          iconColor: "#F57C00",
+        },
+      ],
+    });
+  } catch (e) {
+    console.warn("[fcm] notification locale (premier plan):", e);
+  }
+}
 
 async function saveToken(userId: string, token: string): Promise<boolean> {
   const { error } = await supabase.from("device_tokens").upsert(
@@ -59,18 +101,11 @@ function bindListeners(): void {
 
   PushNotifications.addListener("pushNotificationReceived", (n) => {
     console.info("[fcm] notif reçue (app ouverte):", n.title);
-    // Sur Android, FCM n'affiche pas toujours la barre système si l'app est ouverte.
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      try {
-        new Notification(n.title ?? "Easy Dunya", {
-          body: n.body ?? undefined,
-          icon: "/icons/icon-192.png",
-          tag: n.data?.tag ?? "easydunya",
-        });
-      } catch {
-        /* non bloquant */
-      }
-    }
+    showNativeForegroundNotification(
+      n.title ?? "Easy Dunya",
+      n.body ?? undefined,
+      n.data?.tag as string | undefined
+    ).catch(() => {});
   });
 }
 
@@ -97,25 +132,25 @@ export async function registerNativePush(userId: string): Promise<boolean> {
     }
 
     if (Capacitor.getPlatform() === "android") {
-      await PushNotifications.createChannel({
+      const channel = {
         id: "easydunya_default",
         name: "Easy Dunya",
         description: "Réservations, confirmations et départs",
-        importance: 5,
-        visibility: 1,
+        importance: 5 as const,
+        visibility: 1 as const,
         sound: "default",
         vibration: true,
-      });
+      };
+      await PushNotifications.createChannel(channel);
+      await LocalNotifications.createChannel(channel);
     }
 
     await PushNotifications.register();
 
-    // Token peut arriver avant ou après register() — on réessaie la sauvegarde.
     if (pendingToken) {
       return saveToken(userId, pendingToken);
     }
 
-    // Attente courte au cas où le token arrive juste après register().
     await new Promise((r) => setTimeout(r, 2500));
     if (pendingToken) {
       return saveToken(userId, pendingToken);
@@ -154,10 +189,7 @@ export async function unregisterNativePush(): Promise<void> {
   if (!isNativePlatform()) return;
   try {
     if (currentUserId) {
-      await supabase
-        .from("device_tokens")
-        .delete()
-        .eq("user_id", currentUserId);
+      await supabase.from("device_tokens").delete().eq("user_id", currentUserId);
     }
     currentUserId = null;
     pendingToken = null;

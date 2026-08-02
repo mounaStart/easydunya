@@ -84,3 +84,88 @@ for (const size of [192, 512]) {
   fs.writeFileSync(out, buf);
   console.log(`✓ public/icons/icon-${size}.png (${buf.length} bytes)`);
 }
+
+/** Icône monochrome blanche sur fond transparent (exigence Android FCM). */
+async function whiteNotifySilhouette(canvasSize = 96) {
+  const inner = Math.round(canvasSize * 0.78);
+  const { data, info } = await sharp(SRC)
+    .ensureAlpha()
+    .trim({ threshold: 12 })
+    .resize(inner, inner, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    // Retire le fond blanc de l'emblème → transparent
+    if (a < 24 || (r > 235 && g > 235 && b > 235)) {
+      data[i + 3] = 0;
+      continue;
+    }
+    data[i] = 255;
+    data[i + 1] = 255;
+    data[i + 2] = 255;
+  }
+
+  const silhouette = await sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+
+  return sharp({
+    create: {
+      width: canvasSize,
+      height: canvasSize,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([{ input: silhouette, gravity: "center" }])
+    .png()
+    .toBuffer();
+}
+
+/** Logo couleur pour la grande icône dans le volet de notifications. */
+async function coloredNotifyLarge(size = 256) {
+  return composeWhiteIcon(size, 0.88);
+}
+
+const ANDROID_RES = path.join(ROOT, "android", "app", "src", "main", "res");
+const NOTIFY_DENSITIES = [
+  ["drawable-mdpi", 24],
+  ["drawable-hdpi", 36],
+  ["drawable-xhdpi", 48],
+  ["drawable-xxhdpi", 72],
+  ["drawable-xxxhdpi", 96],
+];
+
+for (const [folder, px] of NOTIFY_DENSITIES) {
+  const dir = path.join(ANDROID_RES, folder);
+  fs.mkdirSync(dir, { recursive: true });
+  const out = path.join(dir, "ic_stat_notify.png");
+  const oldXml = path.join(dir, "ic_stat_notify.xml");
+  if (fs.existsSync(oldXml)) fs.unlinkSync(oldXml);
+  await sharp(await whiteNotifySilhouette(px))
+    .png()
+    .toFile(out);
+  console.log(`✓ android/.../${folder}/ic_stat_notify.png (${px}px)`);
+}
+
+const drawableRoot = path.join(ANDROID_RES, "drawable");
+fs.mkdirSync(drawableRoot, { recursive: true });
+const legacyNotify = path.join(drawableRoot, "ic_stat_notify.png");
+const legacyXml = path.join(drawableRoot, "ic_stat_notify.xml");
+if (fs.existsSync(legacyXml)) fs.unlinkSync(legacyXml);
+await sharp(await whiteNotifySilhouette(96))
+  .png()
+  .toFile(legacyNotify);
+
+const largeNotify = path.join(drawableRoot, "ic_notify_large.png");
+await sharp(await coloredNotifyLarge(256))
+  .png()
+  .toFile(largeNotify);
+console.log("✓ android/.../drawable/ic_notify_large.png (logo couleur)");
