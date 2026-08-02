@@ -1,5 +1,4 @@
 import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "./supabase";
 import type { PushState } from "./push";
@@ -16,50 +15,8 @@ export function isNativePlatform(): boolean {
 let listenersBound = false;
 let currentUserId: string | null = null;
 let pendingToken: string | null = null;
-/** Évite d'enregistrer le même token FCM plusieurs fois (→ notifs bienvenue en triple). */
+/** Évite d'enregistrer le même token FCM plusieurs fois (→ notif bienvenue en double). */
 let lastSavedToken: string | null = null;
-
-async function ensureLocalNotificationPermission(): Promise<boolean> {
-  let perm = await LocalNotifications.checkPermissions();
-  if (perm.display === "prompt" || perm.display === "prompt-with-rationale") {
-    perm = await LocalNotifications.requestPermissions();
-  }
-  return perm.display === "granted";
-}
-
-/** Affiche une notification système quand l'APK est au premier plan (Android). */
-export async function showNativeForegroundNotification(
-  title: string,
-  body?: string,
-  tag?: string
-): Promise<void> {
-  if (!isNativePlatform()) return;
-  try {
-    if (!(await ensureLocalNotificationPermission())) return;
-    const id =
-      tag === "welcome"
-        ? 1001
-        : Math.abs(
-            (tag ?? title + (body ?? ""))
-              .split("")
-              .reduce((a, c) => a + c.charCodeAt(0), 0)
-          ) % 2147483646 || 1;
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id,
-          title: title || "Easy Dunya",
-          body: body ?? "",
-          channelId: "easydunya_default",
-          largeIcon: "ic_notify_large",
-          iconColor: "#F57C00",
-        },
-      ],
-    });
-  } catch (e) {
-    console.warn("[fcm] notification locale (premier plan):", e);
-  }
-}
 
 async function saveToken(userId: string, token: string): Promise<boolean> {
   if (lastSavedToken === token && currentUserId === userId) {
@@ -106,16 +63,9 @@ function bindListeners(): void {
     console.warn("[fcm] erreur d'enregistrement:", JSON.stringify(err));
   });
 
+  // Pas de notification locale en doublon : une seule notif FCM (logo Easy Dunya).
   PushNotifications.addListener("pushNotificationReceived", (n) => {
-    console.info("[fcm] notif reçue (app ouverte):", n.title);
-    // Uniquement si l'app est visible : FCM n'affiche pas la barre au premier plan sur Android.
-    if (document.visibilityState !== "visible") return;
-    const tag = (n.data?.type as string | undefined) ?? (n.data?.tag as string | undefined);
-    showNativeForegroundNotification(
-      n.title ?? "Easy Dunya",
-      n.body ?? undefined,
-      tag
-    ).catch(() => {});
+    console.info("[fcm] notif reçue (app ouverte, cloche uniquement):", n.title);
   });
 }
 
@@ -142,17 +92,15 @@ export async function registerNativePush(userId: string): Promise<boolean> {
     }
 
     if (Capacitor.getPlatform() === "android") {
-      const channel = {
+      await PushNotifications.createChannel({
         id: "easydunya_default",
         name: "Easy Dunya",
         description: "Réservations, confirmations et départs",
-        importance: 5 as const,
-        visibility: 1 as const,
+        importance: 5,
+        visibility: 1,
         sound: "default",
         vibration: true,
-      };
-      await PushNotifications.createChannel(channel);
-      await LocalNotifications.createChannel(channel);
+      });
     }
 
     await PushNotifications.register();

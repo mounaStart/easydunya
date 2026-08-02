@@ -28,10 +28,10 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Icône notification = logo app (comme ancienne version) -->
+        <!-- Petite icône = silhouette Easy Dunya (comme YouTube utilise son logo monochrome) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher"
+            android:resource="@drawable/ic_stat_notify"
         />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

@@ -62,6 +62,7 @@ interface PushPayload {
   user_id?: string;
   title?: string;
   body?: string | null;
+  type?: string | null;
   data?: Record<string, unknown> | null;
 }
 
@@ -167,10 +168,16 @@ Deno.serve(async (req) => {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const { user_id, title, body, data } = payload;
+  const { user_id, title, body, type, data } = payload;
   if (!user_id || !title) {
     return new Response("Missing user_id or title", { status: 400 });
   }
+
+  const notifType =
+    (typeof type === "string" && type) ||
+    (data && typeof data.type === "string" ? data.type : "") ||
+    "default";
+  const notifTag = `easydunya_${notifType}`;
 
   const { data: tokens, error } = await admin
     .from("device_tokens")
@@ -187,7 +194,7 @@ Deno.serve(async (req) => {
   }
 
   // Les valeurs `data` FCM doivent être des chaînes.
-  const dataStr: Record<string, string> = {};
+  const dataStr: Record<string, string> = { type: notifType };
   if (data && typeof data === "object") {
     for (const [k, v] of Object.entries(data)) {
       dataStr[k] = typeof v === "string" ? v : JSON.stringify(v);
@@ -218,10 +225,13 @@ Deno.serve(async (req) => {
           },
           android: {
             priority: "HIGH",
+            collapse_key: notifTag,
             notification: {
               sound: "default",
               channel_id: "easydunya_default",
+              icon: "ic_stat_notify",
               color: FCM_NOTIFICATION_COLOR,
+              tag: notifTag,
               image: FCM_NOTIFICATION_IMAGE,
               default_vibrate_timings: true,
               notification_priority: "PRIORITY_HIGH",
