@@ -30,6 +30,27 @@ interface ServiceAccount {
   token_uri?: string;
 }
 
+function parseServiceAccount(raw: string): ServiceAccount {
+  let parsed: unknown = raw.trim();
+  // Parfois le secret est collé comme chaîne JSON échappée une 2e fois.
+  if (typeof parsed === "string" && parsed.startsWith('"')) {
+    parsed = JSON.parse(parsed);
+  }
+  if (typeof parsed === "string") {
+    parsed = JSON.parse(parsed);
+  }
+  const sa = parsed as ServiceAccount;
+  if (!sa?.client_email || !sa?.project_id || !sa?.private_key) {
+    throw new Error(
+      "FCM_SERVICE_ACCOUNT incomplet : il faut client_email, project_id et private_key (fichier JSON Firebase entier).",
+    );
+  }
+  if (sa.private_key.includes("\\n")) {
+    sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+  }
+  return sa;
+}
+
 interface PushPayload {
   user_id?: string;
   title?: string;
@@ -51,6 +72,7 @@ function base64url(input: ArrayBuffer | string): string {
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
+  if (!pem) throw new Error("private_key manquant dans FCM_SERVICE_ACCOUNT");
   const b64 = pem
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -123,9 +145,12 @@ Deno.serve(async (req) => {
 
   let sa: ServiceAccount;
   try {
-    sa = JSON.parse(FCM_SERVICE_ACCOUNT);
-  } catch {
-    return new Response("FCM_SERVICE_ACCOUNT invalide (JSON)", { status: 500 });
+    sa = parseServiceAccount(FCM_SERVICE_ACCOUNT);
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   let payload: PushPayload;
@@ -204,7 +229,9 @@ Deno.serve(async (req) => {
           sent++;
         } else {
           const errText = await res.text();
-          errors.push(`token ${t.token.slice(0, 20)}… → ${res.status}: ${errText}`);
+          errors.push(
+            `token ${(t.token ?? "").slice(0, 20)}… → ${res.status}: ${errText}`,
+          );
           let errJson: { error?: { details?: { errorCode?: string }[]; status?: string } } = {};
           try {
             errJson = JSON.parse(errText);
@@ -221,7 +248,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (e) {
-        errors.push(`token ${t.token.slice(0, 20)}… → réseau: ${String(e)}`);
+        errors.push(`token ${(t.token ?? "").slice(0, 20)}… → réseau: ${String(e)}`);
       }
     }),
   );
