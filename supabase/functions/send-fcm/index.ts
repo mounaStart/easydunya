@@ -221,7 +221,6 @@ Deno.serve(async (req) => {
             notification: {
               sound: "default",
               channel_id: "easydunya_default",
-              icon: "ic_stat_notify",
               color: FCM_NOTIFICATION_COLOR,
               image: FCM_NOTIFICATION_IMAGE,
               default_vibrate_timings: true,

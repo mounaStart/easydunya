@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
-import { isNativePlatform, showNativeForegroundNotification } from "../lib/nativePush";
 import type { AppNotification } from "../lib/types";
 
 // Vrai dès qu'un abonnement Web Push est actif : on évite alors d'afficher
@@ -87,12 +86,8 @@ export function useNotifications(userId: string | undefined) {
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [n, ...prev].slice(0, 50)
       );
-      if (!n.title) return;
-      if (isNativePlatform()) {
-        showNativeForegroundNotification(n.title, n.body ?? undefined, n.type ?? n.id).catch(
-          () => {}
-        );
-      } else if (!pushActive) {
+      // Sur APK : FCM affiche déjà la barre (pas de doublon local via Realtime).
+      if (!pushActive && n.title) {
         showSystemNotification(n.title, n.body ?? undefined);
       }
     }

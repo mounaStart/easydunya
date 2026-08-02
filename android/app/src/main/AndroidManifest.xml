@@ -28,10 +28,10 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- FCM : icône = emblème Easy Dunya (silhouette blanche), couleur orange marque -->
+        <!-- Icône notification = logo app (comme ancienne version) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_notify"
+            android:resource="@mipmap/ic_launcher"
         />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

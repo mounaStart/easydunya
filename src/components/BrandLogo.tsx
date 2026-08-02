@@ -1,8 +1,11 @@
 import { cn } from "../lib/utils";
+import { isNativePlatform } from "../lib/nativePush";
 
 /** Bleu « Easy » — identique au texte « Votre voyage » du bandeau hero. */
 const BRAND_EASY_BLUE = "#0355F0";
 const BRAND_DUNYA_ORANGE = "#f97316";
+const EMBLEM_URL =
+  "https://easydunya.netlify.app/brand/emblem.png";
 
 interface BrandLogoProps {
   showText?: boolean;
@@ -13,9 +16,10 @@ interface BrandLogoProps {
 }
 
 function BrandEmblem({ className }: { className?: string }) {
+  const src = isNativePlatform() ? EMBLEM_URL : "/brand/emblem.png";
   return (
     <img
-      src="/brand/emblem.png"
+      src={src}
       alt=""
       width={48}
       height={32}

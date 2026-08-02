@@ -16,6 +16,8 @@ export function isNativePlatform(): boolean {
 let listenersBound = false;
 let currentUserId: string | null = null;
 let pendingToken: string | null = null;
+/** Évite d'enregistrer le même token FCM plusieurs fois (→ notifs bienvenue en triple). */
+let lastSavedToken: string | null = null;
 
 async function ensureLocalNotificationPermission(): Promise<boolean> {
   let perm = await LocalNotifications.checkPermissions();
@@ -35,11 +37,13 @@ export async function showNativeForegroundNotification(
   try {
     if (!(await ensureLocalNotificationPermission())) return;
     const id =
-      Math.abs(
-        (tag ?? title + (body ?? ""))
-          .split("")
-          .reduce((a, c) => a + c.charCodeAt(0), 0)
-      ) % 2147483646 || 1;
+      tag === "welcome"
+        ? 1001
+        : Math.abs(
+            (tag ?? title + (body ?? ""))
+              .split("")
+              .reduce((a, c) => a + c.charCodeAt(0), 0)
+          ) % 2147483646 || 1;
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -47,7 +51,6 @@ export async function showNativeForegroundNotification(
           title: title || "Easy Dunya",
           body: body ?? "",
           channelId: "easydunya_default",
-          smallIcon: "ic_stat_notify",
           largeIcon: "ic_notify_large",
           iconColor: "#F57C00",
         },
@@ -59,6 +62,9 @@ export async function showNativeForegroundNotification(
 }
 
 async function saveToken(userId: string, token: string): Promise<boolean> {
+  if (lastSavedToken === token && currentUserId === userId) {
+    return true;
+  }
   const { error } = await supabase.from("device_tokens").upsert(
     {
       user_id: userId,
@@ -80,6 +86,7 @@ async function saveToken(userId: string, token: string): Promise<boolean> {
     console.warn("[fcm] nettoyage doublons échoué:", cleanupError.message);
   }
   console.info("[fcm] token enregistré ✓");
+  lastSavedToken = token;
   return true;
 }
 
@@ -101,10 +108,13 @@ function bindListeners(): void {
 
   PushNotifications.addListener("pushNotificationReceived", (n) => {
     console.info("[fcm] notif reçue (app ouverte):", n.title);
+    // Uniquement si l'app est visible : FCM n'affiche pas la barre au premier plan sur Android.
+    if (document.visibilityState !== "visible") return;
+    const tag = (n.data?.type as string | undefined) ?? (n.data?.tag as string | undefined);
     showNativeForegroundNotification(
       n.title ?? "Easy Dunya",
       n.body ?? undefined,
-      n.data?.tag as string | undefined
+      tag
     ).catch(() => {});
   });
 }
@@ -193,6 +203,7 @@ export async function unregisterNativePush(): Promise<void> {
     }
     currentUserId = null;
     pendingToken = null;
+    lastSavedToken = null;
     await PushNotifications.removeAllListeners();
     listenersBound = false;
   } catch {
