@@ -1,5 +1,5 @@
-// Utilitaires téléphone : l'auth Supabase est basée email. Passagers, chauffeurs
-// et admin se connectent par numéro + mot de passe via un email synthétique stable.
+// Connexion par téléphone (+ mot de passe). Supabase stocke un identifiant interne
+// invisible (jamais saisi par l'utilisateur) — seul l'admin peut se connecter par email.
 
 export function normalizePhone(raw: string): string {
   let digits = (raw || "").replace(/\D/g, "");

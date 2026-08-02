@@ -1,5 +1,9 @@
 import { cn } from "../lib/utils";
 
+/** Bleu « Easy » — identique au texte « Votre voyage » du bandeau hero. */
+const BRAND_EASY_BLUE = "#0355F0";
+const BRAND_DUNYA_ORANGE = "#f97316";
+
 interface BrandLogoProps {
   showText?: boolean;
   showEmblem?: boolean;
@@ -36,8 +40,8 @@ export default function BrandLogo({
       {showEmblem && <BrandEmblem className={emblemClassName} />}
       {showText && (
         <span className={cn("text-sm sm:text-xl md:text-2xl font-extrabold tracking-tight leading-none truncate", textClassName)}>
-          <span className="text-[#1565c0]">Easy</span>
-          <span className="text-[#f97316]">Dunya</span>
+          <span style={{ color: BRAND_EASY_BLUE }}>Easy</span>
+          <span style={{ color: BRAND_DUNYA_ORANGE }}>Dunya</span>
         </span>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { mapAuthError } from "../lib/authErrors";
 import { isValidPhone } from "../lib/phone";
 
 export default function Register() {
@@ -41,7 +42,7 @@ export default function Register() {
     setLoading(false);
 
     if (error) {
-      setError(error);
+      setError(mapAuthError(error));
       return;
     }
     navigate("/", { replace: true });

@@ -1,0 +1,8 @@
+# Edge Functions — config déploiement Supabase
+project_id = "prfmqfnaqtmyfyxqjeli"
+
+[functions.register-passenger]
+verify_jwt = false
+
+[functions.create-driver-account]
+verify_jwt = true

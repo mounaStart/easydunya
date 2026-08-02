@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { mapAuthError, isEmailLogin } from "../lib/authErrors";
 import { useAuth } from "../hooks/useAuth";
 import PasswordInput from "../components/PasswordInput";
 
 export default function Login() {
   const { t } = useTranslation();
-  const { signInWithPhone } = useAuth();
+  const { signInWithPhone, signInWithEmail } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string })?.from ?? "/";
@@ -16,39 +17,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function mapError(msg: string, code?: string): string {
-    const lower = msg.toLowerCase();
-    if (code === "email_not_confirmed" || lower.includes("not confirmed")) {
-      return "Compte non confirmé. Contactez l'administrateur.";
-    }
-    if (
-      code === "invalid_credentials" ||
-      lower.includes("invalid login credentials")
-    ) {
-      return "Numéro de téléphone ou mot de passe incorrect.";
-    }
-    if (lower.includes("failed to fetch") || lower.includes("network")) {
-      return "Impossible de joindre le serveur. Vérifiez votre connexion Internet.";
-    }
-    if (lower.includes("invalid api key")) {
-      return "Clé Supabase invalide. Vérifiez VITE_SUPABASE_ANON_KEY dans le fichier .env, puis relancez npm run dev.";
-    }
-    if (lower.includes("email logins are disabled")) {
-      return "Connexion par email/mot de passe désactivée dans Supabase. Activez le provider Email : Authentication → Sign In / Providers → Email.";
-    }
-    return msg;
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error, code } = await signInWithPhone(phone.trim(), password);
+    const login = phone.trim();
+    const result = isEmailLogin(login)
+      ? await signInWithEmail(login, password)
+      : await signInWithPhone(login, password);
 
     setLoading(false);
-    if (error) {
-      setError(mapError(error, code));
+    if (result.error) {
+      setError(mapAuthError(result.error, result.code));
       return;
     }
     navigate(from, { replace: true });
@@ -59,18 +40,18 @@ export default function Login() {
       <div className="card p-6 sm:p-8">
         <h1 className="h1 mb-1">{t("auth.loginTitle")}</h1>
         <p className="muted mb-6">
-          Easy Dunya — passager, chauffeur ou admin : téléphone + mot de passe
+          Passagers et chauffeurs : téléphone + mot de passe. Admin : email ou téléphone.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">{t("common.phone")}</label>
+            <label className="label">{t("common.phone")} / email admin</label>
             <input
-              type="tel"
+              type="text"
               required
               inputMode="tel"
-              autoComplete="tel"
-              placeholder="+222…"
+              autoComplete="username"
+              placeholder="+222… ou admin@…"
               className="input"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}

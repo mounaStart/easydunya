@@ -44,7 +44,7 @@ export default function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps)
       />
       <aside className="absolute inset-y-0 left-0 w-[min(18rem,85vw)] bg-white shadow-xl p-5 flex flex-col gap-1">
         <div className="font-extrabold text-lg mb-4">
-          <span className="text-brand-600">Easy</span>
+          <span className="text-[#0355F0]">Easy</span>
           <span className="text-accent-500">Dunya</span>
         </div>
         {links.map((l) => (

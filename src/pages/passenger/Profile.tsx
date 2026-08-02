@@ -16,7 +16,11 @@ export default function Profile() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const name = profile?.full_name ?? user?.email ?? "—";
+  const isAdmin = profile?.role === "admin";
+  const displayEmail =
+    user?.email && !user.email.endsWith("@phone.easydunya.app") ? user.email : null;
+
+  const name = profile?.full_name ?? profile?.phone ?? displayEmail ?? "—";
   const roleLabel =
     profile?.role === "driver"
       ? t("auth.registerAsDriver")
@@ -52,7 +56,9 @@ export default function Profile() {
       </div>
 
       <div className="card overflow-hidden">
-        <Row label={t("common.email")} value={user?.email ?? "—"} />
+        {isAdmin && displayEmail && (
+          <Row label={t("common.email")} value={displayEmail} />
+        )}
         <Row label={t("common.phone")} value={profile?.phone ?? "—"} />
         {isPassenger && (
           <>
