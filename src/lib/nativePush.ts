@@ -59,6 +59,18 @@ function bindListeners(): void {
 
   PushNotifications.addListener("pushNotificationReceived", (n) => {
     console.info("[fcm] notif reçue (app ouverte):", n.title);
+    // Sur Android, FCM n'affiche pas toujours la barre système si l'app est ouverte.
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try {
+        new Notification(n.title ?? "Easy Dunya", {
+          body: n.body ?? undefined,
+          icon: "/icons/icon-192.png",
+          tag: n.data?.tag ?? "easydunya",
+        });
+      } catch {
+        /* non bloquant */
+      }
+    }
   });
 }
 
@@ -82,6 +94,18 @@ export async function registerNativePush(userId: string): Promise<boolean> {
     if (perm.receive !== "granted") {
       console.warn("[fcm] permission refusée:", perm.receive);
       return false;
+    }
+
+    if (Capacitor.getPlatform() === "android") {
+      await PushNotifications.createChannel({
+        id: "easydunya_default",
+        name: "Easy Dunya",
+        description: "Réservations, confirmations et départs",
+        importance: 5,
+        visibility: 1,
+        sound: "default",
+        vibration: true,
+      });
     }
 
     await PushNotifications.register();

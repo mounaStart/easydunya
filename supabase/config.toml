@@ -6,3 +6,9 @@ verify_jwt = false
 
 [functions.create-driver-account]
 verify_jwt = true
+
+[functions.send-push]
+verify_jwt = true
+
+[functions.send-fcm]
+verify_jwt = true
