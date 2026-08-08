@@ -46,9 +46,21 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// N'ouvre que des URLs de l'application : un payload push forgé ne doit
+// jamais pouvoir rediriger l'utilisateur vers un site externe.
+function sameOriginUrl(raw) {
+  try {
+    const resolved = new URL(raw || "/", self.location.origin);
+    if (resolved.origin === self.location.origin) return resolved.href;
+  } catch (_e) {
+    /* URL invalide → accueil */
+  }
+  return self.location.origin + "/";
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  const targetUrl = sameOriginUrl(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     clients
