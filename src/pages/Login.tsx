@@ -10,7 +10,10 @@ export default function Login() {
   const { signInWithPhone, signInWithEmail } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string })?.from ?? "/";
+  // Uniquement un chemin interne ("/…", pas "//host" ni "/\host") — jamais
+  // une URL externe, pour empêcher toute redirection ouverte après connexion.
+  const rawFrom = (location.state as { from?: string })?.from ?? "/";
+  const from = /^\/(?![/\\])/.test(rawFrom) ? rawFrom : "/";
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");

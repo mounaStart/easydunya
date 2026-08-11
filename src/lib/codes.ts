@@ -3,19 +3,16 @@
 
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
+// Le code sert de clé d'accès à la réservation (nom + téléphone du passager) :
+// uniquement crypto.getRandomValues (jamais Math.random, prévisible), avec
+// rejet des valeurs biaisées par le modulo.
 export function generateConfirmationCode(length = 6): string {
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    const arr = new Uint32Array(length);
-    crypto.getRandomValues(arr);
-    let out = "";
-    for (let i = 0; i < length; i++) {
-      out += ALPHABET[arr[i] % ALPHABET.length];
-    }
-    return out;
-  }
+  const bound = Math.floor(0x100000000 / ALPHABET.length) * ALPHABET.length;
+  const buf = new Uint32Array(1);
   let out = "";
-  for (let i = 0; i < length; i++) {
-    out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  while (out.length < length) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < bound) out += ALPHABET[buf[0] % ALPHABET.length];
   }
   return out;
 }
