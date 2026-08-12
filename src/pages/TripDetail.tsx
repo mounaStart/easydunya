@@ -5,7 +5,7 @@ import { useTrip } from "../hooks/useTrips";
 import { useAuth } from "../hooks/useAuth";
 import { createBooking, rememberBookingCode } from "../hooks/useBookings";
 import { resolveBookingPickup, requireBookingLocation, locationFromProfile, type PassengerLocation } from "../lib/passengerLocation";
-import { useTripDriverPosition } from "../hooks/useDriverGps";
+import { useTripDriverPosition, isDriverPositionStale, driverPositionAgeMinutes } from "../hooks/useDriverGps";
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
 import TrackingMap from "../components/TrackingMap";
@@ -108,7 +108,12 @@ export default function TripDetail() {
   );
   const [gpsBusy, setGpsBusy] = useState(false);
   const autoGpsTried = useRef(false);
-  const driverPos = useTripDriverPosition(tripId, trip?.status === "in_progress");
+  const driverTrack = useTripDriverPosition(tripId, trip?.status === "in_progress");
+  const driverPos = driverTrack
+    ? { lat: driverTrack.lat, lng: driverTrack.lng }
+    : null;
+  const staleDriver = isDriverPositionStale(driverTrack);
+  const staleMins = driverPositionAgeMinutes(driverTrack);
 
   async function handleEnableGps() {
     if (!user) return;
@@ -338,6 +343,11 @@ export default function TripDetail() {
             />
             {!driverPos && (
               <p className="muted text-sm mt-2">{t("trip.waitingDriverPos")}</p>
+            )}
+            {driverPos && staleDriver && staleMins != null && (
+              <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-2">
+                {t("trip.staleDriverPos", { minutes: staleMins })}
+              </p>
             )}
           </div>
         )}

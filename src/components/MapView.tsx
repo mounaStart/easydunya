@@ -3,6 +3,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { CityTripCount } from "../lib/types";
 import { useTranslation } from "react-i18next";
+import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
 
 // Sans cette ligne, les icônes Leaflet ne s'affichent pas correctement avec Vite/Webpack.
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -64,7 +65,7 @@ export default function MapView({
       {legend && (
         <div className="pointer-events-none absolute z-[1000] top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur rounded-2xl shadow-card px-3 py-2 text-xs space-y-1 border border-slate-100">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: "#f97316" }} />
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: BRAND_ORANGE }} />
             {t("search.legendActive")}
           </div>
           <div className="flex items-center gap-2">
@@ -88,14 +89,14 @@ export default function MapView({
           const count = c.upcoming_trips;
           const scale = 14 + Math.round((count / maxCount) * 18);
           const isSelected = selectedCityId === c.id;
-          const color = count > 0 ? "#f97316" : "#94a3b8";
+          const color = count > 0 ? BRAND_ORANGE : "#94a3b8";
           const icon = L.divIcon({
             className: "ed-marker",
             html: `<div style="
               width:${scale}px;height:${scale}px;
               border-radius:50%;
               background:${color};
-              border:3px solid ${isSelected ? "#1e88d6" : "white"};
+              border:3px solid ${isSelected ? BRAND_BLUE : "white"};
               box-shadow:0 4px 10px rgba(30,136,214,0.35);
               display:flex;align-items:center;justify-content:center;
               color:white;font-weight:700;font-size:11px;

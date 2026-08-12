@@ -196,6 +196,7 @@
     "vehiclePlate": "رقم اللوحة",
     "trackingMap": "خريطة التتبع",
     "waitingDriverPos": "في انتظار موقع السائق…",
+    "staleDriverPos": "آخر موقع معروف منذ {{minutes}} د — قد يكون السائق متوقفاً أو غير متصل.",
     "call": "اتصل بالسائق",
     "liveTracking": "تتبع مباشر",
     "notStarted": "لم يبدأ السائق الرحلة بعد",
@@ -273,6 +274,12 @@
     "seeDashboard": "عرض لوحة التحكم الكاملة",
     "manageTrip": "إدارة",
     "seatsSold": "{{sold}}/{{total}} مقاعد مباعة",
+    "status": {
+      "pending": "قيد الانتظار",
+      "approved": "معتمد",
+      "rejected": "مرفوض",
+      "suspended": "موقوف"
+    },
     "commissionTipTitle": "عمولة إيزي دنيا",
     "commissionTipDesc": "6% لكل مقعد إذا تجاوزت الرحلة 100 كم، وإلا 100 أوقية ثابتة.",
     "earnings": "صافي الأرباح",
@@ -365,7 +372,13 @@
     "approveDriver": "اعتماد",
     "rejectDriver": "رفض",
     "suspend": "تعليق",
-    "noPending": "لا يوجد سائق قيد الاعتماد"
+    "noPending": "لا يوجد سائق قيد الاعتماد",
+    "roles": {
+      "admin": "مدير",
+      "driver": "سائق",
+      "passenger": "مسافر"
+    },
+    "confirmDriverStatus": "تأكيد « {{status}} » لـ {{name}} ؟"
   },
   "reservation": {
     "title": "حجزي",
@@ -405,8 +418,10 @@
     "later": "لاحقاً",
     "enable": "تفعيل GPS",
     "enabling": "جار التفعيل…",
-    "denied": "تم رفض الموقع. اسمح بالوصول في إعدادات الهاتف.",
-    "unavailable": "الموقع غير متاح على هذا الجهاز."
+    "denied": "تم رفض الموقع. اسمح بالوصول في إعدادات الهاتف ثم أعد المحاولة.",
+    "timeout": "انتهت المهلة. تأكد من تفعيل GPS والاتصال بالشبكة.",
+    "disabled": "GPS معطّل على هذا الجهاز. فعّله من الإعدادات.",
+    "unavailable": "الموقع غير متاح مؤقتاً. أعد المحاولة أو اختر « لاحقاً »."
   },
   "profile": {
     "title": "ملفي الشخصي",

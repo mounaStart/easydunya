@@ -4,9 +4,11 @@ import {
   ensureLocationPermission,
   getCurrentPosition,
   geolocationErrorReason,
+  type LocationFailReason,
 } from "./geocode";
 
 export type LocationPermissionState = "granted" | "denied" | "prompt" | "unsupported";
+export type { LocationFailReason };
 
 /** État de la permission géolocalisation (sans déclencher la boîte système). */
 export async function queryLocationPermission(): Promise<LocationPermissionState> {
@@ -28,13 +30,14 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
     if (status.state === "denied") return "denied";
     return "prompt";
   } catch {
+    // Safari / WebView : pas d'API permissions → on peut quand même demander au clic.
     return "prompt";
   }
 }
 
 /** Demande la permission puis la position (une seule boîte sur Android). */
 export async function requestAppLocation(): Promise<
-  { ok: true; position: GeolocationPosition } | { ok: false; reason: "denied" | "unavailable" }
+  { ok: true; position: GeolocationPosition } | { ok: false; reason: LocationFailReason }
 > {
   try {
     if (Capacitor.isNativePlatform()) {

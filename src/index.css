@@ -5,6 +5,12 @@
 @layer base {
   :root {
     --vh: 1vh;
+    --brand-blue: #1976D2;
+    --brand-blue-dark: #1565C0;
+    --brand-blue-light: #42A5F5;
+    --brand-orange: #F97316;
+    --brand-gradient: linear-gradient(90deg, #1976D2 0%, #1976D2 42%, #F97316 100%);
+    --brand-gradient-br: linear-gradient(135deg, #1976D2 0%, #42A5F5 40%, #F97316 100%);
   }
   html, body, #root { height: 100%; overflow-x: hidden; max-width: 100vw; }
   body {
@@ -23,7 +29,7 @@
   /* Bouton principal dégradé bleu→orange (logo) */
   .btn-primary {
     @apply btn text-white shadow-soft;
-    background-image: linear-gradient(90deg, #1e88d6 0%, #2f8fd0 45%, #f97316 100%);
+    background-image: var(--brand-gradient);
   }
   .btn-primary:hover { filter: brightness(1.05); }
   .btn-secondary { @apply btn bg-white text-brand-700 ring-1 ring-slate-200 hover:bg-slate-50; }
@@ -42,7 +48,7 @@
 
   /* En-tête page d'accueil (fond bleu clair uniforme — maquette) */
   .home-hero-bg {
-    background-color: #f0f7ff;
+    background-color: #e3f2fd;
   }
 
   .badge-pending { @apply rounded-full bg-amber-100 text-amber-700 px-2.5 py-1 text-xs font-semibold; }
@@ -58,14 +64,14 @@
   .muted { @apply text-ink-muted text-sm; }
 
   .gradient-text {
-    background-image: linear-gradient(90deg, #1e88d6 0%, #f97316 100%);
+    background-image: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-orange) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .icon-tile {
     @apply inline-flex items-center justify-center w-12 h-12 rounded-2xl text-white;
-    background-image: linear-gradient(135deg, #2aa4c4 0%, #f97316 100%);
+    background-image: var(--brand-gradient-br);
   }
   .icon-tile-soft {
     @apply inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-brand-50 text-brand-600;

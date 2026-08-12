@@ -283,6 +283,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (fnError) {
+        const raw = fnError.message.toLowerCase();
+        const missing =
+          raw.includes("edge function") ||
+          raw.includes("not found") ||
+          raw.includes("404") ||
+          raw.includes("failed to send");
+        if (missing) {
+          return {
+            error:
+              "Création chauffeur non activée sur le serveur. Déployez la fonction Supabase « create-driver-account » (Dashboard → Edge Functions), puis réessayez.",
+          };
+        }
         return { error: mapAuthError(fnError.message) };
       }
 

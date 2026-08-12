@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { cn } from "../lib/utils";
+import BrandLogo from "./BrandLogo";
 
 interface MobileNavDrawerProps {
   open: boolean;
@@ -43,10 +44,7 @@ export default function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps)
         onClick={onClose}
       />
       <aside className="absolute inset-y-0 left-0 w-[min(18rem,85vw)] bg-white shadow-xl p-5 flex flex-col gap-1">
-        <div className="font-extrabold text-lg mb-4">
-          <span className="text-[#0355F0]">Easy</span>
-          <span className="text-accent-500">Dunya</span>
-        </div>
+        <BrandLogo className="mb-4" textClassName="text-lg" emblemClassName="h-8 sm:h-8" />
         {links.map((l) => (
           <NavLink
             key={l.to}

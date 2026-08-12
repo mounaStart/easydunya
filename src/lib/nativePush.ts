@@ -18,6 +18,17 @@ let pendingToken: string | null = null;
 /** Évite d'enregistrer le même token FCM plusieurs fois (→ notif bienvenue en double). */
 let lastSavedToken: string | null = null;
 
+/** Même règle que public/push-sw.js : jamais de redirection hors de l'app. */
+function safeAppPath(raw: unknown): string {
+  try {
+    const resolved = new URL(String(raw || "/"), window.location.origin);
+    if (resolved.origin !== window.location.origin) return "/";
+    return resolved.pathname + resolved.search + resolved.hash;
+  } catch {
+    return "/";
+  }
+}
+
 async function saveToken(userId: string, token: string): Promise<boolean> {
   if (lastSavedToken === token && currentUserId === userId) {
     return true;
@@ -66,6 +77,12 @@ function bindListeners(): void {
   // Pas de notification locale en doublon : une seule notif FCM (logo Easy Dunya).
   PushNotifications.addListener("pushNotificationReceived", (n) => {
     console.info("[fcm] notif reçue (app ouverte, cloche uniquement):", n.title);
+  });
+
+  PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+    const raw = action.notification.data?.url;
+    if (typeof raw !== "string" || !raw.trim()) return;
+    window.location.assign(safeAppPath(raw));
   });
 }
 

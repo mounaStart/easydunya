@@ -1,8 +1,4 @@
-// =====================================================================
-// Edge Function: create-driver-account
-// Création chauffeur par un admin (téléphone + mot de passe, sans signUp client).
-// JWT requis : l'appelant doit être connecté en tant qu'admin.
-// =====================================================================
+// Déployer : supabase functions deploy create-driver-account --project-ref prfmqfnaqtmyfyxqjeli
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -127,7 +123,7 @@ Deno.serve(async (req) => {
     role: "driver",
     full_name: fullName,
     phone,
-    driver_status: "approved",
+    driver_status: "pending",
     must_change_password: true,
   };
   if (body.baseCityId) profileUpdate.base_city_id = body.baseCityId;

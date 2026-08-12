@@ -577,7 +577,7 @@ function SearchResults({
             className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
               nearMode ? "bg-white text-brand-700 ring-2 ring-brand-500" : "text-white"
             }`}
-            style={nearMode ? undefined : { backgroundImage: "linear-gradient(135deg,#1e88d6,#0f6fb8)" }}
+            style={nearMode ? undefined : { backgroundImage: "linear-gradient(135deg,#1976d2,#1565c0)" }}
           >
             {geoLoading ? t("search.locating") : nearMode ? t("search.nearestActive") : t("search.nearestBtn")}
           </button>
@@ -671,7 +671,7 @@ function SearchResults({
                 disabled={browsePage >= totalBrowsePages - 1}
                 onClick={() => onBrowsePage(browsePage + 1)}
                 className="rounded-full px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
-                style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#0f6fb8)" }}
+                style={{ backgroundImage: "linear-gradient(135deg,#1976d2,#1565c0)" }}
               >
                 {t("search.pageNext")}
               </button>

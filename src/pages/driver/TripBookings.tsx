@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
@@ -35,7 +35,10 @@ export default function TripBookings() {
 
   const isInProgress = trip?.status === "in_progress";
   useDriverGps(tripId, isInProgress);
-  const driverPos = useTripDriverPosition(tripId, isInProgress);
+  const driverTrack = useTripDriverPosition(tripId, isInProgress);
+  const driverPos = driverTrack
+    ? { lat: driverTrack.lat, lng: driverTrack.lng }
+    : null;
 
   const isAdmin = role === "admin";
   // Distance (m) entre la position actuelle du chauffeur et la destination
@@ -94,22 +97,47 @@ export default function TripBookings() {
     Number.isFinite(trip.from_lat) &&
     Number.isFinite(trip.to_lat);
 
+  const reloadTrip = useCallback(async () => {
+    if (!tripId) return;
+    const { data } = await supabase
+      .from("trips_public")
+      .select("*")
+      .eq("id", tripId)
+      .maybeSingle();
+    setTrip((data as TripPublic | null) ?? null);
+  }, [tripId]);
+
   useEffect(() => {
     if (!tripId) {
       setTripLoading(false);
       return;
     }
     setTripLoading(true);
-    supabase
-      .from("trips_public")
-      .select("*")
-      .eq("id", tripId)
-      .maybeSingle()
-      .then(({ data }) => {
-        setTrip((data as TripPublic | null) ?? null);
-        setTripLoading(false);
-      });
-  }, [tripId]);
+    void reloadTrip().finally(() => setTripLoading(false));
+  }, [tripId, reloadTrip]);
+
+  /** Places disponibles — synchro quand une réservation est confirmée / annulée (trigger SQL). */
+  useEffect(() => {
+    if (!tripId) return;
+    const channel = supabase
+      .channel(`trip-seats-${tripId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "trips",
+          filter: `id=eq.${tripId}`,
+        },
+        () => {
+          void reloadTrip();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tripId, reloadTrip]);
 
   useEffect(() => {
     const ids = bookings
@@ -127,19 +155,18 @@ export default function TripBookings() {
       });
   }, [bookings]);
 
-  async function reloadTrip() {
-    if (!tripId) return;
-    const { data } = await supabase
-      .from("trips_public")
-      .select("*")
-      .eq("id", tripId)
-      .maybeSingle();
-    setTrip((data as TripPublic | null) ?? null);
-  }
-
   async function setStatus(b: Booking, status: Booking["status"]) {
-    await updateBookingStatus(b.id, status);
-    refresh();
+    setBusy(true);
+    setLockMsg(null);
+    const { error } = await updateBookingStatus(b.id, status);
+    if (error) {
+      setLockMsg(error);
+      setBusy(false);
+      return;
+    }
+    await refresh();
+    await reloadTrip();
+    setBusy(false);
   }
 
   async function adjustSeats(delta: number) {

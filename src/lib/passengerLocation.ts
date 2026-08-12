@@ -225,7 +225,8 @@ export async function requireBookingLocation(
   } catch (err) {
     const fallback = await bookingLocationFromProfile(userId, profile);
     if (fallback) return { ok: true, location: fallback };
-    return { ok: false, reason: geolocationErrorReason(err) };
+    const geoReason = geolocationErrorReason(err);
+    return { ok: false, reason: geoReason === "denied" ? "denied" : "unavailable" };
   }
 }
 

@@ -79,7 +79,10 @@ export default function DriverHome() {
 
   const isInProgress = focusTrip?.status === "in_progress";
   useDriverGps(focusTrip?.id, isInProgress);
-  const driverPos = useTripDriverPosition(focusTrip?.id, isInProgress);
+  const driverTrack = useTripDriverPosition(focusTrip?.id, isInProgress);
+  const driverPos = driverTrack
+    ? { lat: driverTrack.lat, lng: driverTrack.lng }
+    : null;
 
   useEffect(() => {
     if (!activeTrips.length) {
@@ -154,6 +157,9 @@ export default function DriverHome() {
     const channel = supabase
       .channel(`driver-home-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+        if (!cancelled) load();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trips", filter: `driver_id=eq.${user.id}` }, () => {
         if (!cancelled) load();
       })
       .subscribe();
@@ -234,6 +240,18 @@ export default function DriverHome() {
           [booking.trip_id]: Math.max(0, (prev[booking.trip_id] ?? 0) - 1),
         }));
         setPendingCount((c) => Math.max(0, c - 1));
+      }
+      if (status === "confirmed" || status === "rejected" || status === "cancelled") {
+        const { data: tripRow } = await supabase
+          .from("trips_public")
+          .select("*")
+          .eq("id", booking.trip_id)
+          .maybeSingle();
+        if (tripRow) {
+          setTrips((prev) =>
+            prev.map((tr) => (tr.id === booking.trip_id ? (tripRow as TripPublic) : tr))
+          );
+        }
       }
       if (status === "rejected") {
         setFocusBookings((prev) => prev.filter((b) => b.id !== booking.id));
@@ -359,7 +377,7 @@ export default function DriverHome() {
         <Link
           to="/driver/trips/new"
           className="card p-5 flex items-center gap-4 hover:shadow-md transition"
-          style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#0f6fb8)" }}
+          style={{ backgroundImage: "var(--brand-gradient-br)" }}
         >
           <span className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center text-3xl shrink-0">
             +

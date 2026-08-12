@@ -5,12 +5,8 @@ import MapView from "../components/MapView";
 import Spinner from "../components/Spinner";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
-import {
-  formatPrice,
-  formatPeriod,
-  isoToday,
-  relativeDateLabel,
-} from "../lib/utils";
+import { formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
+import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../lib/brandColors";
 
 export default function Search() {
   const { t, i18n } = useTranslation();
@@ -103,7 +99,7 @@ export default function Search() {
       {/* Carte */}
       <div>
         <h2 className="flex items-center gap-2 text-xl font-bold text-ink mb-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e88d6" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BRAND_BLUE} strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
           {t("search.mapTitle")}
         </h2>
         <MapView
@@ -123,7 +119,7 @@ export default function Search() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-2 text-xl font-bold text-ink">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e88d6" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BRAND_BLUE} strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
             {t("search.available")}
           </h2>
           <span className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-slate-100 text-slate-600 text-sm font-bold">
@@ -168,7 +164,7 @@ export default function Search() {
                       <span className="inline-flex items-center gap-1.5">
                         <span
                           className="w-5 h-5 rounded-full inline-flex items-center justify-center text-white text-[10px] font-bold"
-                          style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+                          style={{ backgroundImage: BRAND_GRADIENT_BR }}
                         >
                           {tr.driver_name.charAt(0)}
                         </span>

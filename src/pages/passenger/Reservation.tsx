@@ -9,12 +9,17 @@ import {
   useMyBookings,
 } from "../../hooks/useBookings";
 import { supabase } from "../../lib/supabase";
-import { useTripDriverPosition } from "../../hooks/useDriverGps";
+import {
+  useTripDriverPosition,
+  isDriverPositionStale,
+  driverPositionAgeMinutes,
+} from "../../hooks/useDriverGps";
 import type { Booking, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import TrackingMap from "../../components/TrackingMap";
 import { formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../../lib/brandColors";
 
 const ACTIVE = ["pending", "confirmed"];
 
@@ -72,10 +77,15 @@ export default function Reservation() {
 
   const active: Booking | undefined = fromAccount ?? byCode ?? undefined;
   const busy = (user ? loading : false) || (!active && !codeChecked);
-  const driverPos = useTripDriverPosition(
+  const driverTrack = useTripDriverPosition(
     active?.trip_id,
     trip?.status === "in_progress"
   );
+  const driverPos = driverTrack
+    ? { lat: driverTrack.lat, lng: driverTrack.lng }
+    : null;
+  const staleDriver = isDriverPositionStale(driverTrack);
+  const staleMins = driverPositionAgeMinutes(driverTrack);
 
   useEffect(() => {
     if (!active) {
@@ -240,7 +250,7 @@ export default function Reservation() {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-7 h-7 rounded-full inline-flex items-center justify-center text-white text-xs font-bold"
-                        style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+                        style={{ backgroundImage: BRAND_GRADIENT_BR }}
                       >
                         {(trip.driver_name ?? "?").charAt(0)}
                       </span>
@@ -295,7 +305,7 @@ export default function Reservation() {
       {trip && (
         <div className="card overflow-hidden">
           <h2 className="flex items-center gap-2 text-lg font-bold text-ink px-5 pt-5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e88d6" strokeWidth="2"><path d="M4.9 19.1A10 10 0 0 1 4.9 5M19.1 5a10 10 0 0 1 0 14M8 16a5 5 0 0 1 0-8M16 8a5 5 0 0 1 0 8"/><circle cx="12" cy="12" r="1.5" fill="#1e88d6"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BRAND_BLUE} strokeWidth="2"><path d="M4.9 19.1A10 10 0 0 1 4.9 5M19.1 5a10 10 0 0 1 0 14M8 16a5 5 0 0 1 0-8M16 8a5 5 0 0 1 0 8"/><circle cx="12" cy="12" r="1.5" fill={BRAND_BLUE}/></svg>
             {t("trip.liveTracking")}
           </h2>
           {!started && (
@@ -312,6 +322,11 @@ export default function Reservation() {
             />
             {started && !driverPos && (
               <p className="muted text-center mt-3">{t("trip.waitingGps")}</p>
+            )}
+            {started && driverPos && staleDriver && staleMins != null && (
+              <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-3">
+                {t("trip.staleDriverPos", { minutes: staleMins })}
+              </p>
             )}
           </div>
         </div>

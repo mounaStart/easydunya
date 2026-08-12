@@ -95,15 +95,17 @@ export default function BottomNav() {
             className={({ isActive }) =>
               cn(
                 "flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold transition",
-                isActive ? "text-[#2196f3]" : "text-slate-400"
+                isActive ? "text-brand-600" : "text-slate-400"
               )
             }
           >
             {({ isActive }) => (
               <>
                 {isPassengerNav && isActive ? (
-                  <span className="w-9 h-9 rounded-2xl bg-[#e3f2fd] inline-flex items-center justify-center">
-                    <Icon className="text-[#2196f3]" />
+                  <span
+                    className="w-9 h-9 rounded-2xl bg-brand-50 text-brand-600 inline-flex items-center justify-center"
+                  >
+                    <Icon />
                   </span>
                 ) : (
                   <Icon className={cn("w-6 h-6", isActive && !isPassengerNav && "text-brand-600")} />

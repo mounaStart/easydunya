@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useCities } from "../../hooks/useCities";
 import { useTranslation } from "react-i18next";
 import { isValidPhone } from "../../lib/phone";
+import { labelDriverStatus } from "../../lib/statusLabels";
 
 type FilterId = "all" | "pending" | "approved" | "rejected" | "suspended";
 
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function AdminDrivers({ onMutate }: Props) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<FilterId>("all");
   const [drivers, setDrivers] = useState<DriverAdmin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,12 @@ export default function AdminDrivers({ onMutate }: Props) {
   async function setStatus(d: DriverAdmin, status: DriverStatus) {
     if (
       (status === "rejected" || status === "suspended") &&
-      !confirm(`Confirmer "${status}" pour ${d.full_name ?? d.email} ?`)
+      !confirm(
+        t("admin.confirmDriverStatus", {
+          status: labelDriverStatus(status, t),
+          name: d.full_name ?? d.email ?? "—",
+        })
+      )
     ) {
       return;
     }
@@ -124,14 +131,8 @@ export default function AdminDrivers({ onMutate }: Props) {
       }
     }
 
-    const labels: Record<DriverStatus, string> = {
-      approved: "approuvé",
-      rejected: "refusé",
-      suspended: "suspendu",
-      pending: "en attente",
-    };
     setSuccessMsg(
-      `${d.full_name ?? d.email} — statut : ${labels[status] ?? status}`
+      `${d.full_name ?? d.email} — statut : ${labelDriverStatus(status, t)}`
     );
     setBusyId(null);
     await load();
@@ -141,7 +142,14 @@ export default function AdminDrivers({ onMutate }: Props) {
 
   return (
     <div>
-      <CreateDriverForm onCreated={() => { load(); onMutate?.(); }} />
+      <CreateDriverForm
+        onCreated={() => {
+          setSuccessMsg("Compte chauffeur créé — statut « En attente ». Validez-le dans la liste.");
+          setFilter("pending");
+          load();
+          onMutate?.();
+        }}
+      />
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {FILTERS.map((f) => (
@@ -205,7 +213,7 @@ export default function AdminDrivers({ onMutate }: Props) {
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass}`}
                     >
-                      {status}
+                      {labelDriverStatus(status, t)}
                     </span>
                     {d.rating_avg !== null && d.rating_count > 0 && (
                       <span className="text-xs text-amber-600">

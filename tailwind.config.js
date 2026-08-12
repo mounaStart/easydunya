@@ -4,33 +4,31 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Bleu principal (logo Easy Dunya)
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b9fe0",
-          600: "#1e88d6",
-          700: "#1769b3",
-          800: "#15528c",
-          900: "#143f6b",
+          50: "#e3f2fd",
+          100: "#bbdefb",
+          200: "#90caf9",
+          300: "#64b5f6",
+          400: "#42a5f5",
+          500: "#2196f3",
+          600: "#1976d2",
+          700: "#1565c0",
+          800: "#0d47a1",
+          900: "#0a3d91",
         },
-        // Orange accent (logo Easy Dunya)
         accent: {
           50: "#fff7ed",
           100: "#ffedd5",
           200: "#fed7aa",
           300: "#fdba74",
           400: "#fb923c",
-          500: "#f97316",
-          600: "#ea6c0a",
-          700: "#c2540a",
-          800: "#9a420d",
-          900: "#7c370e",
+          500: "#F97316",
+          600: "#EA6C0A",
+          700: "#C2540A",
+          800: "#9A420D",
+          900: "#7C370E",
         },
-        sky2: "#0ea5e9",
+        sky2: "#42A5F5",
         ink: {
           DEFAULT: "#0f172a",
           soft: "#334155",
@@ -43,13 +41,13 @@ export default {
       },
       backgroundImage: {
         "brand-gradient":
-          "linear-gradient(90deg, #1e88d6 0%, #2f8fd0 40%, #f97316 100%)",
+          "linear-gradient(90deg, #1976D2 0%, #1976D2 42%, #F97316 100%)",
         "brand-gradient-br":
-          "linear-gradient(135deg, #1e88d6 0%, #3b9fe0 45%, #f97316 100%)",
-        "logo-gradient": "linear-gradient(135deg, #2aa4c4 0%, #f97316 100%)",
+          "linear-gradient(135deg, #1976D2 0%, #42A5F5 40%, #F97316 100%)",
+        "logo-gradient": "linear-gradient(135deg, #1976D2 0%, #F97316 100%)",
       },
       boxShadow: {
-        soft: "0 2px 8px -2px rgba(30, 136, 214, 0.10), 0 4px 16px -4px rgba(30, 136, 214, 0.10)",
+        soft: "0 2px 8px -2px rgba(25, 118, 210, 0.12), 0 4px 16px -4px rgba(25, 118, 210, 0.10)",
         card: "0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px -12px rgba(15, 23, 42, 0.12)",
       },
     },

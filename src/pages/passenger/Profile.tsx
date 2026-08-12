@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
+import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -47,7 +48,7 @@ export default function Profile() {
       <div className="card p-6 text-center">
         <span
           className="w-20 h-20 rounded-full inline-flex items-center justify-center text-white font-bold text-3xl mb-3"
-          style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+          style={{ backgroundImage: BRAND_GRADIENT_BR }}
         >
           {name.charAt(0).toUpperCase()}
         </span>

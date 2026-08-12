@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useCities } from "../hooks/useCities";
 import { useUpcomingTrips } from "../hooks/useTrips";
 import { formatPrice } from "../lib/utils";
+import { BRAND_BLUE, BRAND_BLUE_LIGHT, BRAND_ORANGE, BRAND_ORANGE_DARK } from "../lib/brandColors";
 
 export default function About() {
   const { t, i18n } = useTranslation();
@@ -90,8 +91,8 @@ export default function About() {
                 style={{
                   backgroundImage:
                     i % 2 === 0
-                      ? "linear-gradient(135deg,#1e88d6,#3b9fe0)"
-                      : "linear-gradient(135deg,#f97316,#ea6c0a)",
+                      ? `linear-gradient(135deg, ${BRAND_BLUE}, ${BRAND_BLUE_LIGHT})`
+                      : `linear-gradient(135deg, ${BRAND_ORANGE}, ${BRAND_ORANGE_DARK})`,
                 }}
               >
                 {c}

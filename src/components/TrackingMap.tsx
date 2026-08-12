@@ -9,6 +9,7 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
+import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -62,7 +63,7 @@ function dot(color: string, ring = "white") {
 }
 
 function pickupCountIcon(count: number, selected: boolean) {
-  const bg = selected ? "#dc2626" : "#f97316";
+  const bg = selected ? "#dc2626" : BRAND_ORANGE;
   const safeCount = escapeHtml(String(count));
   const size = 26;
   return L.divIcon({
@@ -80,7 +81,7 @@ function pickupCountIcon(count: number, selected: boolean) {
 
 /** Marqueur compact : nom du quartier seulement (carte des demandes). */
 function quartierIcon(quartier: string, selected: boolean) {
-  const bg = selected ? "#dc2626" : "#f97316";
+  const bg = selected ? "#dc2626" : BRAND_ORANGE;
   const safe = escapeHtml(quartier);
   const short = quartier.length > 14 ? `${quartier.slice(0, 13)}…` : quartier;
   const safeShort = escapeHtml(short);
@@ -102,7 +103,7 @@ const carIcon = L.divIcon({
   className: "ed-track-marker",
   html: `<div style="
     width:34px;height:34px;border-radius:50%;
-    background:#1e88d6;border:3px solid white;
+    background:${BRAND_BLUE};border:3px solid white;
     box-shadow:0 4px 10px rgba(30,136,214,0.5);
     display:flex;align-items:center;justify-content:center;font-size:18px;">🚗</div>`,
   iconSize: [34, 34],
@@ -186,7 +187,7 @@ export default function TrackingMap({
                 [from.lat, from.lng],
                 [to.lat, to.lng],
               ]}
-              pathOptions={{ color: "#1e88d6", weight: 3, dashArray: "6 8", opacity: 0.7 }}
+              pathOptions={{ color: BRAND_BLUE, weight: 3, dashArray: "6 8", opacity: 0.7 }}
             />
             <Marker position={[from.lat, from.lng]} icon={dot("#10b981")}>
               <Popup>{from.label ?? "Départ"}</Popup>

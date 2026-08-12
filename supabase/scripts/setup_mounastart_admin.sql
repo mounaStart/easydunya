@@ -3,12 +3,12 @@
 -- =====================================================================
 -- AVANT d'exécuter ce script :
 -- 1) Dashboard → Authentication → Sign In / Providers → Email → ACTIVER
--- 2) Authentication → Users → Add user (si besoin) :
+-- 2) Authentication → Users → Add user (UNIQUEMENT si le compte n'existe pas) :
 --      Email    : 20986280@phone.easydunya.app
 --      Password : password1234  (ou le vôtre)
 --      ✓ Auto Confirm User
--- 3) Puis exécutez ce script dans SQL Editor
--- =====================================================================
+--    → Si vous voyez déjà des utilisateurs dans Authentication, SAUTEZ cette étape.
+-- 3) Puis exécutez ce script dans SQL Editor-- =====================================================================
 
 -- Diagnostic
 select u.id, u.email, p.role, p.full_name, p.phone

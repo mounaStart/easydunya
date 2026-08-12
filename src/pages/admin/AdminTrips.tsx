@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { cancelTripWithBroadcast } from "../../hooks/useBookings";
 import type { TripPublic, TripStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
+import { labelTripStatus } from "../../lib/statusLabels";
 import {
   formatPrice,
   formatPeriod,
@@ -13,7 +14,7 @@ import {
 type StatusFilter = "all" | TripStatus;
 
 export default function AdminTrips() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [trips, setTrips] = useState<TripPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -94,53 +95,53 @@ export default function AdminTrips() {
         <div className="text-center text-slate-500 py-8">Aucun voyage.</div>
       ) : (
         <div className="space-y-2">
-          {trips.map((t) => {
+          {trips.map((trip) => {
             const isAr = i18n.language === "ar";
             return (
               <div
-                key={t.id}
+                key={trip.id}
                 className="border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900">
-                      {(isAr ? t.from_name_ar : t.from_name_fr)}
+                      {(isAr ? trip.from_name_ar : trip.from_name_fr)}
                       <span className="mx-1 text-brand-500">→</span>
-                      {(isAr ? t.to_name_ar : t.to_name_fr)}
+                      {(isAr ? trip.to_name_ar : trip.to_name_fr)}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        t.status === "scheduled"
+                        trip.status === "scheduled"
                           ? "bg-sky-100 text-sky-700"
-                          : t.status === "in_progress"
+                          : trip.status === "in_progress"
                           ? "bg-amber-100 text-amber-700"
-                          : t.status === "completed"
+                          : trip.status === "completed"
                           ? "bg-emerald-100 text-emerald-700"
                           : "bg-slate-200 text-slate-700"
                       }`}
                     >
-                      {t.status}
+                      {labelTripStatus(trip.status, t)}
                     </span>
                   </div>
                   <div className="text-sm text-slate-500 flex items-center gap-3 flex-wrap mt-0.5">
-                    <span>{relativeDateLabel(t.depart_at)} · {formatPeriod(t.depart_at)}</span>
-                    <span>👤 {t.driver_name ?? "—"}</span>
-                    <span>{formatPrice(t.price_per_seat)}/place</span>
-                    <span>{t.seats_available}/{t.seats_total} dispo</span>
+                    <span>{relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}</span>
+                    <span>👤 {trip.driver_name ?? "—"}</span>
+                    <span>{formatPrice(trip.price_per_seat)}/place</span>
+                    <span>{trip.seats_available}/{trip.seats_total} dispo</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {t.status === "in_progress" && (
+                  {trip.status === "in_progress" && (
                     <button
-                      onClick={() => endTrip(t.id)}
+                      onClick={() => endTrip(trip.id)}
                       className="btn-secondary text-xs"
                     >
                       ■ Terminer
                     </button>
                   )}
-                  {(t.status === "scheduled" || t.status === "in_progress") && (
+                  {(trip.status === "scheduled" || trip.status === "in_progress") && (
                     <button
-                      onClick={() => cancelTrip(t.id)}
+                      onClick={() => cancelTrip(trip.id)}
                       className="btn-ghost text-rose-700 text-xs"
                     >
                       Annuler

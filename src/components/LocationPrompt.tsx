@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { queryLocationPermission, requestAppLocation } from "../lib/locationPermission";
+import {
+  queryLocationPermission,
+  requestAppLocation,
+  type LocationFailReason,
+} from "../lib/locationPermission";
 import { syncPassengerLocation } from "../lib/passengerLocation";
 import { isValidQuartierLabel } from "../lib/geocode";
 import { signalLocationPromptSettled } from "../lib/startupPrompts";
@@ -15,6 +19,19 @@ function snoozed(): boolean {
     return Date.now() < until;
   } catch {
     return false;
+  }
+}
+
+function reasonMessage(reason: LocationFailReason, t: (k: string) => string): string {
+  switch (reason) {
+    case "denied":
+      return t("locationPrompt.denied");
+    case "timeout":
+      return t("locationPrompt.timeout");
+    case "disabled":
+      return t("locationPrompt.disabled");
+    default:
+      return t("locationPrompt.unavailable");
   }
 }
 
@@ -51,10 +68,12 @@ export default function LocationPrompt() {
     }
     if (permission === "denied") {
       setNeedsPrompt(true);
+      setError(t("locationPrompt.denied"));
       setChecked(true);
       return;
     }
     if (permission === "granted") {
+      setError(null);
       if (isPassenger) {
         const hasQuartier =
           isValidQuartierLabel(profile?.quartier) &&
@@ -72,9 +91,10 @@ export default function LocationPrompt() {
       return;
     }
 
+    setError(null);
     setNeedsPrompt(true);
     setChecked(true);
-  }, [user, hidden, isPassenger, isDriver, profile, refreshProfile]);
+  }, [user, hidden, isPassenger, isDriver, profile, refreshProfile, t]);
 
   useEffect(() => {
     setChecked(false);
@@ -106,11 +126,7 @@ export default function LocationPrompt() {
     try {
       const result = await requestAppLocation();
       if (!result.ok) {
-        setError(
-          result.reason === "denied"
-            ? t("locationPrompt.denied")
-            : t("locationPrompt.unavailable")
-        );
+        setError(reasonMessage(result.reason, t));
         if (result.reason === "denied") {
           setHidden(true);
           signalLocationPromptSettled();
@@ -141,6 +157,7 @@ export default function LocationPrompt() {
     }
     setHidden(true);
     setNeedsPrompt(false);
+    setError(null);
     signalLocationPromptSettled();
   }
 

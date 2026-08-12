@@ -286,8 +286,12 @@ export async function getCurrentPosition(): Promise<GeolocationPosition> {
   return getBrowserPosition();
 }
 
-export function geolocationErrorReason(err: unknown): "denied" | "unavailable" {
+export type LocationFailReason = "denied" | "timeout" | "disabled" | "unavailable";
+
+export function geolocationErrorReason(err: unknown): LocationFailReason {
   const code = (err as GeolocationPositionError)?.code;
   if (code === 1) return "denied";
+  if (code === 3) return "timeout";
+  if (code === 2) return "disabled";
   return "unavailable";
 }

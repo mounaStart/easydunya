@@ -196,6 +196,7 @@
     "vehiclePlate": "Matricule",
     "trackingMap": "Carte de suivi",
     "waitingDriverPos": "En attente de la position du chauffeur…",
+    "staleDriverPos": "Dernière position connue il y a {{minutes}} min — le chauffeur peut être à l'arrêt ou hors ligne.",
     "call": "Appeler le chauffeur",
     "liveTracking": "Suivi en direct",
     "notStarted": "Le chauffeur n'a pas encore démarré le voyage",
@@ -273,6 +274,12 @@
     "seeDashboard": "Voir le tableau de bord complet",
     "manageTrip": "Gérer",
     "seatsSold": "{{sold}}/{{total}} places vendues",
+    "status": {
+      "pending": "En attente",
+      "approved": "Approuvé",
+      "rejected": "Refusé",
+      "suspended": "Suspendu"
+    },
     "commissionTipTitle": "Commission Easy Dunya",
     "commissionTipDesc": "6 % par place si le trajet dépasse 100 km, sinon 100 MRU forfait.",
     "earnings": "Revenus nets",
@@ -365,7 +372,13 @@
     "approveDriver": "Approuver",
     "rejectDriver": "Refuser",
     "suspend": "Suspendre",
-    "noPending": "Aucun chauffeur en attente"
+    "noPending": "Aucun chauffeur en attente",
+    "roles": {
+      "admin": "Administrateur",
+      "driver": "Chauffeur",
+      "passenger": "Passager"
+    },
+    "confirmDriverStatus": "Confirmer « {{status}} » pour {{name}} ?"
   },
   "reservation": {
     "title": "Ma réservation",
@@ -405,8 +418,10 @@
     "later": "Plus tard",
     "enable": "Activer le GPS",
     "enabling": "Activation…",
-    "denied": "GPS refusé. Autorisez la localisation dans les paramètres du téléphone.",
-    "unavailable": "La localisation n'est pas disponible sur cet appareil."
+    "denied": "GPS refusé. Autorisez la localisation dans les paramètres du téléphone, puis réessayez.",
+    "timeout": "Délai dépassé. Vérifiez que le GPS est activé et que vous avez du réseau.",
+    "disabled": "Le GPS est désactivé sur cet appareil. Activez-le dans les paramètres.",
+    "unavailable": "Position momentanément indisponible. Réessayez ou continuez avec « Plus tard »."
   },
   "profile": {
     "title": "Mon profil",

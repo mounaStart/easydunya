@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import type { UserAdmin, UserRole } from "../../lib/types";
 import Spinner from "../../components/Spinner";
+import { labelDriverStatus, labelUserRole } from "../../lib/statusLabels";
 
 type RoleFilter = "all" | UserRole;
 
 export default function AdminUsers() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<RoleFilter>("all");
@@ -121,7 +124,7 @@ export default function AdminUsers() {
                     {u.full_name ?? "—"}
                     {u.driver_status && (
                       <span className="ml-2 text-xs text-slate-400">
-                        ({u.driver_status})
+                        ({labelDriverStatus(u.driver_status, t)})
                       </span>
                     )}
                   </td>
@@ -139,7 +142,7 @@ export default function AdminUsers() {
                           : "bg-slate-100 text-slate-700"
                       }`}
                     >
-                      {u.role}
+                      {labelUserRole(u.role, t)}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-xs text-slate-500">

@@ -116,7 +116,7 @@ function UserAvatarMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center justify-center w-9 h-9 rounded-full text-white font-bold text-sm shadow-soft shrink-0"
-        style={{ backgroundImage: "linear-gradient(135deg,#1e88d6,#f97316)" }}
+        style={{ backgroundImage: "var(--brand-gradient-br)" }}
         title={name ?? email ?? t("nav.profile")}
         aria-label={t("nav.profile")}
         aria-haspopup="menu"

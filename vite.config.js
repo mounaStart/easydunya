@@ -12,7 +12,7 @@ export default defineConfig({
                 name: "Easy Dunya",
                 short_name: "Easy Dunya",
                 description: "Plateforme digitale de transport interurbain en Mauritanie",
-                theme_color: "#1e88d6",
+                theme_color: "#1976D2",
                 background_color: "#ffffff",
                 display: "standalone",
                 orientation: "portrait",

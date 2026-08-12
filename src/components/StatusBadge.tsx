@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
-import type { BookingStatus, TripStatus } from "../lib/types";
+import type { BookingStatus, DriverStatus, TripStatus } from "../lib/types";
+import { labelDriverStatus } from "../lib/statusLabels";
 
 interface Props {
-  status: BookingStatus | TripStatus;
-  kind?: "booking" | "trip";
+  status: BookingStatus | TripStatus | DriverStatus;
+  kind?: "booking" | "trip" | "driver";
 }
 
 export default function StatusBadge({ status, kind = "booking" }: Props) {
@@ -11,10 +12,20 @@ export default function StatusBadge({ status, kind = "booking" }: Props) {
   const label =
     kind === "trip"
       ? t(`trip.status.${status as TripStatus}`)
-      : t(`booking.status.${status as BookingStatus}`);
+      : kind === "driver"
+        ? labelDriverStatus(status as DriverStatus, t)
+        : t(`booking.status.${status as BookingStatus}`);
 
   const cls =
-    status === "confirmed"
+    kind === "driver"
+      ? status === "approved"
+        ? "badge-confirmed"
+        : status === "pending"
+          ? "badge-pending"
+          : status === "rejected"
+            ? "badge-rejected"
+            : "badge-cancelled"
+      : status === "confirmed"
       ? "badge-confirmed"
       : status === "pending"
       ? "badge-pending"
