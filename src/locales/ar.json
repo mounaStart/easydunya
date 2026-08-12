@@ -28,6 +28,9 @@
   },
   "common": {
     "loading": "جار التحميل…",
+    "pullToRefresh": "اسحب للتحديث",
+    "releaseToRefresh": "حرّر للتحديث",
+    "refreshing": "جار التحديث…",
     "error": "حدث خطأ",
     "morning": "صباحًا",
     "evening": "مساءً",

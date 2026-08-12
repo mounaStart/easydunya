@@ -28,6 +28,9 @@
   },
   "common": {
     "loading": "Chargement…",
+    "pullToRefresh": "Tirez pour actualiser",
+    "releaseToRefresh": "Relâchez pour actualiser",
+    "refreshing": "Actualisation…",
     "error": "Une erreur est survenue",
     "morning": "Matin",
     "evening": "Soir",
