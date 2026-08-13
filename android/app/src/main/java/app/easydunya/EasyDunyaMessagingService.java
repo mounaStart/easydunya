@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory;
 import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
@@ -73,7 +74,7 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
             .setLargeIcon(largeIcon)
-            .setColor(getColor(R.color.notification_color))
+            .setColor(ContextCompat.getColor(this, R.color.notification_color))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
@@ -82,7 +83,8 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE);
 
-        NotificationManager manager = getSystemService(NotificationManager.class);
+        NotificationManager manager =
+            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             int notificationId = data.get("tag") != null ? data.get("tag").hashCode() : title.hashCode();
             manager.notify(notificationId, builder.build());
@@ -91,7 +93,8 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
     private void ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-        NotificationManager manager = getSystemService(NotificationManager.class);
+        NotificationManager manager =
+            (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
         NotificationChannel existing = manager.getNotificationChannel(CHANNEL_ID);
         if (existing != null) return;
