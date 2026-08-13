@@ -87,30 +87,28 @@ for (const size of [192, 512]) {
 
 /** Icône monochrome blanche sur fond transparent (exigence Android FCM). */
 async function whiteNotifySilhouette(canvasSize = 96) {
-  const inner = Math.round(canvasSize * 0.78);
+  const inner = Math.round(canvasSize * 0.88);
   const { data, info } = await sharp(SRC)
     .ensureAlpha()
-    .trim({ threshold: 12 })
-    .resize(inner, inner, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .trim({ threshold: 10 })
+    .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .greyscale()
+    .normalise()
+    .blur(0.4)
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const a = data[i + 3];
-    // Retire le fond blanc de l'emblème → transparent
-    if (a < 24 || (r > 235 && g > 235 && b > 235)) {
-      data[i + 3] = 0;
-      continue;
-    }
-    data[i] = 255;
-    data[i + 1] = 255;
-    data[i + 2] = 255;
+  const out = Buffer.alloc(info.width * info.height * 4);
+  for (let i = 0, j = 0; i < data.length; i++, j += 4) {
+    const lum = data[i];
+    const opaque = lum < 210;
+    out[j] = 255;
+    out[j + 1] = 255;
+    out[j + 2] = 255;
+    out[j + 3] = opaque ? 255 : 0;
   }
 
-  const silhouette = await sharp(data, {
+  const silhouette = await sharp(out, {
     raw: { width: info.width, height: info.height, channels: 4 },
   })
     .png()

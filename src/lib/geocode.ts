@@ -242,10 +242,19 @@ function toGeolocationPosition(pos: {
 /** Demande la permission une seule fois (sans lire la position). */
 export async function ensureLocationPermission(): Promise<boolean> {
   if (Capacitor.isNativePlatform()) {
-    const status = await Geolocation.checkPermissions();
-    if (status.location === "granted") return true;
-    const requested = await Geolocation.requestPermissions();
-    return requested.location === "granted";
+    try {
+      const status = await Geolocation.checkPermissions();
+      if (status.location === "granted") return true;
+      const requested = await Geolocation.requestPermissions();
+      return requested.location === "granted";
+    } catch (err) {
+      if (isLocationServicesDisabledError(err)) {
+        const disabled = new Error("Location services disabled") as Error & { code?: number };
+        disabled.code = 2;
+        throw disabled;
+      }
+      throw err;
+    }
   }
   return true;
 }
@@ -288,7 +297,28 @@ export async function getCurrentPosition(): Promise<GeolocationPosition> {
 
 export type LocationFailReason = "denied" | "timeout" | "disabled" | "unavailable";
 
+function errorText(err: unknown): string {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  const e = err as Error & { errorMessage?: string; message?: string };
+  return String(e.errorMessage ?? e.message ?? "");
+}
+
+/** GPS système désactivé ou erreur Capacitor équivalente. */
+export function isLocationServicesDisabledError(err: unknown): boolean {
+  const text = errorText(err).toLowerCase();
+  if (!text) return false;
+  return (
+    text.includes("location services are not enabled") ||
+    text.includes("location service") ||
+    text.includes("location disabled") ||
+    text.includes("gps disabled") ||
+    text.includes("provider disabled")
+  );
+}
+
 export function geolocationErrorReason(err: unknown): LocationFailReason {
+  if (isLocationServicesDisabledError(err)) return "disabled";
   const code = (err as GeolocationPositionError)?.code;
   if (code === 1) return "denied";
   if (code === 3) return "timeout";

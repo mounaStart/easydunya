@@ -1,9 +1,14 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import {
+  isDeviceLocationEnabled,
+  openDeviceLocationSettings,
+} from "./deviceLocationSettings";
+import {
   ensureLocationPermission,
   getCurrentPosition,
   geolocationErrorReason,
+  isLocationServicesDisabledError,
   type LocationFailReason,
 } from "./geocode";
 
@@ -14,11 +19,15 @@ export type { LocationFailReason };
 export async function queryLocationPermission(): Promise<LocationPermissionState> {
   if (Capacitor.isNativePlatform()) {
     try {
+      const deviceEnabled = await isDeviceLocationEnabled();
+      if (deviceEnabled === false) return "prompt";
+
       const status = await Geolocation.checkPermissions();
       if (status.location === "granted") return "granted";
       if (status.location === "denied") return "denied";
       return "prompt";
-    } catch {
+    } catch (err) {
+      if (isLocationServicesDisabledError(err)) return "prompt";
       return "prompt";
     }
   }
@@ -35,18 +44,43 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
   }
 }
 
+export interface RequestAppLocationOptions {
+  /** Ouvre les paramètres GPS Android si le GPS système est éteint. */
+  openSettingsIfDisabled?: boolean;
+}
+
+export type RequestAppLocationResult =
+  | { ok: true; position: GeolocationPosition }
+  | { ok: false; reason: LocationFailReason; openedSettings?: boolean };
+
 /** Demande la permission puis la position (une seule boîte sur Android). */
-export async function requestAppLocation(): Promise<
-  { ok: true; position: GeolocationPosition } | { ok: false; reason: LocationFailReason }
-> {
+export async function requestAppLocation(
+  options: RequestAppLocationOptions = {}
+): Promise<RequestAppLocationResult> {
+  const { openSettingsIfDisabled = false } = options;
+
   try {
     if (Capacitor.isNativePlatform()) {
+      const deviceEnabled = await isDeviceLocationEnabled();
+      if (deviceEnabled === false) {
+        const openedSettings = openSettingsIfDisabled
+          ? await openDeviceLocationSettings()
+          : false;
+        return { ok: false, reason: "disabled", openedSettings };
+      }
+
       const allowed = await ensureLocationPermission();
       if (!allowed) return { ok: false, reason: "denied" };
     }
+
     const position = await getCurrentPosition();
     return { ok: true, position };
   } catch (err) {
-    return { ok: false, reason: geolocationErrorReason(err) };
+    const reason = geolocationErrorReason(err);
+    if (reason === "disabled" && openSettingsIfDisabled) {
+      const openedSettings = await openDeviceLocationSettings();
+      return { ok: false, reason, openedSettings };
+    }
+    return { ok: false, reason };
   }
 }

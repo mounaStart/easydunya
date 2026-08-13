@@ -424,6 +424,7 @@
     "denied": "GPS refusé. Autorisez la localisation dans les paramètres du téléphone, puis réessayez.",
     "timeout": "Délai dépassé. Vérifiez que le GPS est activé et que vous avez du réseau.",
     "disabled": "Le GPS est désactivé sur cet appareil. Activez-le dans les paramètres.",
+    "settingsOpened": "Paramètres GPS ouverts. Activez la localisation, puis revenez dans l'application.",
     "unavailable": "Position momentanément indisponible. Réessayez ou continuez avec « Plus tard »."
   },
   "profile": {

@@ -4,7 +4,7 @@
 // trg_notifications_push) et envoie une notification FCM native à tous
 // les appareils (APK) enregistrés de l'utilisateur.
 //
-// Affichage : « Easy Dunya » + logo, même application fermée.
+// Affichage : « Easy Dunya » + logo couleur (ic_notify_large dans l'APK).
 //
 // Secret requis (supabase secrets set ...) :
 //   FCM_SERVICE_ACCOUNT  = contenu JSON du compte de service Firebase
@@ -18,13 +18,6 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "";
-/** Logo affiché dans la notification Android (grande icône / image). */
-const FCM_NOTIFICATION_IMAGE =
-  Deno.env.get("FCM_NOTIFICATION_IMAGE") ??
-  "https://easydunya.netlify.app/icons/icon-192.png";
-/** Couleur de teinte de l'icône (orange Easy Dunya, pas le bleu #1E88D6). */
-const FCM_NOTIFICATION_COLOR =
-  Deno.env.get("FCM_NOTIFICATION_COLOR") ?? "#F57C00";
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
@@ -194,7 +187,12 @@ Deno.serve(async (req) => {
   }
 
   // Les valeurs `data` FCM doivent être des chaînes.
-  const dataStr: Record<string, string> = { type: notifType };
+  const dataStr: Record<string, string> = {
+    type: notifType,
+    title,
+    body: body ?? "",
+    tag: notifTag,
+  };
   if (data && typeof data === "object") {
     for (const [k, v] of Object.entries(data)) {
       dataStr[k] = typeof v === "string" ? v : JSON.stringify(v);
@@ -218,26 +216,11 @@ Deno.serve(async (req) => {
       const message = {
         message: {
           token: t.token,
-          notification: {
-            title,
-            body: body ?? "",
-            image: FCM_NOTIFICATION_IMAGE,
-          },
+          data: dataStr,
           android: {
             priority: "HIGH",
             collapse_key: notifTag,
-            notification: {
-              sound: "default",
-              channel_id: "easydunya_default",
-              icon: "ic_stat_notify",
-              color: FCM_NOTIFICATION_COLOR,
-              tag: notifTag,
-              image: FCM_NOTIFICATION_IMAGE,
-              default_vibrate_timings: true,
-              notification_priority: "PRIORITY_HIGH",
-            },
           },
-          data: dataStr,
         },
       };
       try {

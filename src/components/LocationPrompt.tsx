@@ -47,11 +47,25 @@ export default function LocationPrompt() {
   const [hidden, setHidden] = useState(snoozed());
   const [error, setError] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+  const [awaitingSettingsReturn, setAwaitingSettingsReturn] = useState(false);
 
   const isPassenger = profile?.role === "passenger";
   const visible = Boolean(
     checked && user && !hidden && needsPrompt && (isPassenger || isDriver)
   );
+
+  const finishSuccess = useCallback(async () => {
+    if (!user) return;
+    if (isPassenger) {
+      await syncPassengerLocation(user.id, profile, { force: true });
+      await refreshProfile();
+    }
+    setNeedsPrompt(false);
+    setHidden(true);
+    setAwaitingSettingsReturn(false);
+    setError(null);
+    signalLocationPromptSettled();
+  }, [user, isPassenger, profile, refreshProfile]);
 
   const refresh = useCallback(async () => {
     if (!user || hidden || (!isPassenger && !isDriver)) {
@@ -96,6 +110,49 @@ export default function LocationPrompt() {
     setChecked(true);
   }, [user, hidden, isPassenger, isDriver, profile, refreshProfile, t]);
 
+  const tryEnable = useCallback(
+    async (openSettingsIfDisabled: boolean) => {
+      if (!user || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const result = await requestAppLocation({ openSettingsIfDisabled });
+        if (!result.ok) {
+          if (result.reason === "disabled") {
+            setAwaitingSettingsReturn(Boolean(result.openedSettings));
+            setError(
+              result.openedSettings
+                ? t("locationPrompt.settingsOpened")
+                : t("locationPrompt.disabled")
+            );
+            return;
+          }
+          setError(reasonMessage(result.reason, t));
+          if (result.reason === "denied") {
+            setHidden(true);
+            signalLocationPromptSettled();
+          }
+          return;
+        }
+
+        await finishSuccess();
+      } catch {
+        setError(t("locationPrompt.unavailable"));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [user, busy, finishSuccess, t]
+  );
+
+  const enable = useCallback(() => {
+    void tryEnable(true);
+  }, [tryEnable]);
+
+  const enableAfterSettingsReturn = useCallback(() => {
+    void tryEnable(false);
+  }, [tryEnable]);
+
   useEffect(() => {
     setChecked(false);
     refresh();
@@ -107,7 +164,11 @@ export default function LocationPrompt() {
 
   useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState !== "visible") return;
+      void refresh();
+      if (awaitingSettingsReturn && user && !busy) {
+        enableAfterSettingsReturn();
+      }
     }
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -115,39 +176,7 @@ export default function LocationPrompt() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [refresh]);
-
-  if (!visible) return null;
-
-  async function enable() {
-    if (!user || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await requestAppLocation();
-      if (!result.ok) {
-        setError(reasonMessage(result.reason, t));
-        if (result.reason === "denied") {
-          setHidden(true);
-          signalLocationPromptSettled();
-        }
-        return;
-      }
-
-      if (isPassenger) {
-        await syncPassengerLocation(user.id, profile, { force: true });
-        await refreshProfile();
-      }
-
-      setNeedsPrompt(false);
-      setHidden(true);
-      signalLocationPromptSettled();
-    } catch {
-      setError(t("locationPrompt.unavailable"));
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [refresh, awaitingSettingsReturn, user, busy, enableAfterSettingsReturn]);
 
   function later() {
     try {
@@ -158,8 +187,11 @@ export default function LocationPrompt() {
     setHidden(true);
     setNeedsPrompt(false);
     setError(null);
+    setAwaitingSettingsReturn(false);
     signalLocationPromptSettled();
   }
+
+  if (!visible) return null;
 
   const body = isDriver
     ? t("locationPrompt.driverBody")
