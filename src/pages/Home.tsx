@@ -640,7 +640,7 @@ function SearchResults({
                     {isAr ? tr.to_name_ar : tr.to_name_fr}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {tr.seats_available} {t("common.seats").toLowerCase()}
+                    {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
