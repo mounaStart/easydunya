@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { updateBookingStatus } from "../../hooks/useBookings";
-import { useDriverGps, useTripDriverPosition } from "../../hooks/useDriverGps";
+import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import { supabase } from "../../lib/supabase";
 import type { Booking, Payment, Profile, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
@@ -78,7 +78,6 @@ export default function DriverHome() {
   const focusTrip = activeTrips.find((tr) => tr.id === focusTripId) ?? null;
 
   const isInProgress = focusTrip?.status === "in_progress";
-  useDriverGps(focusTrip?.id, isInProgress);
   const driverTrack = useTripDriverPosition(focusTrip?.id, isInProgress);
   const driverPos = driverTrack
     ? { lat: driverTrack.lat, lng: driverTrack.lng }
@@ -391,7 +390,7 @@ export default function DriverHome() {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <MiniTile icon="💰" label={t("driver.todayEarnings")} value={formatPrice(todayEarnings)} tone="emerald" />
+        <MiniTile icon="💰" label={t("driver.todayEarnings")} value={formatPrice(todayEarnings)} tone="brand" />
         <MiniTile
           icon="🕒"
           label={t("driver.nextDeparture")}
@@ -459,7 +458,22 @@ export default function DriverHome() {
               </Link>
             </div>
 
-            {mapPickups.length > 0 ? (
+            {isInProgress && showMap ? (
+              <TrackingMap
+                height={240}
+                from={{
+                  lat: focusTrip.from_lat,
+                  lng: focusTrip.from_lng,
+                  label: isAr ? focusTrip.from_name_ar : focusTrip.from_name_fr,
+                }}
+                to={{
+                  lat: focusTrip.to_lat,
+                  lng: focusTrip.to_lng,
+                  label: isAr ? focusTrip.to_name_ar : focusTrip.to_name_fr,
+                }}
+                driver={driverPos}
+              />
+            ) : mapPickups.length > 0 ? (
               <TrackingMap
                 variant="pickups"
                 height={240}
@@ -673,10 +687,9 @@ function MiniTile({
   icon: string;
   label: string;
   value: string;
-  tone: "emerald" | "brand" | "amber";
+  tone: "brand" | "amber";
 }) {
-  const toneClass =
-    tone === "emerald" ? "text-emerald-600" : tone === "amber" ? "text-amber-600" : "text-brand-700";
+  const toneClass = tone === "amber" ? "text-amber-600" : "text-brand-700";
   return (
     <div className="card p-3 text-center">
       <div className="text-lg">{icon}</div>

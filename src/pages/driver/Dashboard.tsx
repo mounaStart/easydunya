@@ -233,7 +233,7 @@ export default function DriverDashboard() {
         <StatCard
           label={t("driver.earnings")}
           value={formatPrice(stats.earnings)}
-          color="text-emerald-600"
+          color="text-brand-700"
         />
         <StatCard
           label={t("driver.tripsCount")}

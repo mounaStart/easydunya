@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import { cancelTripWithBroadcast, updateBookingStatus, useTripBookings } from "../../hooks/useBookings";
-import { useDriverGps, useTripDriverPosition } from "../../hooks/useDriverGps";
+import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import TrackingMap from "../../components/TrackingMap";
 import { useAuth } from "../../hooks/useAuth";
 import type { Booking, Profile, TripPublic } from "../../lib/types";
@@ -34,7 +34,6 @@ export default function TripBookings() {
   const [lockMsg, setLockMsg] = useState<string | null>(null);
 
   const isInProgress = trip?.status === "in_progress";
-  useDriverGps(tripId, isInProgress);
   const driverTrack = useTripDriverPosition(tripId, isInProgress);
   const driverPos = driverTrack
     ? { lat: driverTrack.lat, lng: driverTrack.lng }

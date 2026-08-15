@@ -281,11 +281,7 @@ export default function NewTrip() {
             type="button"
             onClick={captureDeparture}
             disabled={geoBusy}
-            className={`w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 font-semibold transition ${
-              departPos
-                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                : "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
-            }`}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 font-semibold transition bg-brand-50 text-brand-700 ring-1 ring-brand-200"
           >
             {geoBusy ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>
@@ -301,7 +297,7 @@ export default function NewTrip() {
                 : t("driver.departPointBtn")}
           </button>
           {departPos && (
-            <p className="text-xs text-emerald-700 mt-1.5">
+            <p className="text-xs text-brand-700 mt-1.5">
               📍 {departQuartier ?? `${departPos.lat.toFixed(4)}, ${departPos.lng.toFixed(4)}`}
             </p>
           )}
@@ -325,7 +321,7 @@ export default function NewTrip() {
               onChange={(e) => setPrice(Number(e.target.value))}
             />
             {cityPrice ? (
-              <p className="text-xs text-emerald-700 mt-1">
+              <p className="text-xs text-brand-700 mt-1">
                 ✓ {t("driver.officialPriceHint", {
                   price: formatPrice(cityPrice.price_per_seat),
                   km: Number(cityPrice.distance_km),

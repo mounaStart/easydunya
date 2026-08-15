@@ -115,6 +115,7 @@ export interface Trip {
   depart_lat?: number | null;
   depart_lng?: number | null;
   depart_quartier?: string | null;
+  distance_km?: number | null;
 }
 
 export interface TripPublic extends Trip {

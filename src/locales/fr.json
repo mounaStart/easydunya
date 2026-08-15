@@ -398,6 +398,7 @@
     "colPhone": "Téléphone",
     "colVehicle": "Véhicule",
     "colRating": "Note",
+    "colDistance": "Distance",
     "colSeats": "Places",
     "colCode": "Code",
     "noDriverYet": "Le chauffeur sera affiché une fois la demande acceptée.",

@@ -89,9 +89,9 @@ export default function DriverEarnings() {
           <div className="text-xs text-slate-500">{t("driver.commission")}</div>
           <div className="text-lg font-bold text-rose-600">-{formatPrice(totals.commission)}</div>
         </div>
-        <div className="card p-4 text-center bg-emerald-50 border-emerald-100">
-          <div className="text-xs text-emerald-700">{t("driver.netEarnings")}</div>
-          <div className="text-lg font-bold text-emerald-700">{formatPrice(totals.net)}</div>
+        <div className="card p-4 text-center bg-brand-50 border-brand-100">
+          <div className="text-xs text-brand-700">{t("driver.netEarnings")}</div>
+          <div className="text-lg font-bold text-brand-700">{formatPrice(totals.net)}</div>
         </div>
       </div>
 

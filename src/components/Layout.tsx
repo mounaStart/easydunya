@@ -6,6 +6,7 @@ import ScrollToTop from "./ScrollToTop";
 import NotificationPrompt from "./NotificationPrompt";
 import LocationPrompt from "./LocationPrompt";
 import PassengerLocationSync from "./PassengerLocationSync";
+import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
 import { useAuth } from "../hooks/useAuth";
 import { cn } from "../lib/utils";
@@ -40,6 +41,7 @@ export default function Layout() {
       <ScrollToTop />
       <PasswordChangeGate />
       <PassengerLocationSync />
+      <DriverGpsSync />
       <Header />
       <main className={cn("flex-1 has-bottom-nav", isPassengerHome && "bg-[#eef5fc]")}>
         <PullToRefresh onRefresh={handlePullRefresh}>

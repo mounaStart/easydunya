@@ -3,8 +3,9 @@ import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "../lib/supabase";
 
-const SEND_INTERVAL_MS = 25_000;
+const SEND_INTERVAL_MS = 15_000;
 const STALE_POSITION_MS = 2 * 60 * 1000;
+const PASSENGER_POLL_MS = 10_000;
 
 export interface TripDriverPosition {
   lat: number;
@@ -182,11 +183,17 @@ export function useTripDriverPosition(
 
     const poll = window.setInterval(() => {
       void loadLatest();
-    }, 20_000);
+    }, PASSENGER_POLL_MS);
+
+    function onVisible() {
+      if (document.visibilityState === "visible") void loadLatest();
+    }
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       cancelled = true;
       window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [tripId, active]);
