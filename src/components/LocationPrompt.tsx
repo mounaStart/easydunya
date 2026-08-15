@@ -37,7 +37,7 @@ function reasonMessage(reason: LocationFailReason, t: (k: string) => string): st
 
 /**
  * Bannière Easy Dunya : une seule invite visible dans l'app.
- * La boîte navigateur n'apparaît que si l'utilisateur clique « Activer le GPS ».
+ * La boîte navigateur n'apparaît que si l'utilisateur clique « Activer votre position ».
  */
 export default function LocationPrompt() {
   const { t } = useTranslation();

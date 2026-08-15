@@ -420,7 +420,7 @@
     "passengerBody": "Easy Dunya a besoin de votre position pour enregistrer votre quartier et permettre au chauffeur de vous retrouver.",
     "driverBody": "Easy Dunya a besoin du GPS pour publier vos voyages et partager votre position avec les passagers.",
     "later": "Plus tard",
-    "enable": "Activer le GPS",
+    "enable": "Activer votre position",
     "enabling": "Activation…",
     "denied": "GPS refusé. Autorisez la localisation dans les paramètres du téléphone, puis réessayez.",
     "timeout": "Délai dépassé. Vérifiez que le GPS est activé et que vous avez du réseau.",
