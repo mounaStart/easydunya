@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
-import { CONTACT_EMAIL } from "../../lib/contact";
+import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -18,12 +18,14 @@ function MenuLink({
   to,
   href,
   label,
+  detail,
   icon,
   external,
 }: {
   to?: string;
   href?: string;
   label: string;
+  detail?: string;
   icon: ReactNode;
   external?: boolean;
 }) {
@@ -32,14 +34,10 @@ function MenuLink({
 
   if (href) {
     return (
-      <a
-        href={href}
-        className={className}
-        target={external ? "_blank" : undefined}
-        rel={external ? "noopener noreferrer" : undefined}
-      >
+      <a href={href} className={className} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}>
         {icon}
         <span className="flex-1 text-left">{label}</span>
+        {detail && <span className="text-brand-700 font-bold tabular-nums">{detail}</span>}
         <Chevron />
       </a>
     );
@@ -49,6 +47,7 @@ function MenuLink({
     <Link to={to!} className={className}>
       {icon}
       <span className="flex-1 text-left">{label}</span>
+      {detail && <span className="text-brand-700 font-bold tabular-nums">{detail}</span>}
       <Chevron />
     </Link>
   );
@@ -155,12 +154,14 @@ export default function Profile() {
           }
         />
         <MenuLink
-          href={`mailto:${CONTACT_EMAIL}`}
+          href={CONTACT_PHONE_HREF}
           label={t("profile.contactUs")}
-          external
+          detail={CONTACT_PHONE}
           icon={
             <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
-              ✉️
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
             </span>
           }
         />

@@ -41,7 +41,7 @@ function reasonMessage(reason: LocationFailReason, t: (k: string) => string): st
  */
 export default function LocationPrompt() {
   const { t } = useTranslation();
-  const { user, profile, isDriver, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [needsPrompt, setNeedsPrompt] = useState(false);
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(snoozed());
@@ -50,9 +50,7 @@ export default function LocationPrompt() {
   const [awaitingSettingsReturn, setAwaitingSettingsReturn] = useState(false);
 
   const isPassenger = profile?.role === "passenger";
-  const visible = Boolean(
-    checked && user && !hidden && needsPrompt && (isPassenger || isDriver)
-  );
+  const visible = Boolean(checked && user && !hidden && needsPrompt && isPassenger);
 
   const finishSuccess = useCallback(async () => {
     if (!user) return;
@@ -68,7 +66,7 @@ export default function LocationPrompt() {
   }, [user, isPassenger, profile, refreshProfile]);
 
   const refresh = useCallback(async () => {
-    if (!user || hidden || (!isPassenger && !isDriver)) {
+    if (!user || hidden || !isPassenger) {
       setNeedsPrompt(false);
       setChecked(true);
       return;
@@ -108,7 +106,7 @@ export default function LocationPrompt() {
     setError(null);
     setNeedsPrompt(true);
     setChecked(true);
-  }, [user, hidden, isPassenger, isDriver, profile, refreshProfile, t]);
+  }, [user, hidden, isPassenger, profile, refreshProfile, t]);
 
   const tryEnable = useCallback(
     async (openSettingsIfDisabled: boolean) => {
@@ -193,9 +191,7 @@ export default function LocationPrompt() {
 
   if (!visible) return null;
 
-  const body = isDriver
-    ? t("locationPrompt.driverBody")
-    : t("locationPrompt.passengerBody");
+  const body = t("locationPrompt.passengerBody");
 
   return (
     <div className="sticky top-0 z-30 px-3 pt-2 pb-2 bg-slate-50/95 backdrop-blur-sm shrink-0">

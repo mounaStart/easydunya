@@ -5,7 +5,9 @@ import { useDriverGps } from "../hooks/useDriverGps";
 export default function DriverGpsSync() {
   const { profile } = useAuth();
   const tripId =
-    profile?.role === "driver" && profile.driver_status === "approved"
+    profile?.role === "driver" &&
+    profile.driver_status === "approved" &&
+    profile.gps_consent === true
       ? profile.current_trip_id
       : null;
 

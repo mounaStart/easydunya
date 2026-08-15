@@ -5,7 +5,7 @@ import { useCities } from "../hooks/useCities";
 import { useUpcomingTrips } from "../hooks/useTrips";
 import { formatPrice } from "../lib/utils";
 import { BRAND_BLUE, BRAND_BLUE_LIGHT, BRAND_ORANGE, BRAND_ORANGE_DARK } from "../lib/brandColors";
-import { CONTACT_EMAIL } from "../lib/contact";
+import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../lib/contact";
 
 export default function About() {
   const { t, i18n } = useTranslation();
@@ -211,10 +211,13 @@ export default function About() {
         <h2 className="text-xl font-extrabold text-ink">{t("profile.contactUs")}</h2>
         <p className="text-sm text-slate-500">{t("home.aboutLead")}</p>
         <a
-          href={`mailto:${CONTACT_EMAIL}`}
-          className="btn-secondary inline-flex w-full sm:w-auto"
+          href={CONTACT_PHONE_HREF}
+          className="btn-secondary inline-flex w-full sm:w-auto items-center gap-2"
         >
-          ✉️ {CONTACT_EMAIL}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+          </svg>
+          {CONTACT_PHONE}
         </a>
       </section>
 

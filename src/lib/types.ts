@@ -41,6 +41,7 @@ export interface Profile {
   license_number?: string | null;
   base_city_id?: string | null;
   photo_url?: string | null;
+  gps_consent?: boolean | null;
   quartier?: string | null;
   city_label?: string | null;
   location_lat?: number | null;

@@ -6,6 +6,7 @@ import ScrollToTop from "./ScrollToTop";
 import NotificationPrompt from "./NotificationPrompt";
 import LocationPrompt from "./LocationPrompt";
 import PassengerLocationSync from "./PassengerLocationSync";
+import DriverLocationGate from "./DriverLocationGate";
 import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
 import { useAuth } from "../hooks/useAuth";
@@ -38,6 +39,7 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden max-w-[100vw]">
       <ScrollToTop />
       <PasswordChangeGate />
+      <DriverLocationGate />
       <PassengerLocationSync />
       <DriverGpsSync />
       <Header />
