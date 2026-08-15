@@ -5,6 +5,7 @@ import { useCities } from "../hooks/useCities";
 import { useUpcomingTrips } from "../hooks/useTrips";
 import { formatPrice } from "../lib/utils";
 import { BRAND_BLUE, BRAND_BLUE_LIGHT, BRAND_ORANGE, BRAND_ORANGE_DARK } from "../lib/brandColors";
+import { CONTACT_EMAIL } from "../lib/contact";
 
 export default function About() {
   const { t, i18n } = useTranslation();
@@ -204,6 +205,18 @@ export default function About() {
           </div>
         </section>
       )}
+
+      {/* Contact */}
+      <section id="contact" className="card p-6 text-center space-y-3">
+        <h2 className="text-xl font-extrabold text-ink">{t("profile.contactUs")}</h2>
+        <p className="text-sm text-slate-500">{t("home.aboutLead")}</p>
+        <a
+          href={`mailto:${CONTACT_EMAIL}`}
+          className="btn-secondary inline-flex w-full sm:w-auto"
+        >
+          ✉️ {CONTACT_EMAIL}
+        </a>
+      </section>
 
       {/* CTA */}
       <section className="rounded-3xl p-7 text-center text-white bg-brand-gradient-br">

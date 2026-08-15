@@ -311,7 +311,7 @@ export default function NewTrip() {
 
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="label">{t("common.price")} (MRU)</label>
+            <label className="label">{t("common.price")} ({t("common.currency")})</label>
             <input
               type="number"
               className="input"

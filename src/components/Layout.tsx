@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
@@ -28,12 +28,10 @@ export default function Layout() {
   const location = useLocation();
   const { isDriver, isAdmin, refreshProfile } = useAuth();
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
-  const [outletKey, setOutletKey] = useState(0);
 
   const handlePullRefresh = useCallback(async () => {
     await refreshProfile();
     window.dispatchEvent(new CustomEvent("easydunya:refresh"));
-    setOutletKey((k) => k + 1);
   }, [refreshProfile]);
 
   return (
@@ -45,8 +43,8 @@ export default function Layout() {
       <Header />
       <main className={cn("flex-1 has-bottom-nav", isPassengerHome && "bg-[#eef5fc]")}>
         <LocationPrompt />
-        <PullToRefresh onRefresh={handlePullRefresh}>
-          <Outlet key={outletKey} />
+        <PullToRefresh onRefresh={handlePullRefresh} enabled={!isDriver && !isAdmin}>
+          <Outlet />
         </PullToRefresh>
       </main>
       <footer className="hidden md:block bg-white border-t border-slate-100 py-6 text-center text-sm text-slate-500">

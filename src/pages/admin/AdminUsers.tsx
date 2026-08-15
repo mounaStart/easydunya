@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import type { UserAdmin, UserRole } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import { labelDriverStatus, labelUserRole } from "../../lib/statusLabels";
+import { mapAuthError } from "../../lib/authErrors";
 
 type RoleFilter = "all" | UserRole;
 
@@ -60,6 +61,34 @@ export default function AdminUsers() {
       (u.phone ?? "").toLowerCase().includes(s)
     );
   });
+
+  async function resetPassword(u: UserAdmin) {
+    const pwd = window.prompt(
+      `Nouveau mot de passe pour ${u.full_name ?? u.phone ?? u.email} (min. 6 caractères) :`
+    );
+    if (!pwd) return;
+    if (pwd.length < 6) {
+      alert("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke("reset-user-password", {
+      body: {
+        userId: u.id,
+        phone: u.phone,
+        newPassword: pwd,
+      },
+    });
+    if (error) {
+      alert(mapAuthError(error.message));
+      return;
+    }
+    const payload = data as { error?: string } | null;
+    if (payload?.error) {
+      alert(mapAuthError(payload.error));
+      return;
+    }
+    alert("Mot de passe réinitialisé.");
+  }
 
   async function changeRole(u: UserAdmin, role: UserRole) {
     if (!confirm(`Changer le rôle de ${u.full_name ?? u.email} en "${role}" ?`)) return;
@@ -148,7 +177,14 @@ export default function AdminUsers() {
                   <td className="py-2 px-3 text-xs text-slate-500">
                     {new Date(u.created_at).toLocaleDateString()}
                   </td>
-                  <td className="py-2 px-3 text-right">
+                  <td className="py-2 px-3 text-right space-x-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => resetPassword(u)}
+                      className="text-xs font-semibold text-brand-700 hover:underline"
+                    >
+                      Mot de passe
+                    </button>
                     <select
                       defaultValue=""
                       onChange={(e) => {

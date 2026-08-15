@@ -47,6 +47,7 @@
     "date": "التاريخ",
     "time": "الوقت",
     "price": "السعر",
+    "currency": "MRU",
     "seats": "المقاعد",
     "seatsAvailable": "مقاعد متاحة",
     "fullName": "الاسم الكامل",
@@ -182,7 +183,12 @@
     "firstLoginChange": "أول تسجيل دخول: يرجى تعيين كلمة مرور خاصة بك.",
     "changePasswordHint": "عيّن كلمة مرور جديدة.",
     "newPassword": "كلمة المرور الجديدة",
-    "confirmPassword": "تأكيد كلمة المرور"
+    "confirmPassword": "تأكيد كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "forgotPasswordTitle": "إعادة تعيين كلمة المرور",
+    "forgotPasswordHint": "أدخل رقم هاتفك واختر كلمة مرور جديدة.",
+    "forgotPasswordSuccess": "تم تحديث كلمة المرور. يمكنك تسجيل الدخول.",
+    "resetPassword": "إعادة تعيين كلمة المرور"
   },
   "trip": {
     "details": "تفاصيل الرحلة",
@@ -438,6 +444,9 @@
     "locationSaved": "تم حفظ الموقع: {{quartier}}",
     "locationFailed": "تعذر الحصول على موقعك. اسمح بالوصول إلى الموقع.",
     "editSoon": "تعديل الملف الشخصي قريبًا.",
+    "about": "حول Easy Dunya",
+    "contactUs": "اتصل بنا",
+    "changePassword": "تغيير كلمة المرور",
     "logout": "تسجيل الخروج"
   },
   "lang": {

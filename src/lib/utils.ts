@@ -10,11 +10,14 @@ export function isoToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Devise affichée (ouguiya mauritanien — MRU). */
+export const CURRENCY_LABEL = "MRU";
+
 export function formatPrice(amount: number): string {
   const formatted = new Intl.NumberFormat(i18n.language === "ar" ? "ar-MR" : "fr-FR", {
     maximumFractionDigits: 0,
   }).format(amount);
-  return `${formatted} MRU`;
+  return `${formatted} ${CURRENCY_LABEL}`;
 }
 
 export function formatNumber(n: number): string {

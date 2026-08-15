@@ -31,7 +31,7 @@ export default function ChangePassword() {
       setError(error);
       return;
     }
-    navigate(isDriver ? "/driver" : "/", { replace: true });
+    navigate(mustChangePassword ? (isDriver ? "/driver" : "/") : "/profile", { replace: true });
   }
 
   return (

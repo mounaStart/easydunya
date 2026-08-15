@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isNativePlatform } from "../lib/nativePush";
 
-const PULL_THRESHOLD = 58;
-const MAX_PULL = 88;
-const PULL_ACTIVATION = 8;
-/** Délai après un scroll avant d'autoriser le tirer-pour-actualiser (évite l'actualisation en remontant en haut). */
-const SCROLL_SETTLE_MS = 200;
+const PULL_THRESHOLD = 76;
+const MAX_PULL = 96;
+const PULL_ARM_DISTANCE = 28;
+const PULL_ACTIVATION = 16;
+/** Délai après un scroll avant d'autoriser le tirer-pour-actualiser. */
+const SCROLL_SETTLE_MS = 500;
 const TOP_EPSILON = 2;
-const PULL_RESISTANCE = 0.78;
+const PULL_RESISTANCE = 0.55;
 
 function shouldIgnorePullTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
@@ -26,14 +27,21 @@ function isAtTop(): boolean {
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
   children: ReactNode;
+  /** Désactivé sur certaines sections (ex. chauffeur) où le geste perturbe le scroll. */
+  enabled?: boolean;
 }
 
-export default function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
+export default function PullToRefresh({
+  onRefresh,
+  children,
+  enabled = true,
+}: PullToRefreshProps) {
   const { t } = useTranslation();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(0);
   const startScrollTop = useRef(0);
+  const tracking = useRef(false);
   const pulling = useRef(false);
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
@@ -42,7 +50,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
   onRefreshRef.current = onRefresh;
 
   useEffect(() => {
-    if (!isNativePlatform()) return;
+    if (!isNativePlatform() || !enabled) return;
 
     const markScroll = () => {
       lastScrollAt.current = Date.now();
@@ -52,6 +60,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
     document.addEventListener("scroll", markScroll, { passive: true, capture: true });
 
     const resetPull = () => {
+      tracking.current = false;
       pulling.current = false;
       pullRef.current = 0;
       setPull(0);
@@ -70,11 +79,11 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       startScrollTop.current = scrollTop();
       if (!canStartPull()) return;
       startY.current = e.touches[0].clientY;
-      pulling.current = true;
+      tracking.current = true;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!pulling.current || refreshingRef.current) return;
+      if (!tracking.current || refreshingRef.current) return;
       if (shouldIgnorePullTarget(e.target)) {
         resetPull();
         return;
@@ -91,6 +100,10 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
         return;
       }
 
+      if (dy < PULL_ARM_DISTANCE) return;
+
+      if (!pulling.current) pulling.current = true;
+
       if (dy < PULL_ACTIVATION) return;
 
       e.preventDefault();
@@ -100,6 +113,8 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
     };
 
     const onTouchEnd = async () => {
+      if (!tracking.current) return;
+      tracking.current = false;
       if (!pulling.current) return;
       pulling.current = false;
       const distance = pullRef.current;
@@ -131,8 +146,9 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchEnd);
+      resetPull();
     };
-  }, []);
+  }, [enabled]);
 
   if (!isNativePlatform()) {
     return <>{children}</>;

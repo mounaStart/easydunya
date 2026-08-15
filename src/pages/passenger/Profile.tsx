@@ -1,7 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
+import { CONTACT_EMAIL } from "../../lib/contact";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -9,6 +11,65 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-slate-500 text-sm">{label}</span>
       <span className="font-semibold text-ink text-right max-w-[60%]">{value}</span>
     </div>
+  );
+}
+
+function MenuLink({
+  to,
+  href,
+  label,
+  icon,
+  external,
+}: {
+  to?: string;
+  href?: string;
+  label: string;
+  icon: ReactNode;
+  external?: boolean;
+}) {
+  const className =
+    "w-full flex items-center gap-3 px-4 py-4 text-ink font-semibold hover:bg-slate-50 active:bg-slate-100 transition border-b border-slate-100 last:border-0";
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className={className}
+        target={external ? "_blank" : undefined}
+        rel={external ? "noopener noreferrer" : undefined}
+      >
+        {icon}
+        <span className="flex-1 text-left">{label}</span>
+        <Chevron />
+      </a>
+    );
+  }
+
+  return (
+    <Link to={to!} className={className}>
+      {icon}
+      <span className="flex-1 text-left">{label}</span>
+      <Chevron />
+    </Link>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-slate-400 shrink-0 rtl:rotate-180"
+      aria-hidden
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
   );
 }
 
@@ -73,6 +134,37 @@ export default function Profile() {
       {isPassenger && !profile?.quartier?.trim() && (
         <p className="text-xs text-slate-500 text-center px-2">{t("profile.locationHint")}</p>
       )}
+
+      <div className="card overflow-hidden">
+        <MenuLink
+          to="/change-password"
+          label={t("profile.changePassword")}
+          icon={
+            <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
+              🔒
+            </span>
+          }
+        />
+        <MenuLink
+          to="/a-propos"
+          label={t("profile.about")}
+          icon={
+            <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
+              ℹ️
+            </span>
+          }
+        />
+        <MenuLink
+          href={`mailto:${CONTACT_EMAIL}`}
+          label={t("profile.contactUs")}
+          external
+          icon={
+            <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
+              ✉️
+            </span>
+          }
+        />
+      </div>
 
       <div className="card overflow-hidden">
         <button

@@ -53,6 +53,10 @@ interface AuthContextValue {
   }) => Promise<{ error?: string }>;
   /** Changement du mot de passe (obligatoire à la 1ère connexion chauffeur) */
   changeOwnPassword: (newPassword: string) => Promise<{ error?: string }>;
+  resetPasswordByPhone: (
+    phone: string,
+    newPassword: string
+  ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -324,6 +328,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session, loadProfile]
   );
 
+  const resetPasswordByPhone = useCallback(async (phone: string, newPassword: string) => {
+    const { data, error } = await supabase.functions.invoke("reset-user-password", {
+      body: { phone: phone.trim(), newPassword },
+    });
+    if (error) {
+      return { error: mapAuthError(error.message) };
+    }
+    const payload = data as { error?: string; ok?: boolean } | null;
+    if (payload?.error) return { error: mapAuthError(payload.error) };
+    return {};
+  }, []);
+
   const signOut = useCallback(async () => {
     void unsubscribeFromPush();
     await supabase.auth.signOut();
@@ -352,6 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpPassenger,
       createDriverAccount,
       changeOwnPassword,
+      resetPasswordByPhone,
       signOut,
       refreshProfile,
     };
@@ -364,6 +381,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUpPassenger,
     createDriverAccount,
     changeOwnPassword,
+    resetPasswordByPhone,
     signOut,
     refreshProfile,
   ]);

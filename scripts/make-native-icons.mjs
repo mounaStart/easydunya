@@ -85,27 +85,27 @@ for (const size of [192, 512]) {
   console.log(`✓ public/icons/icon-${size}.png (${buf.length} bytes)`);
 }
 
-/** Icône monochrome blanche sur fond transparent (exigence Android FCM). */
+/** Icône monochrome blanche — silhouette fidèle à l'emblème Easy Dunya. */
 async function whiteNotifySilhouette(canvasSize = 96) {
-  const inner = Math.round(canvasSize * 0.88);
+  const inner = Math.round(canvasSize * 0.84);
   const { data, info } = await sharp(SRC)
     .ensureAlpha()
     .trim({ threshold: 10 })
     .resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .greyscale()
-    .normalise()
-    .blur(0.4)
     .raw()
     .toBuffer({ resolveWithObject: true });
 
   const out = Buffer.alloc(info.width * info.height * 4);
-  for (let i = 0, j = 0; i < data.length; i++, j += 4) {
-    const lum = data[i];
-    const opaque = lum < 210;
+  for (let i = 0, j = 0; i < data.length; i += 4, j += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    const isBg = a < 16 || (r > 240 && g > 240 && b > 240);
     out[j] = 255;
     out[j + 1] = 255;
     out[j + 2] = 255;
-    out[j + 3] = opaque ? 255 : 0;
+    out[j + 3] = isBg ? 0 : Math.min(255, a);
   }
 
   const silhouette = await sharp(out, {
@@ -127,9 +127,22 @@ async function whiteNotifySilhouette(canvasSize = 96) {
     .toBuffer();
 }
 
-/** Logo couleur pour la grande icône dans le volet de notifications. */
+/** Logo couleur (emblème seul, sans cadre blanc) pour la grande icône notification. */
 async function coloredNotifyLarge(size = 256) {
-  return composeWhiteIcon(size, 0.88);
+  const box = Math.round(size * 0.92);
+  return sharp(SRC)
+    .ensureAlpha()
+    .trim({ threshold: 10 })
+    .resize(box, box, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extend({
+      top: Math.round((size - box) / 2),
+      bottom: Math.ceil((size - box) / 2),
+      left: Math.round((size - box) / 2),
+      right: Math.ceil((size - box) / 2),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
 }
 
 const ANDROID_RES = path.join(ROOT, "android", "app", "src", "main", "res");

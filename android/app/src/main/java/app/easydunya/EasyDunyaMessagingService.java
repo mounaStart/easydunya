@@ -77,6 +77,7 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             .setColor(ContextCompat.getColor(this, R.color.notification_color))
             .setContentTitle(title)
             .setContentText(body)
+            .setSubText("Easy Dunya")
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

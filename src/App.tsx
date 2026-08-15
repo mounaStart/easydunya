@@ -9,6 +9,7 @@ import Search from "./pages/Search";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ChangePassword from "./pages/ChangePassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import TripDetail from "./pages/TripDetail";
 import CheckBooking from "./pages/CheckBooking";
 import NotFound from "./pages/NotFound";
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="a-propos" element={<About />} />
         <Route path="search" element={<Search />} />
         <Route path="login" element={<Login />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
         <Route path="register" element={<Register />} />
         <Route
           path="change-password"

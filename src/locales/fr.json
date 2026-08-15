@@ -47,6 +47,7 @@
     "date": "Date",
     "time": "Heure",
     "price": "Prix",
+    "currency": "MRU",
     "seats": "Places",
     "seatsAvailable": "places dispo.",
     "fullName": "Nom complet",
@@ -182,7 +183,12 @@
     "firstLoginChange": "Première connexion : veuillez définir votre propre mot de passe.",
     "changePasswordHint": "Définissez un nouveau mot de passe.",
     "newPassword": "Nouveau mot de passe",
-    "confirmPassword": "Confirmer le mot de passe"
+    "confirmPassword": "Confirmer le mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotPasswordTitle": "Réinitialiser le mot de passe",
+    "forgotPasswordHint": "Saisissez votre numéro de téléphone et choisissez un nouveau mot de passe.",
+    "forgotPasswordSuccess": "Mot de passe mis à jour. Vous pouvez vous connecter.",
+    "resetPassword": "Réinitialiser le mot de passe"
   },
   "trip": {
     "details": "Détails du voyage",
@@ -438,6 +444,9 @@
     "locationSaved": "Position enregistrée : {{quartier}}",
     "locationFailed": "Impossible d'obtenir votre position. Autorisez la géolocalisation.",
     "editSoon": "L'édition du profil arrive bientôt.",
+    "about": "À propos d'Easy Dunya",
+    "contactUs": "Nous contacter",
+    "changePassword": "Changer le mot de passe",
     "logout": "Se déconnecter"
   },
   "lang": {
