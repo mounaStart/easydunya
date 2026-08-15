@@ -322,6 +322,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .update({ must_change_password: false })
           .eq("id", session.user.id);
         await loadProfile(session.user);
+        void supabase.functions.invoke("send-fcm", {
+          body: {
+            user_id: session.user.id,
+            title: "Mot de passe réinitialisé ✓",
+            body: "Votre mot de passe a été modifié avec succès.",
+            type: "password_reset_success",
+            data: { push_only: "true" },
+          },
+        });
       }
       return {};
     },
