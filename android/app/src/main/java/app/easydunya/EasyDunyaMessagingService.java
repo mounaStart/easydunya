@@ -5,8 +5,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -17,8 +15,8 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Affiche les notifications FCM avec le logo Easy Dunya :
- * fond blanc + couleurs bleu/orange (grande icône), silhouette bleue en barre d'état.
+ * Une seule notification FCM : petite icône Easy Dunya (pas de grande icône = pas de doublon visuel).
+ * sendRemoteMessage alimente la cloche JS sans afficher une 2e notification (messages data-only).
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -29,16 +27,8 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
 
         Map<String, String> data = remoteMessage.getData();
-        String title = firstNonEmpty(
-            data.get("title"),
-            remoteMessage.getNotification() != null ? remoteMessage.getNotification().getTitle() : null,
-            "Easy Dunya"
-        );
-        String body = firstNonEmpty(
-            data.get("body"),
-            remoteMessage.getNotification() != null ? remoteMessage.getNotification().getBody() : null,
-            ""
-        );
+        String title = firstNonEmpty(data.get("title"), "Easy Dunya");
+        String body = firstNonEmpty(data.get("body"), "");
 
         showNotification(title, body, data);
     }
@@ -58,33 +48,31 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             intent.putExtra(entry.getKey(), entry.getValue());
         }
 
+        String tag = data.get("tag") != null ? data.get("tag") : "easydunya_default";
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this,
-            (data.get("tag") != null ? data.get("tag") : title).hashCode(),
+            tag.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        Bitmap largeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ic_notify_large);
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
-            .setLargeIcon(largeIcon)
             .setColor(ContextCompat.getColor(this, R.color.notification_color))
             .setContentTitle(title)
             .setContentText(body)
-            .setSubText("Easy Dunya")
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE);
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setGroup("easydunya")
+            .setGroupSummary(false);
 
         NotificationManager manager =
             (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
-            int notificationId = data.get("tag") != null ? data.get("tag").hashCode() : title.hashCode();
-            manager.notify(notificationId, builder.build());
+            manager.notify(tag, tag.hashCode(), builder.build());
         }
     }
 
@@ -93,8 +81,7 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         NotificationManager manager =
             (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
-        NotificationChannel existing = manager.getNotificationChannel(CHANNEL_ID);
-        if (existing != null) return;
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
 
         NotificationChannel channel = new NotificationChannel(
             CHANNEL_ID,
