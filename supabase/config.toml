@@ -4,6 +4,9 @@ project_id = "prfmqfnaqtmyfyxqjeli"
 [functions.register-passenger]
 verify_jwt = false
 
+[functions.reset-user-password]
+verify_jwt = false
+
 [functions.create-driver-account]
 verify_jwt = true
 

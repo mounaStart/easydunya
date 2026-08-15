@@ -85,8 +85,15 @@ for (const size of [192, 512]) {
   console.log(`✓ public/icons/icon-${size}.png (${buf.length} bytes)`);
 }
 
-/** Icône monochrome blanche — silhouette fidèle à l'emblème Easy Dunya. */
-async function whiteNotifySilhouette(canvasSize = 96) {
+/** Logo notification grande icône : fond blanc + emblème couleur (identique au launcher). */
+const FILL_NOTIFY_LARGE = FILL_LAUNCHER;
+
+async function notifyLargeIcon(size = 256) {
+  return composeWhiteIcon(size, FILL_NOTIFY_LARGE);
+}
+
+/** Petite icône barre d'état : silhouette alpha (Android = monochrome, teintée en bleu Easy Dunya). */
+async function notifySmallIcon(canvasSize = 96) {
   const inner = Math.round(canvasSize * 0.84);
   const { data, info } = await sharp(SRC)
     .ensureAlpha()
@@ -105,7 +112,7 @@ async function whiteNotifySilhouette(canvasSize = 96) {
     out[j] = 255;
     out[j + 1] = 255;
     out[j + 2] = 255;
-    out[j + 3] = isBg ? 0 : Math.min(255, a);
+    out[j + 3] = isBg ? 0 : 255;
   }
 
   const silhouette = await sharp(out, {
@@ -127,24 +134,6 @@ async function whiteNotifySilhouette(canvasSize = 96) {
     .toBuffer();
 }
 
-/** Logo couleur (emblème seul, sans cadre blanc) pour la grande icône notification. */
-async function coloredNotifyLarge(size = 256) {
-  const box = Math.round(size * 0.92);
-  return sharp(SRC)
-    .ensureAlpha()
-    .trim({ threshold: 10 })
-    .resize(box, box, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .extend({
-      top: Math.round((size - box) / 2),
-      bottom: Math.ceil((size - box) / 2),
-      left: Math.round((size - box) / 2),
-      right: Math.ceil((size - box) / 2),
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toBuffer();
-}
-
 const ANDROID_RES = path.join(ROOT, "android", "app", "src", "main", "res");
 const NOTIFY_DENSITIES = [
   ["drawable-mdpi", 24],
@@ -160,7 +149,7 @@ for (const [folder, px] of NOTIFY_DENSITIES) {
   const out = path.join(dir, "ic_stat_notify.png");
   const oldXml = path.join(dir, "ic_stat_notify.xml");
   if (fs.existsSync(oldXml)) fs.unlinkSync(oldXml);
-  await sharp(await whiteNotifySilhouette(px))
+  await sharp(await notifySmallIcon(px))
     .png()
     .toFile(out);
   console.log(`✓ android/.../${folder}/ic_stat_notify.png (${px}px)`);
@@ -171,12 +160,13 @@ fs.mkdirSync(drawableRoot, { recursive: true });
 const legacyNotify = path.join(drawableRoot, "ic_stat_notify.png");
 const legacyXml = path.join(drawableRoot, "ic_stat_notify.xml");
 if (fs.existsSync(legacyXml)) fs.unlinkSync(legacyXml);
-await sharp(await whiteNotifySilhouette(96))
+await sharp(await notifySmallIcon(96))
   .png()
   .toFile(legacyNotify);
 
 const largeNotify = path.join(drawableRoot, "ic_notify_large.png");
-await sharp(await coloredNotifyLarge(256))
+await sharp(await notifyLargeIcon(256))
   .png()
   .toFile(largeNotify);
-console.log("✓ android/.../drawable/ic_notify_large.png (logo couleur)");
+console.log("✓ android/.../drawable/ic_notify_large.png (fond blanc + logo couleur)");
+

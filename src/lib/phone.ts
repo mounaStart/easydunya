@@ -19,3 +19,8 @@ export function isValidPhone(raw: string): boolean {
   const digits = normalizePhone(raw);
   return digits.length >= 8 && digits.length <= 15;
 }
+
+/** Mot de passe temporaire standard Easy Dunya : numéro (8 chiffres) + ED */
+export function phoneToDefaultPassword(raw: string): string {
+  return `${normalizePhone(raw)}ED`;
+}

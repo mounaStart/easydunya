@@ -1,6 +1,5 @@
 package app.easydunya;
 
-import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -15,12 +14,11 @@ import androidx.core.content.ContextCompat;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
-import java.util.List;
 import java.util.Map;
 
 /**
- * Affiche les notifications FCM avec le logo couleur Easy Dunya (grande icône)
- * et une silhouette monochrome fidèle à l'emblème.
+ * Affiche les notifications FCM avec le logo Easy Dunya :
+ * fond blanc + couleurs bleu/orange (grande icône), silhouette bleue en barre d'état.
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -29,8 +27,6 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
-
-        if (isAppInForeground()) return;
 
         Map<String, String> data = remoteMessage.getData();
         String title = firstNonEmpty(
@@ -115,18 +111,5 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             if (value != null && !value.trim().isEmpty()) return value.trim();
         }
         return "";
-    }
-
-    private boolean isAppInForeground() {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (manager == null) return false;
-        List<ActivityManager.RunningAppProcessInfo> processes = manager.getRunningAppProcesses();
-        if (processes == null) return false;
-        for (ActivityManager.RunningAppProcessInfo info : processes) {
-            if (!getPackageName().equals(info.processName)) continue;
-            return info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-                || info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
-        }
-        return false;
     }
 }

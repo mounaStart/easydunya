@@ -27,7 +27,7 @@ export default function TripCard({ trip }: Props) {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-2">
         <span className="text-lg font-bold text-slate-900">{fromName}</span>
         <svg width="18" height="18" viewBox="0 0 24 24" className="text-brand-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           {isAr ? <path d="M19 12H5M11 18l-6-6 6-6" /> : <path d="M5 12h14M13 6l6 6-6 6" />}
@@ -35,22 +35,24 @@ export default function TripCard({ trip }: Props) {
         <span className="text-lg font-bold text-slate-900">{toName}</span>
       </div>
 
-      <div className="text-sm text-slate-500 flex items-center gap-3 flex-wrap">
-        <span className="inline-flex items-center gap-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          {time}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-          {trip.seats_available}/{trip.seats_total} {t("common.seats").toLowerCase()}
-        </span>
+      <div className="text-sm text-slate-500 flex items-center gap-1 mb-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        {time}
+      </div>
+
+      <div className="text-sm text-slate-500 inline-flex items-center gap-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        {trip.seats_available}/{trip.seats_total} {t("common.seats").toLowerCase()}
         {trip.driver_name && (
-          <span className="inline-flex items-center gap-1">
-            <span className="text-amber-500">★</span>
-            {trip.driver_rating
-              ? `${Number(trip.driver_rating).toFixed(1)} · ${trip.driver_name}`
-              : trip.driver_name}
-          </span>
+          <>
+            <span className="text-slate-300 mx-1">·</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="text-amber-500">★</span>
+              {trip.driver_rating
+                ? `${Number(trip.driver_rating).toFixed(1)} · ${trip.driver_name}`
+                : trip.driver_name}
+            </span>
+          </>
         )}
       </div>
 

@@ -5,7 +5,7 @@ import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/useAuth";
 import { useCities } from "../../hooks/useCities";
 import { useTranslation } from "react-i18next";
-import { isValidPhone } from "../../lib/phone";
+import { isValidPhone, phoneToDefaultPassword } from "../../lib/phone";
 import { labelDriverStatus } from "../../lib/statusLabels";
 
 type FilterId = "all" | "pending" | "approved" | "rejected" | "suspended";
@@ -312,8 +312,7 @@ function CreateDriverForm({ onCreated }: { onCreated: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mot de passe temporaire = numéro de téléphone + "ED" (majuscules)
-  const password = `${phone.trim()}ED`;
+  const password = phoneToDefaultPassword(phone);
 
   async function submit() {
     setError(null);

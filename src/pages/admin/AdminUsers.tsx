@@ -5,6 +5,7 @@ import type { UserAdmin, UserRole } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import { labelDriverStatus, labelUserRole } from "../../lib/statusLabels";
 import { mapAuthError } from "../../lib/authErrors";
+import { isValidPhone, phoneToDefaultPassword } from "../../lib/phone";
 
 type RoleFilter = "all" | UserRole;
 
@@ -63,12 +64,17 @@ export default function AdminUsers() {
   });
 
   async function resetPassword(u: UserAdmin) {
-    const pwd = window.prompt(
-      `Nouveau mot de passe pour ${u.full_name ?? u.phone ?? u.email} (min. 6 caractères) :`
-    );
-    if (!pwd) return;
-    if (pwd.length < 6) {
-      alert("Le mot de passe doit contenir au moins 6 caractères.");
+    if (!u.phone || !isValidPhone(u.phone)) {
+      alert("Numéro de téléphone manquant ou invalide pour cet utilisateur.");
+      return;
+    }
+    const pwd = phoneToDefaultPassword(u.phone);
+    const label = u.full_name ?? u.phone ?? u.email ?? "utilisateur";
+    if (
+      !confirm(
+        `Réinitialiser le mot de passe de ${label} ?\n\nNouveau mot de passe : ${pwd}\n(téléphone + ED)`
+      )
+    ) {
       return;
     }
     const { data, error } = await supabase.functions.invoke("reset-user-password", {
@@ -87,7 +93,7 @@ export default function AdminUsers() {
       alert(mapAuthError(payload.error));
       return;
     }
-    alert("Mot de passe réinitialisé.");
+    alert(`Mot de passe réinitialisé : ${pwd}`);
   }
 
   async function changeRole(u: UserAdmin, role: UserRole) {

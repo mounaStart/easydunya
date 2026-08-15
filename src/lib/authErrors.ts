@@ -28,17 +28,20 @@ export function mapAuthError(msg: string, code?: string): string {
     return "Trop de tentatives d'inscription. Attendez 5 à 10 minutes, puis réessayez.";
   }
   if (
+    lower.includes("reset-user-password") ||
+    lower.includes("functions/v1/reset-user-password")
+  ) {
+    return "Réinitialisation du mot de passe non activée sur le serveur. Déployez la fonction Supabase « reset-user-password » (Dashboard → Edge Functions), puis réessayez.";
+  }
+  if (
     lower.includes("create-driver-account") ||
     (lower.includes("edge function") && lower.includes("driver"))
   ) {
     return "Création chauffeur non activée sur le serveur. Déployez la fonction Supabase « create-driver-account » (Dashboard → Edge Functions), puis réessayez.";
   }
   if (
-    lower.includes("edge function") ||
-    lower.includes("functions/v1/create-driver-account") ||
     lower.includes("functions/v1/register-passenger") ||
-    lower.includes("register-passenger") ||
-    lower.includes("not found")
+    lower.includes("register-passenger")
   ) {
     return "Inscription non activée sur le serveur. Déployez la fonction Supabase « register-passenger » (Dashboard → Edge Functions), puis réessayez.";
   }

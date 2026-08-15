@@ -74,9 +74,10 @@ function bindListeners(): void {
     console.warn("[fcm] erreur d'enregistrement:", JSON.stringify(err));
   });
 
-  // Pas de notification locale en doublon : une seule notif FCM (logo Easy Dunya).
+  // Toujours afficher la barre système (même app ouverte).
   PushNotifications.addListener("pushNotificationReceived", (n) => {
-    console.info("[fcm] notif reçue (app ouverte, cloche uniquement):", n.title);
+    console.info("[fcm] notif reçue:", n.title);
+    window.dispatchEvent(new CustomEvent("easydunya:refresh-notifications"));
   });
 
   PushNotifications.addListener("pushNotificationActionPerformed", (action) => {

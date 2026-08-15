@@ -28,25 +28,17 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
-/** Push téléphone uniquement (pas de ligne dans la cloche in-app). */
+/** Push téléphone via le trigger SQL (même chemin que réservation / départ). */
 async function sendPasswordResetPush(userId: string) {
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/send-fcm`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        title: "Mot de passe réinitialisé ✓",
-        body: "Votre mot de passe a été modifié avec succès.",
-        type: "password_reset_success",
-        data: { push_only: "true" },
-      }),
-    });
-  } catch {
-    /* push optionnel — le changement de mot de passe reste valide */
+  const { error } = await admin.rpc("notify_user", {
+    p_user: userId,
+    p_title: "Mot de passe réinitialisé ✓",
+    p_body: "Votre mot de passe a été modifié avec succès.",
+    p_type: "password_reset_success",
+    p_data: null,
+  });
+  if (error) {
+    console.error("[reset-user-password] notify_user:", error.message);
   }
 }
 

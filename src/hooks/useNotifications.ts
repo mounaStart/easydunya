@@ -3,6 +3,13 @@ import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
 import type { AppNotification } from "../lib/types";
 
+/** Types affichés dans la cloche in-app uniquement (push téléphone séparé). */
+export const IN_APP_HIDDEN_NOTIFICATION_TYPES = new Set(["password_reset_success"]);
+
+export function isInAppNotification(n: Pick<AppNotification, "type">): boolean {
+  return !n.type || !IN_APP_HIDDEN_NOTIFICATION_TYPES.has(n.type);
+}
+
 // Vrai dès qu'un abonnement Web Push est actif : on évite alors d'afficher
 // une 2ᵉ notification via l'API Notification (le service worker s'en charge).
 let pushActive = false;
@@ -58,7 +65,7 @@ export function useNotifications(userId: string | undefined) {
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
-    setItems((data as AppNotification[] | null) ?? []);
+    setItems((data as AppNotification[] | null)?.filter(isInAppNotification) ?? []);
     setLoading(false);
   }, [userId]);
 
@@ -83,6 +90,7 @@ export function useNotifications(userId: string | undefined) {
 
     // Ajoute une notif reçue en direct sans attendre un rechargement complet
     function addIncoming(n: AppNotification) {
+      if (!isInAppNotification(n)) return;
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [n, ...prev].slice(0, 50)
       );
@@ -126,12 +134,14 @@ export function useNotifications(userId: string | undefined) {
     }
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("easydunya:refresh-notifications", onVisible);
 
     return () => {
       supabase.removeChannel(ch);
       clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("easydunya:refresh-notifications", onVisible);
     };
   }, [userId, load]);
 

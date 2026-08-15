@@ -633,13 +633,13 @@ function SearchResults({
                   <div className="text-base font-extrabold text-brand-600">{formatPeriod(tr.depart_at)}</div>
                   <div className="text-[10px] uppercase text-slate-400 mt-1">{relativeDateLabel(tr.depart_at)}</div>
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex flex-col gap-2.5">
                   <div className="font-bold text-ink text-sm leading-snug">
                     {isAr ? tr.from_name_ar : tr.from_name_fr}
                     <span className="text-slate-400 mx-1">→</span>
                     {isAr ? tr.to_name_ar : tr.to_name_fr}
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
+                  <div className="text-xs text-slate-500">
                     {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
                   </div>
                 </div>

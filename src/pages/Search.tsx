@@ -139,7 +139,7 @@ export default function Search() {
               <Link
                 key={tr.id}
                 to={`/trips/${tr.id}`}
-                className="card p-4 flex items-center gap-4 hover:shadow-md transition"
+                className="card p-4 flex items-start gap-4 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-16">
                   <div className="text-base font-extrabold text-brand-600 leading-none">
@@ -149,7 +149,7 @@ export default function Search() {
                     {relativeDateLabel(tr.depart_at)}
                   </div>
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex flex-col gap-2.5">
                   <div className="font-bold text-ink flex items-center gap-1.5">
                     <span className="truncate">
                       {isAr ? tr.from_name_ar : tr.from_name_fr}
@@ -159,22 +159,20 @@ export default function Search() {
                       {isAr ? tr.to_name_ar : tr.to_name_fr}
                     </span>
                   </div>
-                  <div className="muted flex items-center gap-2 mt-0.5">
-                    {tr.driver_name && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className="w-5 h-5 rounded-full inline-flex items-center justify-center text-white text-[10px] font-bold"
-                          style={{ backgroundImage: BRAND_GRADIENT_BR }}
-                        >
-                          {tr.driver_name.charAt(0)}
-                        </span>
-                        <span className="truncate max-w-[120px]">{tr.driver_name}</span>
+                  {tr.driver_name && (
+                    <div className="muted flex items-center gap-1.5">
+                      <span
+                        className="w-5 h-5 rounded-full inline-flex items-center justify-center text-white text-[10px] font-bold"
+                        style={{ backgroundImage: BRAND_GRADIENT_BR }}
+                      >
+                        {tr.driver_name.charAt(0)}
                       </span>
-                    )}
-                    <span className="inline-flex items-center gap-1">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                      {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
-                    </span>
+                      <span className="truncate max-w-[160px]">{tr.driver_name}</span>
+                    </div>
+                  )}
+                  <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
                   </div>
                 </div>
                 <div className="text-right shrink-0 font-extrabold text-brand-600">
