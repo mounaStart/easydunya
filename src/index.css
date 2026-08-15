@@ -85,7 +85,9 @@
 
 /* Réserver de l'espace pour la bottom-nav mobile */
 @media (max-width: 767px) {
-  .has-bottom-nav { padding-bottom: 5.5rem; }
+  .has-bottom-nav {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .code-display {

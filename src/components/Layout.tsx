@@ -44,6 +44,7 @@ export default function Layout() {
       <DriverGpsSync />
       <Header />
       <main className={cn("flex-1 has-bottom-nav", isPassengerHome && "bg-[#eef5fc]")}>
+        <LocationPrompt />
         <PullToRefresh onRefresh={handlePullRefresh}>
           <Outlet key={outletKey} />
         </PullToRefresh>
@@ -51,7 +52,6 @@ export default function Layout() {
       <footer className="hidden md:block bg-white border-t border-slate-100 py-6 text-center text-sm text-slate-500">
         © {new Date().getFullYear()} Easy Dunya — Adam Ba &amp; Maimouna Dia
       </footer>
-      <LocationPrompt />
       <NotificationPrompt />
       <BottomNav />
     </div>

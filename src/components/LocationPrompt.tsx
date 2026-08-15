@@ -198,8 +198,8 @@ export default function LocationPrompt() {
     : t("locationPrompt.passengerBody");
 
   return (
-    <div className="fixed inset-x-0 bottom-[9.5rem] z-50 px-3 md:bottom-6">
-      <div className="mx-auto max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 p-4">
+    <div className="sticky top-0 z-30 px-3 pt-2 pb-2 bg-slate-50/95 backdrop-blur-sm shrink-0">
+      <div className="mx-auto max-w-md rounded-2xl bg-white shadow-md ring-1 ring-brand-100 p-4">
         <div className="flex items-start gap-3">
           <span className="shrink-0 w-10 h-10 rounded-full bg-brand-50 text-brand-600 inline-flex items-center justify-center">
             <svg

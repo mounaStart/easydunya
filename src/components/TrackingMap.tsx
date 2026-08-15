@@ -167,7 +167,7 @@ export default function TrackingMap({
         : [18.08, -15.98];
 
   return (
-    <div className="rounded-3xl overflow-hidden shadow-soft border border-slate-100">
+    <div className="rounded-3xl overflow-hidden shadow-soft border border-slate-100" data-no-ptr>
       <MapContainer
         center={center}
         zoom={pickupsOnly ? 14 : 6}

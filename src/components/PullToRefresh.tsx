@@ -2,12 +2,18 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isNativePlatform } from "../lib/nativePush";
 
-const PULL_THRESHOLD = 88;
-const MAX_PULL = 104;
-const PULL_ACTIVATION = 24;
+const PULL_THRESHOLD = 58;
+const MAX_PULL = 88;
+const PULL_ACTIVATION = 8;
 /** Délai après un scroll avant d'autoriser le tirer-pour-actualiser (évite l'actualisation en remontant en haut). */
-const SCROLL_SETTLE_MS = 450;
-const TOP_EPSILON = 1;
+const SCROLL_SETTLE_MS = 200;
+const TOP_EPSILON = 2;
+const PULL_RESISTANCE = 0.78;
+
+function shouldIgnorePullTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(target.closest(".leaflet-container, .leaflet-pane, [data-no-ptr]"));
+}
 
 function scrollTop(): number {
   return window.scrollY || document.documentElement.scrollTop || 0;
@@ -60,6 +66,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return;
+      if (shouldIgnorePullTarget(e.target)) return;
       startScrollTop.current = scrollTop();
       if (!canStartPull()) return;
       startY.current = e.touches[0].clientY;
@@ -68,6 +75,10 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
 
     const onTouchMove = (e: TouchEvent) => {
       if (!pulling.current || refreshingRef.current) return;
+      if (shouldIgnorePullTarget(e.target)) {
+        resetPull();
+        return;
+      }
 
       if (!isAtTop() || startScrollTop.current > TOP_EPSILON) {
         resetPull();
@@ -83,7 +94,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       if (dy < PULL_ACTIVATION) return;
 
       e.preventDefault();
-      const next = Math.min((dy - PULL_ACTIVATION) * 0.5, MAX_PULL);
+      const next = Math.min((dy - PULL_ACTIVATION) * PULL_RESISTANCE, MAX_PULL);
       pullRef.current = next;
       setPull(next);
     };
