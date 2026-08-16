@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
+import { isNativePlatform } from "../lib/nativePush";
 import type { AppNotification } from "../lib/types";
 
 /** Types affichés dans la cloche in-app uniquement (push téléphone séparé). */
@@ -94,8 +95,8 @@ export function useNotifications(userId: string | undefined) {
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [n, ...prev].slice(0, 50)
       );
-      // Sur APK : FCM affiche déjà la barre (pas de doublon local via Realtime).
-      if (!pushActive && n.title) {
+      // APK : FCM affiche déjà la barre (pas de doublon via Realtime / SW).
+      if (!isNativePlatform() && !pushActive && n.title) {
         showSystemNotification(n.title, n.body ?? undefined);
       }
     }

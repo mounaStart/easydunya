@@ -15,8 +15,8 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Une seule notification FCM : petite icône Easy Dunya (pas de grande icône = pas de doublon visuel).
- * sendRemoteMessage alimente la cloche JS sans afficher une 2e notification (messages data-only).
+ * Une seule notification FCM : affichée ici (pas via Capacitor alert ni Web Push SW).
+ * sendRemoteMessage alimente la cloche JS sans 2e notification système.
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -24,13 +24,23 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
-
         Map<String, String> data = remoteMessage.getData();
-        String title = firstNonEmpty(data.get("title"), "Easy Dunya");
-        String body = firstNonEmpty(data.get("body"), "");
+        String title = firstNonEmpty(
+            data.get("title"),
+            remoteMessage.getNotification() != null ? remoteMessage.getNotification().getTitle() : null,
+            "Easy Dunya"
+        );
+        String body = firstNonEmpty(
+            data.get("body"),
+            remoteMessage.getNotification() != null ? remoteMessage.getNotification().getBody() : null,
+            ""
+        );
 
+        // Une seule notification système (notre handler). Pas de grande icône = pas de doublon visuel.
         showNotification(title, body, data);
+
+        // Cloche JS uniquement (data-only → Capacitor n'affiche pas de 2e notif).
+        PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
     }
 
     @Override

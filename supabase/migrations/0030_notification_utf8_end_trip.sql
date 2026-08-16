@@ -129,7 +129,7 @@ begin
       perform net.http_post(
         url     := v_fcm_url,
         headers := jsonb_build_object(
-          'Content-Type', 'application/json; charset=utf-8',
+          'Content-Type', 'application/json',
           'Authorization', 'Bearer ' || coalesce(v_fcm_tok, '')
         ),
         body    := v_payload
@@ -142,7 +142,7 @@ begin
       perform net.http_post(
         url     := v_url,
         headers := jsonb_build_object(
-          'Content-Type', 'application/json; charset=utf-8',
+          'Content-Type', 'application/json',
           'Authorization', 'Bearer ' || coalesce(v_token, '')
         ),
         body    := v_payload

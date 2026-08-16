@@ -3,6 +3,23 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "./supabase";
 import type { PushState } from "./push";
 
+/** Supprime tout Web Push pour ce compte (APK = FCM uniquement). */
+async function clearWebPushForUser(userId: string): Promise<void> {
+  try {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription();
+      if (sub?.endpoint) {
+        await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        await sub.unsubscribe();
+      }
+    }
+    await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+  } catch {
+    /* non bloquant */
+  }
+}
+
 /** Vrai dans l'APK Capacitor (pas dans le navigateur). */
 export function isNativePlatform(): boolean {
   try {
@@ -55,6 +72,7 @@ async function saveToken(userId: string, token: string): Promise<boolean> {
   }
   console.info("[fcm] token enregistré ✓");
   lastSavedToken = token;
+  await clearWebPushForUser(userId);
   return true;
 }
 

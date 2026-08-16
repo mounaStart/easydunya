@@ -8,13 +8,13 @@ export default function PassengerHero() {
   return (
     <div className="relative w-full rounded-[20px] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] bg-[#0f2844] leading-[0]">
       <picture className="block w-full">
-        <source srcSet="/brand/hero-home.webp?v=32 1024w" type="image/webp" />
+        <source srcSet="/brand/hero-home.webp?v=34 1024w" type="image/webp" />
         <img
-          src="/brand/hero-home.jpg?v=32"
+          src="/brand/hero-home.jpg?v=34"
           alt={heroAlt}
           className="w-full h-auto block align-top"
           width={1024}
-          height={682}
+          height={681}
           sizes="379px"
           fetchPriority="high"
           decoding="async"
