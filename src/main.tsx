@@ -4,9 +4,12 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
 import { initNativeChrome } from "./lib/nativeChrome";
-import { initNativePush, isNativePlatform } from "./lib/nativePush";
+import { disableWebPushOnNative, initNativePush, isNativePlatform } from "./lib/nativePush";
 import "./i18n";
 import "./index.css";
+
+// APK : supprimer le service worker Web Push avant tout (évite 2e notif + icône différente).
+disableWebPushOnNative();
 
 // Initialise les listeners FCM dès le démarrage (avant connexion).
 initNativePush();
@@ -14,13 +17,6 @@ initNativeChrome();
 
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
-}
-
-// Le service worker PWA (web-push) perturbe FCM natif dans l'APK.
-if (isNativePlatform() && "serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((regs) => {
-    regs.forEach((r) => r.unregister());
-  });
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

@@ -29,6 +29,14 @@ export function isNativePlatform(): boolean {
   }
 }
 
+/** Désactive le service worker Web Push dans l'APK (FCM natif uniquement). */
+export function disableWebPushOnNative(): void {
+  if (!isNativePlatform() || !("serviceWorker" in navigator)) return;
+  void navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => void r.unregister());
+  });
+}
+
 let listenersBound = false;
 let currentUserId: string | null = null;
 let pendingToken: string | null = null;
@@ -108,6 +116,7 @@ function bindListeners(): void {
 /** À appeler au démarrage de l'app (avant la connexion). */
 export function initNativePush(): void {
   if (!isNativePlatform()) return;
+  disableWebPushOnNative();
   bindListeners();
 }
 

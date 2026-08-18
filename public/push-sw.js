@@ -24,6 +24,12 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
+  // APK Capacitor : FCM natif affiche déjà la notification (logo couleur unique).
+  const ua = self.navigator?.userAgent || "";
+  if (/Capacitor/i.test(ua)) {
+    return;
+  }
+
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
