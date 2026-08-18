@@ -14,7 +14,7 @@ export default function AdminCityPrices() {
 
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
-  const [price, setPrice] = useState(5000);
+  const [price, setPrice] = useState(500);
   const [distance, setDistance] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export default function AdminCityPrices() {
   function reset() {
     setFromId("");
     setToId("");
-    setPrice(5000);
+    setPrice(500);
     setDistance(0);
     setEditId(null);
     setError(null);

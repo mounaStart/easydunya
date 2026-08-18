@@ -53,7 +53,7 @@
   }
 
   .badge-pending { @apply rounded-full bg-amber-100 text-amber-700 px-2.5 py-1 text-xs font-semibold; }
-  .badge-confirmed { @apply rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold; }
+  .badge-confirmed { @apply rounded-full bg-brand-100 text-brand-700 px-2.5 py-1 text-xs font-semibold; }
   .badge-rejected { @apply rounded-full bg-rose-100 text-rose-700 px-2.5 py-1 text-xs font-semibold; }
   .badge-completed { @apply rounded-full bg-sky-100 text-sky-700 px-2.5 py-1 text-xs font-semibold; }
   .badge-cancelled { @apply rounded-full bg-slate-200 text-slate-700 px-2.5 py-1 text-xs font-semibold; }

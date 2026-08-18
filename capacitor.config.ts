@@ -14,6 +14,8 @@ const config: CapacitorConfig = {
   server: {
     url: NETLIFY_URL,
     cleartext: false,
+    /** Page locale (dans l’APK) si Netlify est injoignable. */
+    errorPath: "/offline.html",
   },
   plugins: {
     PushNotifications: {

@@ -27,7 +27,7 @@ export default function NewTrip() {
   const [toCityId, setToCityId] = useState("");
   const [departDate, setDepartDate] = useState(defaultDate());
   const [period, setPeriod] = useState<"morning" | "evening">("morning");
-  const [price, setPrice] = useState(5000);
+  const [price, setPrice] = useState(500);
   const [seats, setSeats] = useState(8);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);

@@ -70,7 +70,17 @@ export default function MyBookings() {
                       </div>
                       <div className="muted">
                         {relativeDateLabel(trip.depart_at)} ·{" "}
-                        {formatPeriod(trip.depart_at)} ·{" "}
+                        {formatPeriod(trip.depart_at)}
+                        {trip.distance_km != null && Number(trip.distance_km) > 0 && (
+                          <>
+                            {" · "}
+                            {Number(trip.distance_km).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
+                              maximumFractionDigits: 1,
+                            })}{" "}
+                            km
+                          </>
+                        )}
+                        {" · "}
                         {formatPrice(trip.price_per_seat * b.seats)}
                       </div>
                     </>

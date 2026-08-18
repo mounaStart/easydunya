@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1976D2" />
+    <title>Easy Dunya — Hors ligne</title>
+    <style>
+      :root {
+        --brand-blue: #1976d2;
+        --brand-orange: #f97316;
+        --bg: #eef5fc;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: #0f172a;
+      }
+      .page {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 20px 32px;
+        text-align: center;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+      .logo img {
+        width: 48px;
+        height: auto;
+      }
+      .logo span {
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .logo .easy {
+        color: var(--brand-blue);
+      }
+      .logo .dunya {
+        color: var(--brand-orange);
+      }
+      .card {
+        width: 100%;
+        max-width: 22rem;
+        background: #fff;
+        border-radius: 1.5rem;
+        padding: 28px 22px;
+        box-shadow: 0 10px 30px rgba(25, 118, 210, 0.08);
+        border: 1px solid #e2e8f0;
+      }
+      .icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        border-radius: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        background: linear-gradient(135deg, #1976d2 0%, #42a5f5 40%, #f97316 100%);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      p {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        line-height: 1.55;
+        color: #64748b;
+      }
+      p.ar {
+        direction: rtl;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+      .btn {
+        margin-top: 22px;
+        width: 100%;
+        border: 0;
+        border-radius: 1rem;
+        padding: 14px 20px;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        background: linear-gradient(90deg, #1976d2 0%, #1976d2 42%, #f97316 100%);
+        box-shadow: 0 8px 20px rgba(25, 118, 210, 0.25);
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .hint {
+        margin-top: 18px;
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="logo">
+        <img src="/brand/emblem.png" alt="" width="48" height="32" />
+        <span><span class="easy">Easy</span><span class="dunya">Dunya</span></span>
+      </div>
+
+      <section class="card" aria-live="polite">
+        <div class="icon" aria-hidden="true">📡</div>
+        <h1>Pas de connexion</h1>
+        <p>Vérifiez votre connexion Internet, puis réessayez.</p>
+        <p class="ar">تحقق من اتصالك بالإنترنت ثم أعد المحاولة.</p>
+        <button type="button" class="btn" id="retry">Réessayer</button>
+        <p class="hint" id="status"></p>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        var APP_URL = "https://easydunya.netlify.app/";
+        var retryBtn = document.getElementById("retry");
+        var statusEl = document.getElementById("status");
+
+        function setStatus(text) {
+          if (statusEl) statusEl.textContent = text || "";
+        }
+
+        function retry() {
+          setStatus("Connexion en cours…");
+          window.location.replace(APP_URL);
+        }
+
+        retryBtn.addEventListener("click", retry);
+
+        window.addEventListener("online", function () {
+          retry();
+        });
+
+        if (!navigator.onLine) {
+          setStatus("Aucune connexion détectée.");
+        }
+      })();
+    </script>
+  </body>
+</html>

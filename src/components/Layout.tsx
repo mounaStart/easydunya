@@ -10,6 +10,7 @@ import DriverLocationGate from "./DriverLocationGate";
 import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
 import { useAuth } from "../hooks/useAuth";
+import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import { cn } from "../lib/utils";
 
 /** Force le changement de mot de passe (1ère connexion chauffeur). */
@@ -28,6 +29,7 @@ function PasswordChangeGate() {
 export default function Layout() {
   const location = useLocation();
   const { isDriver, isAdmin, refreshProfile } = useAuth();
+  useAndroidBackButton();
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
   const handlePullRefresh = useCallback(async () => {

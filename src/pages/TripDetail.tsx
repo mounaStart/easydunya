@@ -168,7 +168,7 @@ export default function TripDetail() {
   const statusLabel = t(`trip.status.${trip.status}`);
   const statusClass =
     trip.status === "scheduled"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "bg-brand-100 text-brand-700"
       : trip.status === "in_progress"
         ? "bg-brand-100 text-brand-700"
         : trip.status === "completed"
@@ -262,7 +262,7 @@ export default function TripDetail() {
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="grid grid-cols-2 gap-2 mt-3">
           <InfoRow
             icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>}
             label={t("trip.departure")}
@@ -278,6 +278,15 @@ export default function TripDetail() {
             label={t("common.price")}
             value={formatPrice(trip.price_per_seat)}
           />
+          {trip.distance_km != null && Number(trip.distance_km) > 0 && (
+            <InfoRow
+              icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>}
+              label={t("reservation.colDistance")}
+              value={`${Number(trip.distance_km).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
+                maximumFractionDigits: 1,
+              })} km`}
+            />
+          )}
         </div>
 
         {trip.notes && (
@@ -355,7 +364,7 @@ export default function TripDetail() {
       {/* Confirmation directe / reçu / invite connexion */}
       {booking ? (
         <div id="receipt" className="card p-6 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 mb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-100 text-brand-600 mb-3">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
           <div className="font-bold text-ink text-lg">{t("booking.createSuccess")}</div>
