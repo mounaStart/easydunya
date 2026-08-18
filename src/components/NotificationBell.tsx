@@ -19,15 +19,9 @@ export default function NotificationBell({ alwaysVisible = false }: Notification
   // Abonnement push automatique et transparent (sans bouton) :
   // si la permission est accordée mais l'appareil pas encore abonné, on abonne.
   const ensurePush = useCallback(async () => {
-    if (!user) return;
-    if (
-      isNativePlatform() ||
-      (typeof Notification !== "undefined" &&
-        Notification.permission === "granted")
-    ) {
-      const st = await getPushState(user.id);
-      if (st === "off") await subscribeToPush(user.id);
-    }
+    if (!user || !isNativePlatform()) return;
+    const st = await getPushState(user.id);
+    if (st === "off") await subscribeToPush(user.id);
   }, [user]);
 
   useEffect(() => {

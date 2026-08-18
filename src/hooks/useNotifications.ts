@@ -11,49 +11,6 @@ export function isInAppNotification(n: Pick<AppNotification, "type">): boolean {
   return !n.type || !IN_APP_HIDDEN_NOTIFICATION_TYPES.has(n.type);
 }
 
-// Vrai dès qu'un abonnement Web Push est actif : on évite alors d'afficher
-// une 2ᵉ notification via l'API Notification (le service worker s'en charge).
-let pushActive = false;
-
-/** Demande (une fois) la permission d'afficher des notifications système. */
-export async function ensureNotificationPermission(): Promise<boolean> {
-  if (typeof Notification === "undefined") return false;
-  if (Notification.permission === "granted") return true;
-  if (Notification.permission === "denied") return false;
-  try {
-    const res = await Notification.requestPermission();
-    return res === "granted";
-  } catch {
-    return false;
-  }
-}
-
-/** Affiche une notification système (téléphone/bureau) si autorisé. */
-async function showSystemNotification(title: string, body?: string) {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") {
-    return;
-  }
-  const options: NotificationOptions = {
-    body: body ?? undefined,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
-  };
-  try {
-    // Via le service worker si dispo (meilleur support mobile/arrière-plan)
-    const reg =
-      "serviceWorker" in navigator
-        ? await navigator.serviceWorker.getRegistration()
-        : null;
-    if (reg) {
-      await reg.showNotification(title, options);
-    } else {
-      new Notification(title, options);
-    }
-  } catch {
-    /* notification système non bloquante */
-  }
-}
-
 export function useNotifications(userId: string | undefined) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,20 +29,10 @@ export function useNotifications(userId: string | undefined) {
 
   useEffect(() => {
     load();
-    if (!userId) {
-      pushActive = false;
-      return;
+    if (!userId) return;
+    if (isNativePlatform()) {
+      subscribeToPush(userId).catch(() => {});
     }
-    // Réinitialise à chaque changement de compte sur cet appareil
-    pushActive = false;
-    subscribeToPush(userId)
-      .then((ok) => {
-        pushActive = ok;
-        if (!ok) ensureNotificationPermission();
-      })
-      .catch(() => {
-        ensureNotificationPermission();
-      });
 
     let realtimeOk = false;
 
@@ -95,10 +42,6 @@ export function useNotifications(userId: string | undefined) {
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [n, ...prev].slice(0, 50)
       );
-      // APK : FCM affiche déjà la barre (pas de doublon via Realtime / SW).
-      if (!isNativePlatform() && !pushActive && n.title) {
-        showSystemNotification(n.title, n.body ?? undefined);
-      }
     }
 
     const ch = supabase

@@ -30,15 +30,9 @@ export default function NotificationPrompt() {
   const nativeRequested = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!user) return;
-    if (
-      isNativePlatform() ||
-      (typeof Notification !== "undefined" &&
-        Notification.permission === "granted")
-    ) {
-      const st = await getPushState(user.id);
-      if (st === "off") await subscribeToPush(user.id);
-    }
+    if (!user || !isNativePlatform()) return;
+    const st = await getPushState(user.id);
+    if (st === "off") await subscribeToPush(user.id);
     setState(await getPushState(user.id));
   }, [user]);
 
@@ -78,8 +72,8 @@ export default function NotificationPrompt() {
   }, [user, hidden, locationReady, state, refresh]);
 
   if (!user || hidden || !locationReady) return null;
+  if (!isNativePlatform()) return null;
   if (state !== "off") return null;
-  if (isNativePlatform()) return null;
 
   async function enable() {
     if (!user || busy) return;
@@ -92,13 +86,7 @@ export default function NotificationPrompt() {
         setHidden(true);
         return;
       }
-      if (typeof Notification !== "undefined" && Notification.permission === "denied") {
-        setHidden(true);
-        return;
-      }
-      setError(
-        "Impossible d'activer les notifications. Vérifiez que VITE_VAPID_PUBLIC_KEY est configuré, puis réessayez."
-      );
+      setError("Impossible d'activer les notifications sur cet appareil.");
     } catch {
       setError("Une erreur est survenue. Réessayez dans un instant.");
     } finally {
