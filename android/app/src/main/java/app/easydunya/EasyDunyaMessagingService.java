@@ -4,9 +4,9 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.content.res.Configuration;
 import android.os.Build;
+import android.widget.RemoteViews;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -16,13 +16,12 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Une seule notification FCM avec le logo couleur Easy Dunya (grande icône circulaire).
- * sendRemoteMessage alimente la cloche JS sans 2e notification système.
+ * Logo couleur Easy Dunya (emblème) via layout custom.
+ * Pas de setLargeIcon → pas de logo géant ni doublon sur Samsung.
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
     private static final String CHANNEL_ID = "easydunya_default";
-    private static Bitmap largeIconBitmap;
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -65,18 +64,21 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        RemoteViews content = buildContentView(title, body);
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
-            .setLargeIcon(getLargeIcon())
             .setColor(ContextCompat.getColor(this, R.color.notification_color))
+            .setCustomContentView(content)
+            .setCustomBigContentView(content)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setOnlyAlertOnce(true);
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false);
 
         NotificationManager manager =
             (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -85,11 +87,17 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         }
     }
 
-    private Bitmap getLargeIcon() {
-        if (largeIconBitmap == null) {
-            largeIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_notify_large);
-        }
-        return largeIconBitmap;
+    private RemoteViews buildContentView(String title, String body) {
+        RemoteViews views = new RemoteViews(getPackageName(), R.layout.notification_easydunya);
+        views.setTextViewText(R.id.notification_title, title);
+        views.setTextViewText(R.id.notification_body, body);
+
+        boolean nightMode =
+            (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        views.setTextColor(R.id.notification_title, nightMode ? 0xEEFFFFFF : 0xDE000000);
+        views.setTextColor(R.id.notification_body, nightMode ? 0x99FFFFFF : 0x99000000);
+        return views;
     }
 
     private void ensureChannel() {

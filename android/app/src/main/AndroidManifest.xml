@@ -35,10 +35,6 @@
             android:resource="@drawable/ic_stat_notify"
         />
         <meta-data
-            android:name="com.google.firebase.messaging.default_notification_large_icon"
-            android:resource="@drawable/ic_notify_large"
-        />
-        <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="easydunya_default"
         />
