@@ -7,16 +7,14 @@ import android.content.Intent;
 import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.Person;
-import androidx.core.graphics.drawable.IconCompat;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Un seul affichage : avatar logo couleur Easy Dunya + titre + texte.
- * Pas de setLargeIcon (2e logo), pas de setColor (logo bleu uni).
+ * Une seule icône (gauche) + titre + texte.
+ * Pas de setLargeIcon (2e logo à droite), pas de setColor (cercle bleu uni).
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -63,20 +61,11 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        Person easyDunya = new Person.Builder()
-            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_notify_large))
-            .setName("Easy Dunya")
-            .build();
-
-        NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(easyDunya)
-            .setConversationTitle(title)
-            .addMessage(body, System.currentTimeMillis(), easyDunya);
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
-            .setStyle(style)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

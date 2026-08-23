@@ -4,18 +4,26 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { type Session, type User } from "@supabase/supabase-js";
+import { App } from "@capacitor/app";
 import { supabase } from "../lib/supabase";
 import { phoneToEmail } from "../lib/phone";
 import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
+import { isNativePlatform } from "../lib/nativePush";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
+  /** Première lecture de la session Supabase. */
   loading: boolean;
+  /** Profil en cours de chargement pour l'utilisateur courant. */
+  profileLoading: boolean;
+  /** Session et profil cohérents (prêt pour les routes protégées). */
+  authReady: boolean;
   session: Session | null;
   user: User | null;
   profile: Profile | null;
@@ -65,70 +73,135 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const loadProfileForRef = useRef<string | null>(null);
+  const initialAuthDoneRef = useRef(false);
 
   const loadProfile = useCallback(async (u: User) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", u.id)
-      .maybeSingle();
-    if (error) return;
-    if (data) {
-      setProfile(data as Profile);
-      return;
+    loadProfileForRef.current = u.id;
+    setProfileLoading(true);
+    setProfile((prev) => (prev?.id === u.id ? prev : null));
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", u.id)
+        .maybeSingle();
+
+      if (loadProfileForRef.current !== u.id) return;
+
+      if (error) {
+        setProfile(null);
+        return;
+      }
+
+      if (data) {
+        setProfile(data as Profile);
+        return;
+      }
+
+      // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
+      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+      const roleMeta = meta.role;
+      const role: UserRole =
+        roleMeta === "driver" || roleMeta === "admin" ? roleMeta : "passenger";
+      const payload = {
+        id: u.id,
+        role,
+        full_name: (meta.full_name as string) ?? null,
+        phone: (meta.phone as string) ?? null,
+        driver_status: role === "driver" ? "pending" : null,
+      };
+      const { data: created } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" })
+        .select()
+        .maybeSingle();
+
+      if (loadProfileForRef.current !== u.id) return;
+      setProfile((created as Profile | null) ?? (payload as unknown as Profile));
+    } finally {
+      if (loadProfileForRef.current === u.id) {
+        setProfileLoading(false);
+      }
     }
-    // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
-    const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-    const roleMeta = meta.role;
-    const role: UserRole =
-      roleMeta === "driver" || roleMeta === "admin" ? roleMeta : "passenger";
-    const payload = {
-      id: u.id,
-      role,
-      full_name: (meta.full_name as string) ?? null,
-      phone: (meta.phone as string) ?? null,
-      driver_status: role === "driver" ? "pending" : null,
-    };
-    const { data: created } = await supabase
-      .from("profiles")
-      .upsert(payload, { onConflict: "id" })
-      .select()
-      .maybeSingle();
-    setProfile((created as Profile | null) ?? (payload as unknown as Profile));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      setSession(data.session);
-      if (data.session?.user) {
-        await loadProfile(data.session.user);
-        rebindPushToUser(data.session.user.id).catch(() => {});
-      }
-      setLoading(false);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, s) => {
+  const applySession = useCallback(
+    async (s: Session | null, event?: string) => {
       setSession(s);
       if (s?.user) {
         await loadProfile(s.user);
-        // Réassocie le push à ce compte (même téléphone, autre utilisateur)
-        if (evt === "SIGNED_IN" || evt === "TOKEN_REFRESHED") {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           rebindPushToUser(s.user.id).catch(() => {});
         }
       } else {
+        loadProfileForRef.current = null;
         setProfile(null);
+        setProfileLoading(false);
       }
+    },
+    [loadProfile]
+  );
+
+  const refreshSessionFromStorage = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    await applySession(data.session);
+  }, [applySession]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const finishInitialLoad = () => {
+      if (cancelled || initialAuthDoneRef.current) return;
+      initialAuthDoneRef.current = true;
+      setLoading(false);
+    };
+
+    const bootstrapTimeout = window.setTimeout(finishInitialLoad, 12_000);
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      void applySession(data.session).finally(finishInitialLoad);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, s) => {
+      if (cancelled) return;
+      if (evt === "INITIAL_SESSION") {
+        finishInitialLoad();
+        return;
+      }
+      await applySession(s, evt);
     });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(bootstrapTimeout);
       sub.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [applySession]);
+
+  useEffect(() => {
+    if (isNativePlatform()) {
+      const sub = App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) void refreshSessionFromStorage();
+      });
+      return () => {
+        void sub.then((handle) => handle.remove());
+      };
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void refreshSessionFromStorage();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refreshSessionFromStorage]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -349,8 +422,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     void unsubscribeFromPush();
-    await supabase.auth.signOut();
+    loadProfileForRef.current = null;
     setProfile(null);
+    setProfileLoading(false);
+    await supabase.auth.signOut();
     setSession(null);
   }, []);
 
@@ -359,17 +434,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, loadProfile]);
 
   const value = useMemo<AuthContextValue>(() => {
-    const role = profile?.role ?? null;
+    const user = session?.user ?? null;
+    const profileMatchesUser = !user || profile?.id === user.id;
+    const authReady =
+      !loading &&
+      !profileLoading &&
+      profileMatchesUser &&
+      (!user || profile !== null);
+    const role = profileMatchesUser ? (profile?.role ?? null) : null;
     return {
       loading,
+      profileLoading,
+      authReady,
       session,
-      user: session?.user ?? null,
-      profile,
+      user,
+      profile: profileMatchesUser ? profile : null,
       role,
       isAdmin: role === "admin",
       isDriver: role === "driver",
       isPassenger: role === "passenger",
-      mustChangePassword: !!profile?.must_change_password,
+      mustChangePassword: !!profile?.must_change_password && profileMatchesUser,
       signInWithPhone,
       signInWithEmail,
       signUpPassenger,
@@ -381,6 +465,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [
     loading,
+    profileLoading,
     session,
     profile,
     signInWithPhone,

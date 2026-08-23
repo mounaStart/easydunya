@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import MapView from "../components/MapView";
 import PassengerHero from "../components/PassengerHero";
 import Spinner from "../components/Spinner";
+import { useAuth } from "../hooks/useAuth";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
 import type { TripPublic } from "../lib/types";
@@ -54,6 +55,7 @@ function formatSearchDate(dateStr: string, locale: string): string {
 
 export default function Home() {
   const { t, i18n } = useTranslation();
+  const { user, profile, authReady } = useAuth();
   const isAr = i18n.language === "ar";
   const { cities } = useCities();
   const { cities: cityCounts } = useCityCounts();
@@ -190,10 +192,23 @@ export default function Home() {
     );
   };
 
+  const firstName =
+    authReady && user && profile?.full_name
+      ? profile.full_name.split(/\s+/)[0]
+      : "";
+
   return (
     <div className="w-full max-w-[379px] mx-auto bg-[#eef5fc] min-h-full pb-6">
       {/* Hero + carte recherche en dessous (sans chevauchement) */}
       <div className="px-3 pt-4">
+        {user && authReady && (
+          <div className="mb-4">
+            <h1 className="h1">
+              {t("home.greeting")}{firstName ? `, ${firstName}` : ""} 👋
+            </h1>
+            <p className="muted">{t("home.greetingSub")}</p>
+          </div>
+        )}
         <div className="relative w-full">
           <PassengerHero />
 

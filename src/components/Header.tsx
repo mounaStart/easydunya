@@ -132,7 +132,8 @@ function UserAvatarMenu({
 export default function Header({ className }: { className?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isDriver, signOut } = useAuth();
+  const { user, profile, authReady, isAdmin, isDriver, signOut } = useAuth();
+  const profileOk = authReady || !user;
   const [pendingDriversCount, setPendingDriversCount] = useState(0);
 
   useEffect(() => {
@@ -220,7 +221,7 @@ export default function Header({ className }: { className?: string }) {
           <LangSwitcher />
           {user ? (
             <UserAvatarMenu
-              name={profile?.full_name}
+              name={profileOk ? profile?.full_name : null}
               email={user.email}
               onLogout={handleLogout}
             />

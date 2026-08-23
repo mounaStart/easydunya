@@ -16,10 +16,10 @@ export default function ProtectedRoute({
   roles,
   requireDriverApproved,
 }: Props) {
-  const { loading, user, role, profile } = useAuth();
+  const { authReady, loading, user, role, profile } = useAuth();
   const location = useLocation();
 
-  if (loading) return <Spinner />;
+  if (loading || (user && !authReady)) return <Spinner />;
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

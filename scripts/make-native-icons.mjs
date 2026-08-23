@@ -87,19 +87,7 @@ for (const size of [192, 512]) {
 
 const FILL_NOTIFY_LARGE = FILL_LAUNCHER;
 async function notifyLargeIcon(size = 256) {
-  const inner = Math.round(size * FILL_NOTIFY_LARGE);
-  const emblem = await emblemLayer(inner);
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([{ input: emblem, gravity: "center" }])
-    .png()
-    .toBuffer();
+  return composeWhiteIcon(size, FILL_NOTIFY_LARGE);
 }
 
 /** Petite icône barre d'état : silhouette alpha (Android = monochrome, teintée en bleu Easy Dunya). */
@@ -178,5 +166,5 @@ const largeNotify = path.join(drawableRoot, "ic_notify_large.png");
 await sharp(await notifyLargeIcon(256))
   .png()
   .toFile(largeNotify);
-console.log("✓ android/.../drawable/ic_notify_large.png (emblème couleur)");
+console.log("✓ android/.../drawable/ic_notify_large.png (logo couleur fond blanc)");
 

@@ -49,7 +49,9 @@ function IconShield(props: { className?: string }) {
 
 export default function BottomNav() {
   const { t } = useTranslation();
-  const { user, isDriver, isAdmin } = useAuth();
+  const { user, authReady, isDriver, isAdmin } = useAuth();
+  const driverNav = authReady && isDriver;
+  const adminNav = authReady && isAdmin;
 
   const home = { to: "/", label: t("nav.home"), Icon: IconHome, end: true };
   const profile = {
@@ -60,14 +62,14 @@ export default function BottomNav() {
   };
 
   let items;
-  if (isDriver) {
+  if (driverNav) {
     items = [
       home,
       { to: "/driver", label: t("nav.dashboardShort"), Icon: IconDashboard, end: true },
       { to: "/driver/historique", label: t("nav.historique"), Icon: IconHistory, end: false },
       profile,
     ];
-  } else if (isAdmin) {
+  } else if (adminNav) {
     items = [
       home,
       { to: "/admin", label: t("nav.adminShort"), Icon: IconShield, end: true },
@@ -82,7 +84,7 @@ export default function BottomNav() {
     ];
   }
 
-  const isPassengerNav = !isDriver && !isAdmin;
+  const isPassengerNav = !driverNav && !adminNav;
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-100 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
