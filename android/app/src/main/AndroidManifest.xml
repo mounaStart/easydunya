@@ -29,7 +29,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Petite icône = silhouette Easy Dunya (comme YouTube utilise son logo monochrome) -->
+        <!-- Icône barre d'état uniquement (silhouette). Pas de default_notification_color → pas de logo bleu uni. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_notify"
@@ -37,10 +37,6 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="easydunya_default"
-        />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/notification_color"
         />
 
         <service

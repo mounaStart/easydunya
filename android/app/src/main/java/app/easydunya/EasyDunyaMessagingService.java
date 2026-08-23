@@ -4,20 +4,19 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.os.Build;
-import android.widget.RemoteViews;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
+import androidx.core.app.Person;
+import androidx.core.graphics.drawable.IconCompat;
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Logo couleur Easy Dunya (emblème) via layout custom.
- * Pas de setLargeIcon → pas de logo géant ni doublon sur Samsung.
+ * Un seul affichage : avatar logo couleur Easy Dunya + titre + texte.
+ * Pas de setLargeIcon (2e logo), pas de setColor (logo bleu uni).
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -64,40 +63,31 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        RemoteViews content = buildContentView(title, body);
+        Person easyDunya = new Person.Builder()
+            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_notify_large))
+            .setName("Easy Dunya")
+            .build();
+
+        NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(easyDunya)
+            .setConversationTitle(title)
+            .addMessage(body, System.currentTimeMillis(), easyDunya);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_notify)
-            .setColor(ContextCompat.getColor(this, R.color.notification_color))
-            .setCustomContentView(content)
-            .setCustomBigContentView(content)
+            .setStyle(style)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false);
+            .setOnlyAlertOnce(true);
 
         NotificationManager manager =
             (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.notify(tag, tag.hashCode(), builder.build());
         }
-    }
-
-    private RemoteViews buildContentView(String title, String body) {
-        RemoteViews views = new RemoteViews(getPackageName(), R.layout.notification_easydunya);
-        views.setTextViewText(R.id.notification_title, title);
-        views.setTextViewText(R.id.notification_body, body);
-
-        boolean nightMode =
-            (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
-                == Configuration.UI_MODE_NIGHT_YES;
-        views.setTextColor(R.id.notification_title, nightMode ? 0xEEFFFFFF : 0xDE000000);
-        views.setTextColor(R.id.notification_body, nightMode ? 0x99FFFFFF : 0x99000000);
-        return views;
     }
 
     private void ensureChannel() {
