@@ -35,7 +35,10 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         );
 
         showNotification(title, body, data);
-        PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
+        // Data-only : informe l'app (cloche) sans 2e notification système.
+        if (remoteMessage.getNotification() == null) {
+            PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
+        }
     }
 
     @Override

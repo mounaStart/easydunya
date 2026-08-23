@@ -56,6 +56,7 @@ function safeAppPath(raw: unknown): string {
 
 async function saveToken(userId: string, token: string): Promise<boolean> {
   if (lastSavedToken === token && currentUserId === userId) {
+    await clearWebPushForUser(userId);
     return true;
   }
   const { error } = await supabase.from("device_tokens").upsert(
