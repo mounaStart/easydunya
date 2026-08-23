@@ -29,10 +29,10 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Icône barre d'état uniquement (silhouette). Pas de default_notification_color → pas de logo bleu uni. -->
+        <!-- Logo couleur Easy Dunya (même rendu passager et chauffeur) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_notify"
+            android:resource="@drawable/ic_notify_large"
         />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

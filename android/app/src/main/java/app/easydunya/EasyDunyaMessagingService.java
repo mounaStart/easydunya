@@ -13,8 +13,8 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * Une seule icône (gauche) + titre + texte.
- * Pas de setLargeIcon (2e logo à droite), pas de setColor (cercle bleu uni).
+ * Logo couleur Easy Dunya (ic_notify_large) + titre + texte.
+ * Pas de setLargeIcon (2e logo), pas de setColor (cercle uni), pas de ic_stat_notify (cercle violet).
  */
 public class EasyDunyaMessagingService extends FirebaseMessagingService {
 
@@ -35,7 +35,6 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         );
 
         showNotification(title, body, data);
-        // Data-only : informe l'app (cloche) sans 2e notification système.
         if (remoteMessage.getNotification() == null) {
             PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
         }
@@ -65,7 +64,7 @@ public class EasyDunyaMessagingService extends FirebaseMessagingService {
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setSmallIcon(R.drawable.ic_notify_large)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))

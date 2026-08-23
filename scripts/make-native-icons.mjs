@@ -168,3 +168,20 @@ await sharp(await notifyLargeIcon(256))
   .toFile(largeNotify);
 console.log("✓ android/.../drawable/ic_notify_large.png (logo couleur fond blanc)");
 
+const NOTIFY_LARGE_DENSITIES = [
+  ["drawable-mdpi", 48],
+  ["drawable-hdpi", 72],
+  ["drawable-xhdpi", 96],
+  ["drawable-xxhdpi", 144],
+  ["drawable-xxxhdpi", 192],
+];
+
+for (const [folder, px] of NOTIFY_LARGE_DENSITIES) {
+  const dir = path.join(ANDROID_RES, folder);
+  fs.mkdirSync(dir, { recursive: true });
+  await sharp(await notifyLargeIcon(px))
+    .png()
+    .toFile(path.join(dir, "ic_notify_large.png"));
+  console.log(`✓ android/.../${folder}/ic_notify_large.png (${px}px)`);
+}
+
