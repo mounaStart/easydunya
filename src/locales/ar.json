@@ -212,6 +212,8 @@
     "liveTracking": "تتبع مباشر",
     "notStarted": "لم يبدأ السائق الرحلة بعد",
     "waitingGps": "في انتظار إشارة GPS من السائق…",
+    "totalDistance": "مسافة الرحلة",
+    "remainingToDestination": "باقي {{distance}} قبل الوصول",
     "status": {
       "scheduled": "مبرمجة",
       "in_progress": "جارية",

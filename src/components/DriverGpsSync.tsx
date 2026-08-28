@@ -3,7 +3,7 @@ import { useDriverGps } from "../hooks/useDriverGps";
 
 /** Envoie la position GPS du chauffeur pendant tout voyage en cours (toutes pages). */
 export default function DriverGpsSync() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const tripId =
     profile?.role === "driver" &&
     profile.driver_status === "approved" &&
@@ -11,7 +11,9 @@ export default function DriverGpsSync() {
       ? profile.current_trip_id
       : null;
 
-  useDriverGps(tripId ?? undefined, !!tripId);
+  useDriverGps(tripId ?? undefined, !!tripId, () => {
+    void refreshProfile();
+  });
 
   return null;
 }

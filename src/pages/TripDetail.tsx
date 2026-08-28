@@ -9,12 +9,14 @@ import { useTripDriverPosition, isDriverPositionStale, driverPositionAgeMinutes 
 import type { Booking } from "../lib/types";
 import Spinner from "../components/Spinner";
 import TrackingMap from "../components/TrackingMap";
+import TripTrackingStats from "../components/TripTrackingStats";
 import {
   copyToClipboard,
   formatPrice,
   formatPeriod,
   relativeDateLabel,
   shareViaWhatsApp,
+  tripTotalDistanceKm,
 } from "../lib/utils";
 
 function hasGpsCoords(loc: PassengerLocation | null): boolean {
@@ -278,15 +280,18 @@ export default function TripDetail() {
             label={t("common.price")}
             value={formatPrice(trip.price_per_seat)}
           />
-          {trip.distance_km != null && Number(trip.distance_km) > 0 && (
-            <InfoRow
-              icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>}
-              label={t("reservation.colDistance")}
-              value={`${Number(trip.distance_km).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
-                maximumFractionDigits: 1,
-              })} km`}
-            />
-          )}
+          {(() => {
+            const distKm = tripTotalDistanceKm(trip);
+            return distKm != null && distKm > 0 ? (
+              <InfoRow
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>}
+                label={t("reservation.colDistance")}
+                value={`${Number(distKm).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
+                  maximumFractionDigits: 1,
+                })} km`}
+              />
+            ) : null;
+          })()}
         </div>
 
         {trip.notes && (
@@ -344,6 +349,12 @@ export default function TripDetail() {
             <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
               {t("trip.trackingMap")}
             </h2>
+            <TripTrackingStats
+              trip={trip}
+              driverPos={driverPos}
+              started
+              className="mb-2"
+            />
             <TrackingMap
               from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
               to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}

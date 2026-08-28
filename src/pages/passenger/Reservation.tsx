@@ -18,7 +18,8 @@ import type { Booking, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import TrackingMap from "../../components/TrackingMap";
-import { formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import TripTrackingStats from "../../components/TripTrackingStats";
+import { formatPrice, formatPeriod, relativeDateLabel, tripTotalDistanceKm } from "../../lib/utils";
 import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../../lib/brandColors";
 
 const ACTIVE = ["pending", "confirmed"];
@@ -217,14 +218,17 @@ export default function Reservation() {
                 {relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}
               </Tr>
             )}
-            {trip && trip.distance_km != null && Number(trip.distance_km) > 0 && (
-              <Tr label={t("reservation.colDistance")}>
-                {Number(trip.distance_km).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
-                  maximumFractionDigits: 1,
-                })}{" "}
-                km
-              </Tr>
-            )}
+            {trip && (() => {
+              const distKm = tripTotalDistanceKm(trip);
+              return distKm != null && distKm > 0 ? (
+                <Tr label={t("reservation.colDistance")}>
+                  {Number(distKm).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
+                    maximumFractionDigits: 1,
+                  })}{" "}
+                  km
+                </Tr>
+              ) : null;
+            })()}
             <Tr label={t("reservation.colSeats")}>{active.seats}</Tr>
             {trip && (
               <Tr label={t("common.price")}>
@@ -323,6 +327,12 @@ export default function Reservation() {
             </div>
           )}
           <div className="p-5 pt-3">
+            <TripTrackingStats
+              trip={trip}
+              driverPos={driverPos}
+              started={started}
+              className="mb-3"
+            />
             <TrackingMap
               from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
               to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}

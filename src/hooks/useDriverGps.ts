@@ -13,18 +13,44 @@ export interface TripDriverPosition {
   recordedAt: Date;
 }
 
-async function pushDriverGps(tripId: string, lat: number, lng: number): Promise<void> {
-  await supabase.rpc("driver_update_gps", {
+export interface DriverGpsPushResult {
+  completed?: boolean;
+  unlocked?: boolean;
+  distance_km?: number;
+}
+
+async function pushDriverGps(
+  tripId: string,
+  lat: number,
+  lng: number
+): Promise<DriverGpsPushResult | null> {
+  const { data, error } = await supabase.rpc("driver_update_gps", {
     p_trip_id: tripId,
     p_lat: lat,
     p_lng: lng,
   });
+  if (error) {
+    console.warn("[gps] driver_update_gps:", error.message);
+    return null;
+  }
+  return (data as DriverGpsPushResult | null) ?? null;
 }
 
 /** Envoie la position GPS du chauffeur pendant un voyage en cours (Web + APK). */
-export function useDriverGps(tripId: string | undefined, active: boolean) {
+export function useDriverGps(
+  tripId: string | undefined,
+  active: boolean,
+  onCompleted?: (tripId: string) => void
+) {
+  const onCompletedRef = useRef(onCompleted);
+  onCompletedRef.current = onCompleted;
+  const completedRef = useRef(false);
   const watchRef = useRef<string | number | null>(null);
   const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    completedRef.current = false;
+  }, [tripId]);
 
   useEffect(() => {
     if (!tripId || !active) return;
@@ -32,8 +58,18 @@ export function useDriverGps(tripId: string | undefined, active: boolean) {
     let cancelled = false;
 
     async function sendCoords(lat: number, lng: number) {
-      if (cancelled || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      await pushDriverGps(tripId!, lat, lng);
+      if (cancelled || completedRef.current || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+      }
+      const result = await pushDriverGps(tripId!, lat, lng);
+      if (cancelled || !result) return;
+      if (result.completed || result.unlocked) {
+        completedRef.current = true;
+        onCompletedRef.current?.(tripId!);
+        window.dispatchEvent(
+          new CustomEvent("easydunya:trip-completed", { detail: { tripId: tripId! } })
+        );
+      }
     }
 
     async function sendCurrentNative() {

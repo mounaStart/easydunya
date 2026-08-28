@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
@@ -14,6 +14,7 @@ import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import {
   distanceKm,
+  formatDistance,
   formatPrice,
   formatPeriod,
   relativeDateLabel,
@@ -32,6 +33,7 @@ export default function TripBookings() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [busy, setBusy] = useState(false);
   const [lockMsg, setLockMsg] = useState<string | null>(null);
+  const autoEndRef = useRef(false);
 
   const isInProgress = trip?.status === "in_progress";
   const driverTrack = useTripDriverPosition(tripId, isInProgress);
@@ -226,6 +228,31 @@ export default function TripBookings() {
     await reloadTrip();
     await refreshProfile();
   }
+
+  useEffect(() => {
+    autoEndRef.current = false;
+  }, [tripId]);
+
+  /** Secours client : terminer dès ≤500 m si le serveur n'a pas encore répondu. */
+  useEffect(() => {
+    if (!tripId || !isInProgress || isAdmin || !nearDestination || autoEndRef.current || busy) {
+      return;
+    }
+    autoEndRef.current = true;
+    void endTrip();
+  }, [tripId, isInProgress, isAdmin, nearDestination, busy]);
+
+  useEffect(() => {
+    function onCompleted(e: Event) {
+      const detail = (e as CustomEvent<{ tripId?: string }>).detail;
+      if (detail?.tripId !== tripId) return;
+      void reloadTrip();
+      void refreshProfile();
+      void refresh();
+    }
+    window.addEventListener("easydunya:trip-completed", onCompleted);
+    return () => window.removeEventListener("easydunya:trip-completed", onCompleted);
+  }, [tripId, reloadTrip, refreshProfile, refresh]);
 
   if (tripLoading || loading) return <Spinner />;
   if (!trip) {
@@ -463,10 +490,4 @@ export default function TripBookings() {
       )}
     </div>
   );
-}
-
-/** Affiche une distance lisible : "350 m" ou "2.3 km". */
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
 }

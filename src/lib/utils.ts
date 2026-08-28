@@ -82,6 +82,42 @@ export function distanceKm(
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+/** Affiche une distance lisible : "350 m" ou "2,3 km". */
+export function formatDistance(meters: number, lang = i18n.language): string {
+  if (meters < 1000) {
+    const m = Math.round(meters);
+    return lang === "ar" ? `${m} م` : `${m} m`;
+  }
+  const km = meters / 1000;
+  const formatted = new Intl.NumberFormat(lang === "ar" ? "ar-MR" : "fr-FR", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: km < 10 ? 1 : 0,
+  }).format(km);
+  return lang === "ar" ? `${formatted} كم` : `${formatted} km`;
+}
+
+/** Distance totale d'un trajet (BDD ou calcul villes). */
+export function tripTotalDistanceKm(trip: {
+  distance_km?: number | null;
+  from_lat?: number | null;
+  from_lng?: number | null;
+  to_lat?: number | null;
+  to_lng?: number | null;
+}): number | null {
+  if (trip.distance_km != null && Number(trip.distance_km) > 0) {
+    return Number(trip.distance_km);
+  }
+  if (
+    Number.isFinite(trip.from_lat) &&
+    Number.isFinite(trip.from_lng) &&
+    Number.isFinite(trip.to_lat) &&
+    Number.isFinite(trip.to_lng)
+  ) {
+    return distanceKm(trip.from_lat!, trip.from_lng!, trip.to_lat!, trip.to_lng!);
+  }
+  return null;
+}
+
 export function shareViaWhatsApp(text: string) {
   const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
   window.open(url, "_blank", "noopener,noreferrer");
