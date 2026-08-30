@@ -19,7 +19,8 @@ import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
 import TrackingMap from "../../components/TrackingMap";
 import TripTrackingStats from "../../components/TripTrackingStats";
-import { formatPrice, formatPeriod, relativeDateLabel, tripTotalDistanceKm } from "../../lib/utils";
+import { useTripRouteDistanceKm } from "../../hooks/useDrivingRoute";
+import { formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
 import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../../lib/brandColors";
 
 const ACTIVE = ["pending", "confirmed"];
@@ -87,6 +88,7 @@ export default function Reservation() {
     : null;
   const staleDriver = isDriverPositionStale(driverTrack);
   const staleMins = driverPositionAgeMinutes(driverTrack);
+  const { distanceKm: routeDistanceKm } = useTripRouteDistanceKm(trip);
 
   useEffect(() => {
     if (!active) {
@@ -218,17 +220,14 @@ export default function Reservation() {
                 {relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}
               </Tr>
             )}
-            {trip && (() => {
-              const distKm = tripTotalDistanceKm(trip);
-              return distKm != null && distKm > 0 ? (
+            {trip && routeDistanceKm != null && routeDistanceKm > 0 && (
                 <Tr label={t("reservation.colDistance")}>
-                  {Number(distKm).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
+                  {Number(routeDistanceKm).toLocaleString(isAr ? "ar-MR" : "fr-FR", {
                     maximumFractionDigits: 1,
                   })}{" "}
                   km
                 </Tr>
-              ) : null;
-            })()}
+            )}
             <Tr label={t("reservation.colSeats")}>{active.seats}</Tr>
             {trip && (
               <Tr label={t("common.price")}>

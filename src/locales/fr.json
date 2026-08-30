@@ -214,6 +214,7 @@
     "waitingGps": "En attente du signal GPS du chauffeur…",
     "totalDistance": "Distance du trajet",
     "remainingToDestination": "Encore {{distance}} avant l'arrivée",
+    "remainingLoading": "Calcul de la distance…",
     "status": {
       "scheduled": "Programmé",
       "in_progress": "En cours",

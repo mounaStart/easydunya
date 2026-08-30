@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "../lib/supabase";
+import { fetchDrivingDistanceM, type RoutePoint } from "../lib/routing";
 
 const SEND_INTERVAL_MS = 15_000;
 const STALE_POSITION_MS = 2 * 60 * 1000;
@@ -22,12 +23,14 @@ export interface DriverGpsPushResult {
 async function pushDriverGps(
   tripId: string,
   lat: number,
-  lng: number
+  lng: number,
+  routeRemainingM?: number | null
 ): Promise<DriverGpsPushResult | null> {
   const { data, error } = await supabase.rpc("driver_update_gps", {
     p_trip_id: tripId,
     p_lat: lat,
     p_lng: lng,
+    p_route_remaining_m: routeRemainingM ?? null,
   });
   if (error) {
     console.warn("[gps] driver_update_gps:", error.message);
@@ -40,10 +43,13 @@ async function pushDriverGps(
 export function useDriverGps(
   tripId: string | undefined,
   active: boolean,
-  onCompleted?: (tripId: string) => void
+  onCompleted?: (tripId: string) => void,
+  destination?: RoutePoint | null
 ) {
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
+  const destinationRef = useRef(destination);
+  destinationRef.current = destination;
   const completedRef = useRef(false);
   const watchRef = useRef<string | number | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -61,7 +67,12 @@ export function useDriverGps(
       if (cancelled || completedRef.current || !Number.isFinite(lat) || !Number.isFinite(lng)) {
         return;
       }
-      const result = await pushDriverGps(tripId!, lat, lng);
+      let routeRemainingM: number | null = null;
+      const dest = destinationRef.current;
+      if (dest) {
+        routeRemainingM = await fetchDrivingDistanceM({ lat, lng }, dest);
+      }
+      const result = await pushDriverGps(tripId!, lat, lng, routeRemainingM);
       if (cancelled || !result) return;
       if (result.completed || result.unlocked) {
         completedRef.current = true;

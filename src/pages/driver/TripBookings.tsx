@@ -13,12 +13,12 @@ import { clusterBookingsByQuartier } from "../../lib/mapClusters";
 import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import {
-  distanceKm,
   formatDistance,
   formatPrice,
   formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
+import { useDrivingRoute } from "../../hooks/useDrivingRoute";
 
 // Rayon (en mètres) autour de la destination où le chauffeur peut terminer le voyage.
 const END_TRIP_RADIUS_M = 500;
@@ -42,11 +42,20 @@ export default function TripBookings() {
     : null;
 
   const isAdmin = role === "admin";
-  // Distance (m) entre la position actuelle du chauffeur et la destination
-  const distanceToDestM =
-    trip && driverPos
-      ? distanceKm(driverPos.lat, driverPos.lng, trip.to_lat, trip.to_lng) * 1000
+
+  const destination =
+    trip && Number.isFinite(trip.to_lat) && Number.isFinite(trip.to_lng)
+      ? { lat: trip.to_lat, lng: trip.to_lng }
       : null;
+
+  const { distanceM: routeRemainingM } = useDrivingRoute(
+    driverPos,
+    destination,
+    isInProgress && !!driverPos && !!destination,
+    { precision: 3 }
+  );
+
+  const distanceToDestM = routeRemainingM;
   const nearDestination =
     distanceToDestM !== null && distanceToDestM <= END_TRIP_RADIUS_M;
   // L'admin peut toujours terminer ; le chauffeur seulement à proximité (≤500 m)

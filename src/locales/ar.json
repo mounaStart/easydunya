@@ -214,6 +214,7 @@
     "waitingGps": "في انتظار إشارة GPS من السائق…",
     "totalDistance": "مسافة الرحلة",
     "remainingToDestination": "باقي {{distance}} قبل الوصول",
+    "remainingLoading": "جاري حساب المسافة…",
     "status": {
       "scheduled": "مبرمجة",
       "in_progress": "جارية",

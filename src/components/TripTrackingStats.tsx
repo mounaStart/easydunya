@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { TripPublic } from "../lib/types";
-import { distanceKm, formatDistance, tripTotalDistanceKm } from "../lib/utils";
+import { formatDistance } from "../lib/utils";
+import { useDrivingRoute } from "../hooks/useDrivingRoute";
 
 interface Props {
   trip: TripPublic;
@@ -9,7 +10,7 @@ interface Props {
   className?: string;
 }
 
-/** Distance totale + distance restante (comme côté chauffeur). */
+/** Distance totale + distance restante sur la route (Google Maps). */
 export default function TripTrackingStats({
   trip,
   driverPos,
@@ -20,21 +21,38 @@ export default function TripTrackingStats({
   const isAr = i18n.language === "ar";
   const locale = isAr ? "ar-MR" : "fr-FR";
 
-  const totalKm = tripTotalDistanceKm(trip);
-  const remainingM =
-    started &&
-    driverPos &&
-    Number.isFinite(trip.to_lat) &&
-    Number.isFinite(trip.to_lng)
-      ? distanceKm(driverPos.lat, driverPos.lng, trip.to_lat, trip.to_lng) * 1000
+  const from =
+    Number.isFinite(trip.from_lat) && Number.isFinite(trip.from_lng)
+      ? { lat: trip.from_lat, lng: trip.from_lng }
+      : null;
+  const to =
+    Number.isFinite(trip.to_lat) && Number.isFinite(trip.to_lng)
+      ? { lat: trip.to_lat, lng: trip.to_lng }
       : null;
 
-  if (totalKm == null && remainingM == null) return null;
+  const { distanceM: totalRouteM, loading: totalLoading } = useDrivingRoute(from, to, !!from && !!to, {
+    precision: 4,
+  });
+
+  const { distanceM: remainingRouteM, loading: remainingLoading } = useDrivingRoute(
+    started && driverPos ? driverPos : null,
+    to,
+    started && !!driverPos && !!to,
+    { precision: 3 }
+  );
+
+  const totalKm =
+    totalRouteM != null ? totalRouteM / 1000 : trip.distance_km != null ? Number(trip.distance_km) : null;
+  const remainingM = remainingRouteM;
+
+  if (totalKm == null && remainingM == null && !totalLoading && !remainingLoading) return null;
 
   const totalLabel =
     totalKm != null
       ? `${Number(totalKm).toLocaleString(locale, { maximumFractionDigits: 1 })} km`
-      : null;
+      : totalLoading
+        ? "…"
+        : null;
 
   return (
     <div className={`flex flex-wrap gap-2 ${className}`.trim()}>
@@ -47,14 +65,16 @@ export default function TripTrackingStats({
           {t("trip.totalDistance")}: {totalLabel}
         </span>
       )}
-      {remainingM != null && (
+      {(remainingM != null || remainingLoading) && (
         <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 text-slate-700 px-3 py-1.5 text-xs font-semibold">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
-          {t("trip.remainingToDestination", {
-            distance: formatDistance(remainingM, i18n.language),
-          })}
+          {remainingLoading
+            ? t("trip.remainingLoading")
+            : t("trip.remainingToDestination", {
+                distance: formatDistance(remainingM ?? 0, i18n.language),
+              })}
         </span>
       )}
     </div>

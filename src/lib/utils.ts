@@ -96,7 +96,7 @@ export function formatDistance(meters: number, lang = i18n.language): string {
   return lang === "ar" ? `${formatted} كم` : `${formatted} km`;
 }
 
-/** Distance totale d'un trajet (BDD ou calcul villes). */
+/** Distance totale d'un trajet (BDD ou repli Haversine — préférer useTripRouteDistanceKm). */
 export function tripTotalDistanceKm(trip: {
   distance_km?: number | null;
   from_lat?: number | null;

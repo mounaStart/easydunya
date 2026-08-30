@@ -7,6 +7,7 @@ import { useCities } from "../../hooks/useCities";
 import { useCityPrices } from "../../hooks/useCityPrices";
 import { getCurrentPosition, reverseQuartier } from "../../lib/geocode";
 import { distanceKm, formatPrice } from "../../lib/utils";
+import { fetchDrivingDistanceKm } from "../../lib/routing";
 import type { Vehicle } from "../../lib/types";
 
 // Heures par défaut associées aux périodes (le passager ne voit que Matin/Soir)
@@ -115,17 +116,23 @@ export default function NewTrip() {
     // Distance : tarif officiel sinon calcul Haversine sur les coordonnées des villes
     const fromCity = cities.find((c) => c.id === fromCityId);
     const toCity = cities.find((c) => c.id === toCityId);
-    const computedDistance =
-      fromCity && toCity
-        ? Math.round(
-            distanceKm(
-              fromCity.latitude,
-              fromCity.longitude,
-              toCity.latitude,
-              toCity.longitude
-            )
+    let computedDistance: number | null = null;
+    if (fromCity && toCity) {
+      computedDistance = await fetchDrivingDistanceKm(
+        { lat: fromCity.latitude, lng: fromCity.longitude },
+        { lat: toCity.latitude, lng: toCity.longitude }
+      );
+      if (computedDistance == null) {
+        computedDistance = Math.round(
+          distanceKm(
+            fromCity.latitude,
+            fromCity.longitude,
+            toCity.latitude,
+            toCity.longitude
           )
-        : null;
+        );
+      }
+    }
 
     const { error } = await supabase.from("trips").insert({
       driver_id: user.id,

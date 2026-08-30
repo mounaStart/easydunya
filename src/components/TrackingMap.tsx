@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
+import { fetchDrivingRoute, type RoutePoint } from "../lib/routing";
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -146,6 +147,31 @@ export default function TrackingMap({
 }: Props) {
   const pickupsOnly = variant === "pickups";
   const showRoute = !pickupsOnly && from && to;
+  const [routePath, setRoutePath] = useState<RoutePoint[]>([]);
+
+  useEffect(() => {
+    if (!showRoute || !from || !to) {
+      setRoutePath([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchDrivingRoute(from, to, 4).then((route) => {
+      if (!cancelled && route) setRoutePath(route.geometry);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showRoute, from?.lat, from?.lng, to?.lat, to?.lng]);
+
+  const routeLine: [number, number][] =
+    routePath.length >= 2
+      ? routePath.map((p) => [p.lat, p.lng] as [number, number])
+      : from && to
+        ? [
+            [from.lat, from.lng],
+            [to.lat, to.lng],
+          ]
+        : [];
 
   const fitPoints: LatLng[] = pickupsOnly
     ? [
@@ -183,11 +209,13 @@ export default function TrackingMap({
         {showRoute && from && to && (
           <>
             <Polyline
-              positions={[
-                [from.lat, from.lng],
-                [to.lat, to.lng],
-              ]}
-              pathOptions={{ color: BRAND_BLUE, weight: 3, dashArray: "6 8", opacity: 0.7 }}
+              positions={routeLine}
+              pathOptions={{
+                color: BRAND_BLUE,
+                weight: routePath.length >= 2 ? 4 : 3,
+                dashArray: routePath.length >= 2 ? undefined : "6 8",
+                opacity: routePath.length >= 2 ? 0.85 : 0.7,
+              }}
             />
             <Marker position={[from.lat, from.lng]} icon={dot("#10b981")}>
               <Popup>{from.label ?? "Départ"}</Popup>

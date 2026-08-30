@@ -8,6 +8,7 @@ Set-Location $Root
 
 $functions = @(
   "create-driver-account",
+  "directions",
   "register-passenger",
   "send-fcm",
   "send-push"
