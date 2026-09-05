@@ -18,7 +18,8 @@ import {
   formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
-import { useDrivingRoute } from "../../hooks/useDrivingRoute";
+import { useTripRemainingDistance } from "../../hooks/useDrivingRoute";
+import { isNearTripEntrance } from "../../lib/tripDestination";
 
 // Rayon (en mètres) autour de la destination où le chauffeur peut terminer le voyage.
 const END_TRIP_RADIUS_M = 500;
@@ -43,21 +44,28 @@ export default function TripBookings() {
 
   const isAdmin = role === "admin";
 
+  const origin =
+    trip && Number.isFinite(trip.from_lat) && Number.isFinite(trip.from_lng)
+      ? { lat: trip.from_lat, lng: trip.from_lng }
+      : null;
+
   const destination =
     trip && Number.isFinite(trip.to_lat) && Number.isFinite(trip.to_lng)
       ? { lat: trip.to_lat, lng: trip.to_lng }
       : null;
 
-  const { distanceM: routeRemainingM } = useDrivingRoute(
-    driverPos,
+  const { remainingM: routeRemainingM } = useTripRemainingDistance(
+    origin,
     destination,
-    isInProgress && !!driverPos && !!destination,
-    { precision: 3 }
+    driverPos,
+    isInProgress && !!driverPos && !!origin && !!destination
   );
 
   const distanceToDestM = routeRemainingM;
+  const nearEntrance =
+    !!driverPos && !!destination && isNearTripEntrance(driverPos, destination, END_TRIP_RADIUS_M);
   const nearDestination =
-    distanceToDestM !== null && distanceToDestM <= END_TRIP_RADIUS_M;
+    nearEntrance || (distanceToDestM !== null && distanceToDestM <= END_TRIP_RADIUS_M);
   // L'admin peut toujours terminer ; le chauffeur seulement à proximité (≤500 m)
   const canEndTrip = isAdmin || nearDestination;
 

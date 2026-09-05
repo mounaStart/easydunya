@@ -23,8 +23,12 @@ export interface City {
   name_fr: string;
   name_ar: string;
   region: string | null;
+  /** Centre-ville (carte accueil). */
   latitude: number;
   longitude: number;
+  /** Entrée routière inter-villes (carte suivi / fin voyage). */
+  entry_lat?: number | null;
+  entry_lng?: number | null;
 }
 
 export interface Profile {
@@ -57,6 +61,10 @@ export interface CityPrice {
   to_city_id: string;
   price_per_seat: number;
   distance_km: number;
+  from_entrance_lat?: number | null;
+  from_entrance_lng?: number | null;
+  to_entrance_lat?: number | null;
+  to_entrance_lng?: number | null;
   created_at: string;
   updated_at: string;
 }

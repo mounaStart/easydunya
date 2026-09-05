@@ -41,6 +41,7 @@ jobs:
           VITE_SUPABASE_URL: https://prfmqfnaqtmyfyxqjeli.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           VITE_DEFAULT_LOCALE: fr
 
       - name: Generate Android launcher icons

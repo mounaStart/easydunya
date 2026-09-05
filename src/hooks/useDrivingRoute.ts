@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { fetchDrivingRoute, type DrivingRoute, type RoutePoint } from "../lib/routing";
+import {
+  fetchDrivingRoute,
+  fetchRemainingToDestinationM,
+  type DrivingRoute,
+  type RoutePoint,
+} from "../lib/routing";
 
 interface Options {
   /** Arrondi des coordonnées pour le cache (3 ≈ 100 m). */
@@ -70,4 +75,38 @@ export function useTripRouteDistanceKm(trip: {
     return { distanceKm: Number(trip.distance_km), loading };
   }
   return { distanceKm: null, loading };
+}
+
+/** Distance restante : position chauffeur → entrée destination (Google Maps). */
+export function useTripRemainingDistance(
+  _from: RoutePoint | null | undefined,
+  to: RoutePoint | null | undefined,
+  driver: RoutePoint | null | undefined,
+  enabled = true
+) {
+  const [remainingM, setRemainingM] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || !to || !driver) {
+      setRemainingM(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    void fetchRemainingToDestinationM(driver, to).then((result) => {
+      if (cancelled) return;
+      setRemainingM(result.remainingM);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, to?.lat, to?.lng, driver?.lat, driver?.lng]);
+
+  return { remainingM, loading };
 }

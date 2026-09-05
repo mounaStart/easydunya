@@ -8,6 +8,7 @@ import { useCityPrices } from "../../hooks/useCityPrices";
 import { getCurrentPosition, reverseQuartier } from "../../lib/geocode";
 import { distanceKm, formatPrice } from "../../lib/utils";
 import { fetchDrivingDistanceKm } from "../../lib/routing";
+import { tripRouteEndpoint } from "../../lib/cityRoutePoints";
 import type { Vehicle } from "../../lib/types";
 
 // Heures par défaut associées aux périodes (le passager ne voit que Matin/Soir)
@@ -118,18 +119,12 @@ export default function NewTrip() {
     const toCity = cities.find((c) => c.id === toCityId);
     let computedDistance: number | null = null;
     if (fromCity && toCity) {
-      computedDistance = await fetchDrivingDistanceKm(
-        { lat: fromCity.latitude, lng: fromCity.longitude },
-        { lat: toCity.latitude, lng: toCity.longitude }
-      );
+      const fromPoint = tripRouteEndpoint(fromCity, cityPrice, "from");
+      const toPoint = tripRouteEndpoint(toCity, cityPrice, "to");
+      computedDistance = await fetchDrivingDistanceKm(fromPoint, toPoint);
       if (computedDistance == null) {
         computedDistance = Math.round(
-          distanceKm(
-            fromCity.latitude,
-            fromCity.longitude,
-            toCity.latitude,
-            toCity.longitude
-          )
+          distanceKm(fromPoint.lat, fromPoint.lng, toPoint.lat, toPoint.lng)
         );
       }
     }

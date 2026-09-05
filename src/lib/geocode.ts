@@ -1,30 +1,19 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { getGoogleMapsApiKey } from "./googleMapsLoader";
 
-type OsmAddress = {
-  suburb?: string;
-  neighbourhood?: string;
-  quarter?: string;
-  city_district?: string;
-  district?: string;
-  borough?: string;
-  county?: string;
-  hamlet?: string;
-  village?: string;
-  road?: string;
-  amenity?: string;
-  town?: string;
-  city?: string;
-  municipality?: string;
-  state?: string;
+type GoogleAddressComponent = {
+  long_name: string;
+  short_name: string;
+  types: string[];
 };
 
 type ReversePayload = {
-  address?: OsmAddress;
-  display_name?: string;
+  address_components?: GoogleAddressComponent[];
+  formatted_address?: string;
 };
 
-/** Quartiers / arrondissements connus de Nouakchott (priorité sur les POI OSM). */
+/** Quartiers / arrondissements connus de Nouakchott (priorité sur les POI Google). */
 const NOUAKCHOTT_QUARTIERS = [
   "Tevragh Zeina",
   "Tevragh-Zeina",
@@ -52,22 +41,46 @@ const POSITION_OPTIONS: PositionOptions = {
   maximumAge: 120_000,
 };
 
-async function fetchReverse(
-  lat: number,
-  lng: number,
-  zoom: number
-): Promise<ReversePayload | null> {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=fr&zoom=${zoom}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "EasyDunya/1.0" },
-  });
+async function fetchReverse(lat: number, lng: number): Promise<ReversePayload | null> {
+  const key = getGoogleMapsApiKey();
+  if (!key) {
+    console.warn("[geocode] VITE_GOOGLE_MAPS_API_KEY manquante");
+    return null;
+  }
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("latlng", `${lat},${lng}`);
+  url.searchParams.set("language", "fr");
+  url.searchParams.set("region", "mr");
+  url.searchParams.set("key", key);
+
+  const res = await fetch(url.toString());
   if (!res.ok) return null;
-  return (await res.json()) as ReversePayload;
+  const data = (await res.json()) as {
+    status?: string;
+    results?: ReversePayload[];
+  };
+  if (data.status !== "OK" || !data.results?.[0]) return null;
+  return data.results[0];
 }
 
-function cityFromAddress(a?: OsmAddress): string | null {
-  if (!a) return null;
-  return a.city ?? a.town ?? a.municipality ?? a.state ?? null;
+function componentsByType(
+  components: GoogleAddressComponent[] | undefined,
+  ...types: string[]
+): string[] {
+  if (!components) return [];
+  return components
+    .filter((c) => types.some((t) => c.types.includes(t)))
+    .map((c) => c.long_name);
+}
+
+function cityFromPayload(payload: ReversePayload): string | null {
+  const parts = componentsByType(
+    payload.address_components,
+    "locality",
+    "administrative_area_level_2",
+    "administrative_area_level_1"
+  );
+  return parts[0] ?? null;
 }
 
 function normalizeLabel(name: string): string {
@@ -88,8 +101,7 @@ export function isStreetLikeName(name: string | null | undefined): boolean {
 }
 
 /**
- * Labels OSM trop précis (carrefour, rond-point, commerce…) — pas un quartier.
- * « Carrefour » = rond-point en français OSM, pas le supermarché.
+ * Labels Google trop précis (carrefour, rond-point, commerce…) — pas un quartier.
  */
 export function isUnusableQuartierLabel(name: string | null | undefined): boolean {
   if (!name?.trim()) return true;
@@ -120,30 +132,24 @@ function matchKnownQuartier(candidates: (string | null | undefined)[]): string |
   return null;
 }
 
-function addressCandidates(a?: OsmAddress): string[] {
-  if (!a) return [];
-  return [
-    a.suburb,
-    a.neighbourhood,
-    a.quarter,
-    a.city_district,
-    a.district,
-    a.borough,
-    a.county,
-    a.hamlet,
-    a.village,
-    a.municipality,
-    a.city,
-    a.town,
-  ].filter((x): x is string => Boolean(x?.trim()));
+function addressCandidates(payload: ReversePayload): string[] {
+  return componentsByType(
+    payload.address_components,
+    "neighborhood",
+    "sublocality",
+    "sublocality_level_1",
+    "sublocality_level_2",
+    "administrative_area_level_3",
+    "administrative_area_level_4"
+  );
 }
 
 /**
  * Quartier / arrondissement uniquement (Arafat, Tevragh Zeina…).
  * Exclut rues, carrefours et autres POI.
  */
-function extractAreaQuartier(a?: OsmAddress, allowCounty = false): string | null {
-  const candidates = addressCandidates(a).filter((_, i) => allowCounty || i < 6);
+function extractAreaQuartier(payload: ReversePayload): string | null {
+  const candidates = addressCandidates(payload);
   const known = matchKnownQuartier(candidates);
   if (known) return known;
   for (const label of candidates) {
@@ -152,44 +158,36 @@ function extractAreaQuartier(a?: OsmAddress, allowCounty = false): string | null
   return null;
 }
 
-function pickFromDisplayName(displayName?: string): string | null {
-  const parts =
-    displayName?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+function pickFromFormattedAddress(formatted?: string): string | null {
+  const parts = formatted?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
   const known = matchKnownQuartier(parts);
   if (known) return known;
-  return (
-    parts.find((p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p)) ?? null
-  );
+  return parts.find((p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p)) ?? null;
 }
 
-/** Reverse geocoding : priorité quartier/arrondissement (zoom large), jamais un POI précis. */
+/** Reverse geocoding Google : priorité quartier/arrondissement, jamais un POI précis. */
 export async function reverseLocation(
   lat: number,
   lng: number
 ): Promise<{ quartier: string | null; cityName: string | null }> {
   try {
-    let cityName: string | null = null;
+    const payload = await fetchReverse(lat, lng);
+    if (!payload) return { quartier: null, cityName: null };
 
-    for (const zoom of [10, 12, 14]) {
-      const payload = await fetchReverse(lat, lng, zoom);
-      if (!payload) continue;
+    const cityName = cityFromPayload(payload);
+    const allCandidates = [
+      ...addressCandidates(payload),
+      ...(payload.formatted_address?.split(",").map((s) => s.trim()) ?? []),
+    ];
+    const known = matchKnownQuartier(allCandidates);
+    if (known) return { quartier: known, cityName };
 
-      cityName = cityName ?? cityFromAddress(payload.address);
-      const known = matchKnownQuartier([
-        ...addressCandidates(payload.address),
-        ...((payload.display_name ?? "").split(",").map((s) => s.trim()) ?? []),
-      ]);
-      if (known) return { quartier: known, cityName };
+    const areaQuartier = extractAreaQuartier(payload);
+    if (areaQuartier) return { quartier: areaQuartier, cityName };
 
-      const areaQuartier = extractAreaQuartier(payload.address, zoom <= 12);
-      if (areaQuartier) return { quartier: areaQuartier, cityName };
-    }
-
-    const fallback = await fetchReverse(lat, lng, 10);
-    const fromDisplay = pickFromDisplayName(fallback?.display_name);
     return {
-      quartier: fromDisplay,
-      cityName: cityName ?? cityFromAddress(fallback?.address),
+      quartier: pickFromFormattedAddress(payload.formatted_address),
+      cityName,
     };
   } catch {
     return { quartier: null, cityName: null };

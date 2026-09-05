@@ -20,7 +20,25 @@
     -webkit-font-smoothing: antialiased;
   }
   html[dir="rtl"] body { @apply font-ar; }
-  .leaflet-pane, .leaflet-top, .leaflet-bottom { z-index: 1 !important; }
+  /* Marqueurs/popups au-dessus ; ne pas forcer z-index sur .leaflet-top (Google Mutant). */
+  .leaflet-pane.leaflet-marker-pane,
+  .leaflet-pane.leaflet-overlay-pane,
+  .leaflet-pane.leaflet-popup-pane,
+  .leaflet-pane.leaflet-tooltip-pane,
+  .leaflet-control-container {
+    z-index: 2 !important;
+  }
+  .leaflet-pane.leaflet-tile-pane {
+    z-index: 1 !important;
+  }
+  .leaflet-google-mutant {
+    z-index: 0 !important;
+  }
+  .ed-track-marker,
+  .ed-marker {
+    background: transparent !important;
+    border: none !important;
+  }
 }
 
 @layer components {

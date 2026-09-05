@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
 import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "../lib/supabase";
-import { fetchDrivingDistanceM, type RoutePoint } from "../lib/routing";
+import { fetchRemainingToDestinationM, type RoutePoint } from "../lib/routing";
+
+export interface TripRouteEndpoints {
+  from: RoutePoint;
+  to: RoutePoint;
+}
 
 const SEND_INTERVAL_MS = 15_000;
 const STALE_POSITION_MS = 2 * 60 * 1000;
@@ -44,12 +50,12 @@ export function useDriverGps(
   tripId: string | undefined,
   active: boolean,
   onCompleted?: (tripId: string) => void,
-  destination?: RoutePoint | null
+  tripRoute?: TripRouteEndpoints | null
 ) {
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
-  const destinationRef = useRef(destination);
-  destinationRef.current = destination;
+  const tripRouteRef = useRef(tripRoute);
+  tripRouteRef.current = tripRoute;
   const completedRef = useRef(false);
   const watchRef = useRef<string | number | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -68,9 +74,10 @@ export function useDriverGps(
         return;
       }
       let routeRemainingM: number | null = null;
-      const dest = destinationRef.current;
-      if (dest) {
-        routeRemainingM = await fetchDrivingDistanceM({ lat, lng }, dest);
+      const route = tripRouteRef.current;
+      if (route) {
+        const result = await fetchRemainingToDestinationM({ lat, lng }, route.to);
+        routeRemainingM = result.remainingM;
       }
       const result = await pushDriverGps(tripId!, lat, lng, routeRemainingM);
       if (cancelled || !result) return;
@@ -148,22 +155,47 @@ export function useDriverGps(
 
     if (Capacitor.isNativePlatform()) {
       void startNative();
-    } else {
-      startBrowser();
+      const appListener = App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) void sendCurrentNative();
+      });
+      return () => {
+        cancelled = true;
+        void appListener.then((h) => h.remove());
+        if (intervalRef.current !== null) {
+          window.clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        if (watchRef.current !== null) {
+          void Geolocation.clearWatch({ id: String(watchRef.current) });
+          watchRef.current = null;
+        }
+      };
     }
+
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            void sendCoords(pos.coords.latitude, pos.coords.longitude);
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 }
+        );
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+
+    startBrowser();
 
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
       if (intervalRef.current !== null) {
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
       if (watchRef.current !== null) {
-        if (Capacitor.isNativePlatform()) {
-          void Geolocation.clearWatch({ id: String(watchRef.current) });
-        } else {
-          navigator.geolocation.clearWatch(watchRef.current as number);
-        }
+        navigator.geolocation.clearWatch(watchRef.current as number);
         watchRef.current = null;
       }
     };

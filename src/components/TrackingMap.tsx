@@ -1,23 +1,27 @@
-import { useEffect, useState } from "react";
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  Tooltip,
-  useMap,
-} from "react-leaflet";
-import L from "leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { GoogleMap, MarkerF, PolylineF } from "@react-google-maps/api";
 import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
-import { fetchDrivingRoute, type RoutePoint } from "../lib/routing";
-
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+import {
+  googleCircleIcon,
+  googleCountMarker,
+  googleDriverMarker,
+  googleTripArrivalIcon,
+  googleTripDepartureIcon,
+} from "../lib/googleMapMarkers";
+import {
+  fetchDrivingRouteWithStatus,
+  truncateRouteBothEnds,
+  type RouteFetchStatus,
+  type RoutePoint,
+} from "../lib/routing";
+import {
+  fitMapToPoints,
+  googleMapsKeyMissing,
+  useGoogleMapAuthGuard,
+  watchMapUserInteraction,
+} from "../hooks/useEdGoogleMapsLoader";
+import { useGoogleMapsReady, mapHeightStyle } from "./GoogleMapsProvider";
 
 export interface LatLng {
   lat: number;
@@ -39,101 +43,33 @@ interface Props {
   selectedPickupId?: string | null;
   onPickupSelect?: (id: string) => void;
   height?: number | string;
-  /** route = trajet complet ; pickups = quartiers des demandes uniquement */
   variant?: "route" | "pickups";
 }
 
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+const FALLBACK_LINE = {
+  strokeColor: "#f59e0b",
+  strokeWeight: 3,
+  strokeOpacity: 0.85,
+  geodesic: true,
+  icons: [
+    {
+      icon: {
+        path: "M 0,-1 0,1",
+        strokeOpacity: 1,
+        scale: 3,
+      },
+      offset: "0",
+      repeat: "16px",
+    },
+  ],
+};
 
-function dot(color: string, ring = "white") {
-  return L.divIcon({
-    className: "ed-track-marker",
-    html: `<div style="
-      width:20px;height:20px;border-radius:50%;
-      background:${color};border:3px solid ${ring};
-      box-shadow:0 3px 8px rgba(0,0,0,0.35);"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-  });
-}
-
-function pickupCountIcon(count: number, selected: boolean) {
-  const bg = selected ? "#dc2626" : BRAND_ORANGE;
-  const safeCount = escapeHtml(String(count));
-  const size = 26;
-  return L.divIcon({
-    className: "ed-track-marker",
-    html: `<div style="
-      width:${size}px;height:${size}px;border-radius:50%;
-      background:${bg};color:#fff;border:2px solid #fff;
-      box-shadow:0 2px 6px rgba(0,0,0,0.28);
-      display:flex;align-items:center;justify-content:center;
-      font-size:12px;font-weight:800;line-height:1;">${safeCount}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
-
-/** Marqueur compact : nom du quartier seulement (carte des demandes). */
-function quartierIcon(quartier: string, selected: boolean) {
-  const bg = selected ? "#dc2626" : BRAND_ORANGE;
-  const safe = escapeHtml(quartier);
-  const short = quartier.length > 14 ? `${quartier.slice(0, 13)}…` : quartier;
-  const safeShort = escapeHtml(short);
-  return L.divIcon({
-    className: "ed-track-marker",
-    html: `<div style="
-      max-width:88px;padding:3px 7px;border-radius:10px;
-      background:${bg};color:#fff;border:2px solid #fff;
-      box-shadow:0 2px 6px rgba(0,0,0,0.25);
-      font-size:10px;font-weight:700;line-height:1.2;text-align:center;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-      title="${safe}">${safeShort}</div>`,
-    iconSize: [88, 22],
-    iconAnchor: [44, 11],
-  });
-}
-
-const carIcon = L.divIcon({
-  className: "ed-track-marker",
-  html: `<div style="
-    width:34px;height:34px;border-radius:50%;
-    background:${BRAND_BLUE};border:3px solid white;
-    box-shadow:0 4px 10px rgba(30,136,214,0.5);
-    display:flex;align-items:center;justify-content:center;font-size:18px;">🚗</div>`,
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-});
-
-function FitBounds({
-  points,
-  pickupsOnly,
-}: {
-  points: LatLng[];
-  pickupsOnly?: boolean;
-}) {
-  const map = useMap();
-  useEffect(() => {
-    const valid = points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-    if (valid.length === 0) return;
-    if (valid.length === 1) {
-      map.setView([valid[0].lat, valid[0].lng], pickupsOnly ? 15 : 12);
-    } else {
-      map.fitBounds(
-        L.latLngBounds(valid.map((p) => [p.lat, p.lng] as [number, number])),
-        { padding: [32, 32], maxZoom: pickupsOnly ? 16 : 14 }
-      );
-    }
-    setTimeout(() => map.invalidateSize(), 150);
-  }, [points, map, pickupsOnly]);
-  return null;
-}
+const GOOGLE_LINE = {
+  strokeColor: BRAND_BLUE,
+  strokeWeight: 5,
+  strokeOpacity: 0.9,
+  geodesic: true,
+};
 
 export default function TrackingMap({
   from,
@@ -145,124 +81,280 @@ export default function TrackingMap({
   height = 320,
   variant = "route",
 }: Props) {
+  const { t } = useTranslation();
   const pickupsOnly = variant === "pickups";
   const showRoute = !pickupsOnly && from && to;
+  const { isLoaded, loadError } = useGoogleMapsReady();
+  const mapWrapRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const userMovedMapRef = useRef(false);
+  const routeFitDoneRef = useRef(false);
+  const unwatchMapRef = useRef<(() => void) | null>(null);
+  const authError = useGoogleMapAuthGuard(mapWrapRef);
   const [routePath, setRoutePath] = useState<RoutePoint[]>([]);
+  const [routeStatus, setRouteStatus] = useState<RouteFetchStatus>("loading");
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     if (!showRoute || !from || !to) {
       setRoutePath([]);
+      setRouteStatus("loading");
       return;
     }
     let cancelled = false;
-    void fetchDrivingRoute(from, to, 4).then((route) => {
-      if (!cancelled && route) setRoutePath(route.geometry);
+    setRouteStatus("loading");
+    void fetchDrivingRouteWithStatus(from, to, 4).then((result) => {
+      if (cancelled) return;
+      setRouteStatus(result.status);
+      setRoutePath(result.route?.geometry ?? []);
     });
     return () => {
       cancelled = true;
     };
   }, [showRoute, from?.lat, from?.lng, to?.lat, to?.lng]);
 
-  const routeLine: [number, number][] =
-    routePath.length >= 2
-      ? routePath.map((p) => [p.lat, p.lng] as [number, number])
-      : from && to
-        ? [
-            [from.lat, from.lng],
-            [to.lat, to.lng],
-          ]
-        : [];
+  const hasGoogleRoute = routePath.length >= 2;
+  const isRouteFallback = routeStatus === "fallback";
 
-  const fitPoints: LatLng[] = pickupsOnly
-    ? [
-        ...pickups.map((p) => ({ lat: p.lat, lng: p.lng })),
-        ...(driver ? [driver] : []),
-      ]
-    : [
-        ...(from ? [{ lat: from.lat, lng: from.lng }] : []),
-        ...(to ? [{ lat: to.lat, lng: to.lng }] : []),
-        ...pickups.map((p) => ({ lat: p.lat, lng: p.lng })),
-        ...(driver ? [driver] : []),
-      ];
+  /** Points fixes pour le cadrage initial (sans le chauffeur qui bouge). */
+  const staticFitPoints = useMemo(() => {
+    if (pickupsOnly) {
+      return pickups.map((p) => ({ lat: p.lat, lng: p.lng }));
+    }
+    return [
+      ...(from ? [{ lat: from.lat, lng: from.lng }] : []),
+      ...(to ? [{ lat: to.lat, lng: to.lng }] : []),
+      ...pickups.map((p) => ({ lat: p.lat, lng: p.lng })),
+    ];
+  }, [pickupsOnly, pickups, from, to]);
 
-  const center: [number, number] =
-    pickups.length > 0
-      ? [pickups[0].lat, pickups[0].lng]
-      : from
-        ? [from.lat, from.lng]
-        : [18.08, -15.98];
+  const fallbackCenter = useMemo(() => {
+    if (pickups.length > 0) return { lat: pickups[0].lat, lng: pickups[0].lng };
+    if (from) return { lat: from.lat, lng: from.lng };
+    if (to) return { lat: to.lat, lng: to.lng };
+    return { lat: 18.08, lng: -15.98 };
+  }, [pickups, from, to]);
+
+  const truncated = useMemo(() => {
+    if (!from || !to) {
+      return null;
+    }
+    if (hasGoogleRoute) {
+      return truncateRouteBothEnds(routePath, from, to);
+    }
+    if (isRouteFallback) {
+      return {
+        fromPoint: { lat: from.lat, lng: from.lng },
+        toPoint: { lat: to.lat, lng: to.lng },
+        path: [
+          { lat: from.lat, lng: from.lng },
+          { lat: to.lat, lng: to.lng },
+        ],
+      };
+    }
+    return null;
+  }, [hasGoogleRoute, isRouteFallback, routePath, from, to]);
+
+  const routeLine = truncated?.path ?? [];
+
+  const markerFrom = truncated?.fromPoint ?? from;
+  const markerTo = truncated?.toPoint ?? to;
+
+  const applyInitialFit = useCallback(
+    (m: google.maps.Map) => {
+      const maxZoom = pickupsOnly ? 16 : 14;
+      if (staticFitPoints.length > 0) {
+        fitMapToPoints(m, staticFitPoints, 48, maxZoom);
+        return;
+      }
+      m.setCenter(fallbackCenter);
+      m.setZoom(pickupsOnly ? 14 : 6);
+    },
+    [staticFitPoints, fallbackCenter, pickupsOnly]
+  );
+
+  const containerStyle = useMemo(() => mapHeightStyle(height), [height]);
+
+  const mapOptions = useMemo<google.maps.MapOptions>(
+    () => ({
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      gestureHandling: "cooperative",
+    }),
+    []
+  );
+
+  const onMapLoad = useCallback(
+    (m: google.maps.Map) => {
+      mapRef.current = m;
+      userMovedMapRef.current = false;
+      routeFitDoneRef.current = false;
+      unwatchMapRef.current?.();
+      unwatchMapRef.current = watchMapUserInteraction(m, () => {
+        userMovedMapRef.current = true;
+      });
+      setMapReady(true);
+      applyInitialFit(m);
+    },
+    [applyInitialFit]
+  );
+
+  const onMapUnmount = useCallback(() => {
+    unwatchMapRef.current?.();
+    unwatchMapRef.current = null;
+    mapRef.current = null;
+    userMovedMapRef.current = false;
+    routeFitDoneRef.current = false;
+    setMapReady(false);
+  }, []);
+
+  /** Recadrer une seule fois quand l'itinéraire Google arrive, si l'utilisateur n'a pas zoomé. */
+  useEffect(() => {
+    if (
+      !mapReady ||
+      userMovedMapRef.current ||
+      routeFitDoneRef.current ||
+      !hasGoogleRoute
+    ) {
+      return;
+    }
+    const m = mapRef.current;
+    if (!m) return;
+    routeFitDoneRef.current = true;
+    fitMapToPoints(m, routeLine, 48, pickupsOnly ? 16 : 14);
+  }, [mapReady, hasGoogleRoute, routeLine, pickupsOnly]);
+
+  if (googleMapsKeyMissing()) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
+        style={{ height }}
+      >
+        Configurez VITE_GOOGLE_MAPS_API_KEY dans .env
+      </div>
+    );
+  }
+
+  if (loadError || authError) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
+        style={{ height }}
+      >
+        {authError ?? loadError?.message ?? "Carte Google Maps indisponible."}
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-500"
+        style={{ height }}
+      >
+        Chargement de la carte…
+      </div>
+    );
+  }
+
+  const driverMarker = mapReady ? googleDriverMarker() : null;
 
   return (
-    <div className="rounded-3xl overflow-hidden shadow-soft border border-slate-100" data-no-ptr>
-      <MapContainer
-        center={center}
-        zoom={pickupsOnly ? 14 : 6}
-        scrollWheelZoom={false}
-        style={{ height, width: "100%" }}
-      >
-        <FitBounds points={fitPoints} pickupsOnly={pickupsOnly} />
-        <TileLayer
-          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        {showRoute && from && to && (
-          <>
-            <Polyline
-              positions={routeLine}
-              pathOptions={{
-                color: BRAND_BLUE,
-                weight: routePath.length >= 2 ? 4 : 3,
-                dashArray: routePath.length >= 2 ? undefined : "6 8",
-                opacity: routePath.length >= 2 ? 0.85 : 0.7,
-              }}
+    <div className="relative rounded-3xl overflow-hidden shadow-soft border border-slate-100" data-no-ptr>
+      {showRoute && routeStatus === "loading" && (
+        <div className="pointer-events-none absolute z-[1000] top-2 left-2 right-2 bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 text-[11px] text-slate-600 border border-slate-100 shadow-sm">
+          {t("trip.routeLoading")}
+        </div>
+      )}
+      {showRoute && isRouteFallback && (
+        <div className="pointer-events-none absolute z-[1000] top-2 left-2 right-2 bg-amber-50 backdrop-blur rounded-xl px-3 py-2 text-[11px] text-amber-900 border border-amber-200 shadow-sm">
+          <div className="font-semibold">{t("trip.routeFallbackTitle")}</div>
+          <p className="mt-0.5 leading-snug">{t("trip.routeFallbackHint")}</p>
+        </div>
+      )}
+      <div ref={mapWrapRef} style={containerStyle}>
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          onLoad={onMapLoad}
+          onUnmount={onMapUnmount}
+          options={mapOptions}
+        >
+          {mapReady && showRoute && routeLine.length >= 2 && (
+            <PolylineF
+              path={routeLine}
+              options={hasGoogleRoute ? GOOGLE_LINE : FALLBACK_LINE}
             />
-            <Marker position={[from.lat, from.lng]} icon={dot("#10b981")}>
-              <Popup>{from.label ?? "Départ"}</Popup>
-            </Marker>
-            <Marker position={[to.lat, to.lng]} icon={dot("#ef4444")}>
-              <Popup>{to.label ?? "Arrivée"}</Popup>
-            </Marker>
-          </>
-        )}
+          )}
 
-        {pickups.map((p) => (
-          <Marker
-            key={p.id}
-            position={[p.lat, p.lng]}
-            icon={
-              pickupsOnly
-                ? quartierIcon(p.quartier, selectedPickupId === p.id)
-                : pickupCountIcon(p.count, selectedPickupId === p.id)
-            }
-            eventHandlers={{
-              click: () => onPickupSelect?.(p.id),
-            }}
-          >
-            <Tooltip direction="top" offset={[0, pickupsOnly ? -12 : -14]} opacity={0.95}>
-              <span className="font-semibold">
-                {pickupsOnly ? p.quartier : `${p.quartier} · ${p.count}`}
-              </span>
-            </Tooltip>
-            <Popup>
-              <div className="text-sm leading-snug min-w-[120px]">
-                <div className="font-bold text-ink">{p.quartier}</div>
-                {p.passengerNames?.map((name) => (
-                  <div key={name} className="text-slate-600 mt-0.5">
-                    · {name}
-                  </div>
-                ))}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+          {mapReady && showRoute && markerFrom && (
+            <MarkerF
+              position={markerFrom}
+              title={from.label ?? "Départ"}
+              icon={googleTripDepartureIcon()}
+              zIndex={900}
+            />
+          )}
 
-        {driver && (
-          <Marker position={[driver.lat, driver.lng]} icon={carIcon}>
-            <Popup>🚗</Popup>
-          </Marker>
-        )}
-      </MapContainer>
+          {mapReady && showRoute && markerTo && (
+            <MarkerF
+              position={markerTo}
+              title={to.label ?? "Arrivée"}
+              icon={googleTripArrivalIcon()}
+              zIndex={900}
+            />
+          )}
+
+          {mapReady &&
+            pickups.map((p) => {
+              const selected = selectedPickupId === p.id;
+              const short =
+                p.quartier.length > 14 ? `${p.quartier.slice(0, 13)}…` : p.quartier;
+              if (pickupsOnly) {
+                return (
+                  <MarkerF
+                    key={p.id}
+                    position={{ lat: p.lat, lng: p.lng }}
+                    title={p.quartier}
+                    icon={googleCircleIcon(selected ? "#dc2626" : BRAND_ORANGE, 16)}
+                    label={{
+                      text: short,
+                      color: "#ffffff",
+                      fontSize: "10px",
+                      fontWeight: "700",
+                    }}
+                    zIndex={selected ? 950 : 800}
+                    onClick={() => onPickupSelect?.(p.id)}
+                  />
+                );
+              }
+              const { icon, label } = googleCountMarker(p.count, BRAND_ORANGE, 14, selected);
+              return (
+                <MarkerF
+                  key={p.id}
+                  position={{ lat: p.lat, lng: p.lng }}
+                  title={p.quartier}
+                  icon={icon}
+                  label={label}
+                  zIndex={selected ? 950 : 800}
+                  onClick={() => onPickupSelect?.(p.id)}
+                />
+              );
+            })}
+
+          {mapReady && driver && driverMarker && (
+            <MarkerF
+              position={driver}
+              title="Chauffeur"
+              icon={driverMarker.icon}
+              label={driverMarker.label}
+              zIndex={1000}
+            />
+          )}
+        </GoogleMap>
+      </div>
     </div>
   );
 }

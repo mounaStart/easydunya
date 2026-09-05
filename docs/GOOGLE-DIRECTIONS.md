@@ -1,26 +1,37 @@
-# Google Directions API (distances routières = Google Maps)
+# Google Directions API (Solution B — itinéraires routiers)
 
-Easy Dunya calcule les distances via **Google Directions API**, identiques à Google Maps (ex. Nouakchott → Aleg = **264 km**).
+Easy Dunya trace les trajets via **Google Directions API** (Edge Function Supabase `directions`), identique à Google Maps (ex. Nouakchott → Aleg ≈ **264 km** via Boutilimit).
 
-La clé API reste **côté serveur** (Edge Function Supabase) — jamais exposée dans l’APK ou le site.
+**Deux clés distinctes (obligatoire) :**
+
+| Clé | Où | Restrictions Google Cloud | Usage |
+|-----|-----|---------------------------|--------|
+| `VITE_GOOGLE_MAPS_API_KEY` | `.env`, Netlify, GitHub APK | **Sites web** (referrers) + Maps JavaScript + Geocoding | Carte dans le navigateur |
+| `GOOGLE_MAPS_API_KEY` | Secret Supabase uniquement | **Aucun referrer** — API restriction **Directions API** seulement | Edge Function `directions` (serveur) |
+
+> ⚠️ **Ne pas réutiliser la clé frontend pour Supabase.**  
+> Erreur typique : `API keys with referer restrictions cannot be used with this API` → la clé serveur a des referrers HTTP ; créez une **2ᵉ clé** sans restriction de sites web.
+
+Sans la clé Supabase valide, la carte affiche une **ligne orange pointillée** (vol d'oiseau) + bandeau d'avertissement — ce n'est **pas** un bug de destination.
 
 ---
 
 ## 1. Google Cloud Console
 
-1. Ouvrez [Google Cloud Console](https://console.cloud.google.com/)
-2. Créez ou sélectionnez un projet (ex. `Easy Dunya`)
-3. **APIs & Services** → **Library** → activez **Directions API**
-4. **APIs & Services** → **Credentials** → **Create credentials** → **API key**
-5. Restreignez la clé :
-   - **API restrictions** → **Restrict key** → cochez uniquement **Directions API**
-   - (Pas de restriction HTTP referrer — la clé est utilisée par Supabase, pas le navigateur)
+1. [Google Cloud Console](https://console.cloud.google.com/)
+2. **APIs & Services** → **Library** → activer :
+   - **Directions API** (obligatoire pour les trajets)
+   - **Maps JavaScript API** + **Geocoding API** (carte frontend)
+3. **Credentials** → créer **deux clés API** :
+   - **Clé 1 — Frontend** (`VITE_GOOGLE_MAPS_API_KEY`) : restriction **Sites web** + Maps JavaScript + Geocoding
+   - **Clé 2 — Serveur** (`GOOGLE_MAPS_API_KEY`) : restriction **API** (Directions uniquement), **sans** referrers HTTP
+4. Restreindre la clé **Serveur** :
+   - **Application restrictions** → **None** (pas de sites web)
+   - **API restrictions** → **Restrict key** → **Directions API** uniquement
 
 ---
 
 ## 2. Secret Supabase
-
-Dans PowerShell (après `supabase login`) :
 
 ```powershell
 supabase secrets set GOOGLE_MAPS_API_KEY=VOTRE_CLE_GOOGLE --project-ref prfmqfnaqtmyfyxqjeli
@@ -28,36 +39,68 @@ supabase secrets set GOOGLE_MAPS_API_KEY=VOTRE_CLE_GOOGLE --project-ref prfmqfna
 
 ---
 
-## 3. Déployer l’Edge Function
+## 3. Déployer l'Edge Function
 
 ```powershell
 cd C:\Projets\EASYDUNYA1
 supabase functions deploy directions --project-ref prfmqfnaqtmyfyxqjeli
 ```
 
-Ou le script complet :
+---
+
+## 4. Vérification (curl / script)
+
+### Test automatique (recommandé)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File supabase/scripts/deploy_edge_functions.ps1
+cd C:\Projets\EASYDUNYA1
+npm run test:directions
 ```
 
+Lit `.env` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) et appelle la fonction `directions` pour Nouakchott → Aleg.
+
+**Succès attendu :**
+- `provider: "google"`
+- `distanceM` ≈ **264 000** (264 km)
+- `polyline` non vide
+
+**Échec typique :**
+- `503` + `GOOGLE_MAPS_API_KEY non configurée` → secret manquant
+- `502` + `REQUEST_DENIED` → Directions API inactive ou clé invalide
+
+### Test curl manuel
+
+Remplacez `ANON_KEY` et l'URL Supabase :
+
+```powershell
+curl -X POST "https://prfmqfnaqtmyfyxqjeli.supabase.co/functions/v1/directions" `
+  -H "Authorization: Bearer ANON_KEY" `
+  -H "Content-Type: application/json" `
+  -d "{\"from\":{\"lat\":17.0522,\"lng\":-13.9179},\"to\":{\"lat\":18.0681,\"lng\":-15.9700}}"
+```
+
+### Test Google direct (sans Supabase)
+
+```powershell
+curl "https://maps.googleapis.com/maps/api/directions/json?origin=17.0522,-13.9179&destination=18.0681,-15.9700&mode=driving&key=VOTRE_CLE"
+```
+
+Si curl Google OK mais Supabase 503 → secret / déploiement `directions` manquant.
+
 ---
 
-## 4. Vérification
+## 5. Vérification dans l'app
 
-Après déploiement du site (Netlify), ouvrez un voyage Nouakchott → Aleg : la distance doit afficher **~264 km** (comme Google Maps).
-
-Si la clé n’est pas configurée, l’app utilise un **repli OSRM** (~260 km) et un avertissement apparaît dans la console développeur.
+1. `npm run dev` → voyage en cours avec carte
+2. **Ligne bleue épaisse** = Google Directions OK
+3. **Ligne orange pointillée** + bandeau amber = Google Directions indisponible
+4. Console (F12) : `[routing] Google Directions: ...` en cas d'erreur
 
 ---
 
-## Coûts Google
+## Coûts
 
-Directions API : environ **5 USD / 1000 requêtes** (voir [tarifs Google Maps](https://developers.google.com/maps/billing-and-pricing)).
-
-Le cache côté app limite les appels répétés pour le même trajet.
-
-Google offre **200 USD / mois de crédit gratuit** sur Maps Platform (suffisant pour un volume modéré).
+Directions API : ~5 USD / 1000 requêtes. Crédit gratuit Google Maps : **200 USD/mois**. Cache côté app pour limiter les appels.
 
 ---
 
@@ -65,7 +108,9 @@ Google offre **200 USD / mois de crédit gratuit** sur Maps Platform (suffisant 
 
 | Problème | Solution |
 |----------|----------|
-| Distance ~260 km au lieu de 264 | Clé non configurée → repli OSRM. Vérifiez le secret + déploiement `directions` |
-| Erreur `REQUEST_DENIED` | Directions API non activée ou clé mal restreinte |
-| Erreur `OVER_QUERY_LIMIT` | Quota dépassé — activer la facturation Google Cloud |
-| Fonction 503 | `GOOGLE_MAPS_API_KEY` absent des secrets Supabase |
+| Ligne droite à travers le désert | `GOOGLE_MAPS_API_KEY` + `supabase functions deploy directions` |
+| Carte grise | `VITE_GOOGLE_MAPS_API_KEY` + Maps JavaScript API |
+| `REQUEST_DENIED` + referer restrictions | Clé Supabase = clé frontend. Créez une **2ᵉ clé** sans referrers (voir ci-dessus) |
+| `REQUEST_DENIED` | Activer Directions API sur le projet Google |
+| `503` sur `/directions` | Secret Supabase non défini |
+| Distance OK mais carte fallback | Redéployer le frontend (Netlify) |

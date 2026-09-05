@@ -1,43 +1,19 @@
-import { useEffect, useMemo } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
-import L from "leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GoogleMap, InfoWindowF, MarkerF } from "@react-google-maps/api";
 import type { CityTripCount } from "../lib/types";
 import { useTranslation } from "react-i18next";
-import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
+import { BRAND_ORANGE } from "../lib/brandColors";
+import { googleCountMarker } from "../lib/googleMapMarkers";
+import {
+  fitMapToPoints,
+  googleMapsKeyMissing,
+  useGoogleMapAuthGuard,
+  watchMapUserInteraction,
+} from "../hooks/useEdGoogleMapsLoader";
+import { useGoogleMapsReady, mapHeightStyle } from "./GoogleMapsProvider";
 
-// Sans cette ligne, les icônes Leaflet ne s'affichent pas correctement avec Vite/Webpack.
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-// Centre approximatif de la Mauritanie
-const CENTER: [number, number] = [20.5, -10];
-// Cadre approximatif de la Mauritanie (sud-ouest → nord-est)
-const MR_BOUNDS: [[number, number], [number, number]] = [
-  [14.7, -17.1],
-  [27.3, -4.8],
-];
-
-// Cadre automatiquement la carte sur les villes (ou la Mauritanie si aucune)
-function FitToCities({ cities }: { cities: CityTripCount[] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (cities.length > 0) {
-      const bounds = L.latLngBounds(
-        cities.map((c) => [c.latitude, c.longitude] as [number, number])
-      );
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 7 });
-    } else {
-      map.fitBounds(MR_BOUNDS, { padding: [20, 20] });
-    }
-    // Recalcule la taille après rendu (évite l'affichage partiel)
-    setTimeout(() => map.invalidateSize(), 150);
-  }, [cities, map]);
-  return null;
-}
+const MR_BOUNDS_SW = { lat: 14.7, lng: -17.1 };
+const MR_BOUNDS_NE = { lat: 27.3, lng: -4.8 };
 
 interface Props {
   cities: CityTripCount[];
@@ -55,10 +31,118 @@ export default function MapView({
   legend = false,
 }: Props) {
   const { i18n, t } = useTranslation();
+  const { isLoaded, loadError } = useGoogleMapsReady();
+  const mapWrapRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const userMovedMapRef = useRef(false);
+  const citiesFitDoneRef = useRef(false);
+  const unwatchMapRef = useRef<(() => void) | null>(null);
+  const authError = useGoogleMapAuthGuard(mapWrapRef);
+  const [mapReady, setMapReady] = useState(false);
+  const [infoCityId, setInfoCityId] = useState<string | null>(null);
+  const containerStyle = useMemo(() => mapHeightStyle(height), [height]);
+
+  const mapOptions = useMemo<google.maps.MapOptions>(
+    () => ({
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      gestureHandling: "cooperative",
+    }),
+    []
+  );
+
   const maxCount = useMemo(
     () => Math.max(1, ...cities.map((c) => c.upcoming_trips)),
     [cities]
   );
+
+  const cityPoints = useMemo(
+    () => cities.map((c) => ({ lat: c.latitude, lng: c.longitude })),
+    [cities]
+  );
+
+  const refit = useCallback(
+    (m: google.maps.Map) => {
+      if (cityPoints.length > 0) {
+        fitMapToPoints(m, cityPoints, 40, 7);
+      } else {
+        m.fitBounds(
+          new google.maps.LatLngBounds(MR_BOUNDS_SW, MR_BOUNDS_NE),
+          24
+        );
+      }
+    },
+    [cityPoints]
+  );
+
+  const onMapLoad = useCallback(
+    (m: google.maps.Map) => {
+      mapRef.current = m;
+      userMovedMapRef.current = false;
+      citiesFitDoneRef.current = false;
+      unwatchMapRef.current?.();
+      unwatchMapRef.current = watchMapUserInteraction(m, () => {
+        userMovedMapRef.current = true;
+      });
+      setMapReady(true);
+      refit(m);
+    },
+    [refit]
+  );
+
+  const onMapUnmount = useCallback(() => {
+    unwatchMapRef.current?.();
+    unwatchMapRef.current = null;
+    mapRef.current = null;
+    userMovedMapRef.current = false;
+    citiesFitDoneRef.current = false;
+    setMapReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || userMovedMapRef.current || citiesFitDoneRef.current || !mapRef.current) {
+      return;
+    }
+    if (cityPoints.length === 0) return;
+    citiesFitDoneRef.current = true;
+    refit(mapRef.current);
+  }, [mapReady, cityPoints, refit]);
+
+  if (googleMapsKeyMissing()) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
+        style={{ height }}
+      >
+        Configurez VITE_GOOGLE_MAPS_API_KEY dans .env
+      </div>
+    );
+  }
+
+  if (loadError || authError) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
+        style={{ height }}
+      >
+        {authError ?? loadError?.message ?? "Carte Google Maps indisponible."}
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div
+        className="relative rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-500"
+        style={{ height }}
+      >
+        Chargement de la carte…
+      </div>
+    );
+  }
 
   return (
     <div className="relative rounded-3xl overflow-hidden shadow-soft border border-slate-100">
@@ -74,58 +158,61 @@ export default function MapView({
           </div>
         </div>
       )}
-      <MapContainer
-        center={CENTER}
-        zoom={5}
-        scrollWheelZoom={false}
-        style={{ height, width: "100%" }}
-      >
-        <FitToCities cities={cities} />
-        <TileLayer
-          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {cities.map((c) => {
-          const count = c.upcoming_trips;
-          const scale = 14 + Math.round((count / maxCount) * 18);
-          const isSelected = selectedCityId === c.id;
-          const color = count > 0 ? BRAND_ORANGE : "#94a3b8";
-          const icon = L.divIcon({
-            className: "ed-marker",
-            html: `<div style="
-              width:${scale}px;height:${scale}px;
-              border-radius:50%;
-              background:${color};
-              border:3px solid ${isSelected ? BRAND_BLUE : "white"};
-              box-shadow:0 4px 10px rgba(30,136,214,0.35);
-              display:flex;align-items:center;justify-content:center;
-              color:white;font-weight:700;font-size:11px;
-            ">${count || ""}</div>`,
-            iconSize: [scale, scale],
-            iconAnchor: [scale / 2, scale / 2],
-          });
-          const name = i18n.language === "ar" ? c.name_ar : c.name_fr;
-          return (
-            <Marker
-              key={c.id}
-              position={[c.latitude, c.longitude]}
-              icon={icon}
-              eventHandlers={{
-                click: () => onSelectCity?.(isSelected ? null : c.id),
-              }}
-            >
-              <Popup>
-                <div className="text-sm">
-                  <div className="font-semibold">{name}</div>
-                  <div className="text-slate-500">
-                    {count} {t("home.upcomingTrips").toLowerCase()}
+      <div ref={mapWrapRef} style={containerStyle}>
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          onLoad={onMapLoad}
+          onUnmount={onMapUnmount}
+          options={mapOptions}
+        >
+          {mapReady &&
+            cities.map((c) => {
+              const count = c.upcoming_trips;
+              const scale = 10 + Math.round((count / maxCount) * 10);
+              const isSelected = selectedCityId === c.id;
+              const color = count > 0 ? BRAND_ORANGE : "#94a3b8";
+              const name = i18n.language === "ar" ? c.name_ar : c.name_fr;
+              const position = { lat: c.latitude, lng: c.longitude };
+              const { icon, label } = googleCountMarker(count, color, scale, isSelected);
+
+              return (
+                <MarkerF
+                  key={c.id}
+                  position={position}
+                  title={name}
+                  icon={icon}
+                  label={label}
+                  zIndex={isSelected ? 900 : count > 0 ? 800 : 700}
+                  onClick={() => {
+                    onSelectCity?.(isSelected ? null : c.id);
+                    setInfoCityId(c.id);
+                  }}
+                />
+              );
+            })}
+
+          {mapReady &&
+            infoCityId &&
+            (() => {
+              const c = cities.find((x) => x.id === infoCityId);
+              if (!c) return null;
+              const name = i18n.language === "ar" ? c.name_ar : c.name_fr;
+              return (
+                <InfoWindowF
+                  position={{ lat: c.latitude, lng: c.longitude }}
+                  onCloseClick={() => setInfoCityId(null)}
+                >
+                  <div className="text-sm">
+                    <div className="font-semibold">{name}</div>
+                    <div className="text-slate-500">
+                      {c.upcoming_trips} {t("home.upcomingTrips").toLowerCase()}
+                    </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+                </InfoWindowF>
+              );
+            })()}
+        </GoogleMap>
+      </div>
     </div>
   );
 }

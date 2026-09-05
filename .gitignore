@@ -18,6 +18,7 @@ volumes/db/data
 volumes/storage
 .tmp_docx/
 .tmp_doc.zip
+scripts/.e2e-trip-state.json
 
 # Secrets natifs — NE JAMAIS committer
 **/google-services.json

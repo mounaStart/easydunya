@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { TripPublic } from "../lib/types";
 import { formatDistance } from "../lib/utils";
-import { useDrivingRoute } from "../hooks/useDrivingRoute";
+import { useDrivingRoute, useTripRemainingDistance } from "../hooks/useDrivingRoute";
 
 interface Props {
   trip: TripPublic;
@@ -30,20 +30,21 @@ export default function TripTrackingStats({
       ? { lat: trip.to_lat, lng: trip.to_lng }
       : null;
 
+  const driver = started && driverPos ? driverPos : null;
+
   const { distanceM: totalRouteM, loading: totalLoading } = useDrivingRoute(from, to, !!from && !!to, {
     precision: 4,
   });
 
-  const { distanceM: remainingRouteM, loading: remainingLoading } = useDrivingRoute(
-    started && driverPos ? driverPos : null,
+  const { remainingM, loading: remainingLoading } = useTripRemainingDistance(
+    from,
     to,
-    started && !!driverPos && !!to,
-    { precision: 3 }
+    driver,
+    started && !!driver && !!from && !!to
   );
 
   const totalKm =
     totalRouteM != null ? totalRouteM / 1000 : trip.distance_km != null ? Number(trip.distance_km) : null;
-  const remainingM = remainingRouteM;
 
   if (totalKm == null && remainingM == null && !totalLoading && !remainingLoading) return null;
 

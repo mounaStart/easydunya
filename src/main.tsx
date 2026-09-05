@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
+import { GoogleMapsProvider } from "./components/GoogleMapsProvider";
 import { initNativeChrome } from "./lib/nativeChrome";
 import { disableWebPushOnNative, initNativePush, isNativePlatform } from "./lib/nativePush";
 import "./i18n";
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <GoogleMapsProvider>
+          <App />
+        </GoogleMapsProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
