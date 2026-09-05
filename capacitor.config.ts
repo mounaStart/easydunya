@@ -1,27 +1,32 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
+/** Site prod Netlify — l'APK charge cette URL (clés VITE_* = variables Netlify, pas GitHub). */
+const NETLIFY_URL = "https://easydunya.netlify.app";
+
 /**
- * URL distante optionnelle (ex. preview Netlify).
- * Vide par défaut → l'APK embarque dist/ (clés VITE_* du build GitHub Actions).
- * Ne pas forcer Netlify : sans VITE_GOOGLE_MAPS_API_KEY côté Netlify la carte APK reste grise.
+ * CAPACITOR_SERVER_URL :
+ * - non défini ou URL → charge le site distant (défaut Netlify, comme avant)
+ * - "embedded" → dist/ embarqué dans l'APK (secrets GitHub VITE_* requis au build)
  */
-const REMOTE_URL = process.env.CAPACITOR_SERVER_URL?.trim().replace(/\/$/, "") ?? "";
+const raw = process.env.CAPACITOR_SERVER_URL?.trim() ?? "";
+const useEmbedded = raw === "embedded" || raw === "local";
+const remoteUrl = useEmbedded ? "" : (raw.replace(/\/$/, "") || NETLIFY_URL);
 
 const config: CapacitorConfig = {
   appId: "app.easydunya",
   appName: "Easy Dunya",
   webDir: "dist",
-  ...(REMOTE_URL
+  ...(useEmbedded
     ? {
         server: {
-          url: REMOTE_URL,
-          cleartext: false,
-          errorPath: "/offline.html",
+          androidScheme: "https",
         },
       }
     : {
         server: {
-          androidScheme: "https",
+          url: remoteUrl,
+          cleartext: false,
+          errorPath: "/offline.html",
         },
       }),
   plugins: {

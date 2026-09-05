@@ -108,17 +108,25 @@ Directions API : ~5 USD / 1000 requêtes. Crédit gratuit Google Maps : **200 US
 
 ## 6. APK Android (GitHub Actions)
 
-L'APK **embarque** le `dist/` compilé (plus de chargement Netlify par défaut). La clé doit être :
+**Par défaut**, l'APK charge **https://easydunya.netlify.app** (comme avant) — les clés `VITE_*` viennent de **Netlify**, pas de GitHub Secrets.
 
-1. **GitHub** → repo → Settings → Secrets → `VITE_GOOGLE_MAPS_API_KEY`
-2. **Google Cloud** → clé frontend → referrers HTTP :
-   - `https://easydunya.netlify.app/*`
-   - `http://localhost:5173/*`
-   - **`https://localhost/*`** (WebView Capacitor dans l'APK)
+### Netlify (obligatoire pour APK + navigateur)
 
-Relancer : **Actions** → **Build Android APK** → **Run workflow** (laisser « URL distante » **vide**).
+Site configuration → **Environment variables** :
 
-**Netlify** (site web) : ajouter aussi `VITE_GOOGLE_MAPS_API_KEY` dans Environment variables puis redéployer.
+| Variable | Usage |
+|----------|--------|
+| `VITE_SUPABASE_URL` | `https://prfmqfnaqtmyfyxqjeli.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon public |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Cloud → clé frontend (referrers Netlify) |
+
+Puis **Deploy** / redeploy du site.
+
+### GitHub Actions
+
+Relancer **Build Android APK** (URL par défaut = Netlify). Secrets GitHub requis : **keystore + google-services.json** seulement.
+
+Mode avancé `embedded` : dist dans l'APK → secrets GitHub `VITE_SUPABASE_ANON_KEY` + `VITE_GOOGLE_MAPS_API_KEY` requis.
 
 ---
 

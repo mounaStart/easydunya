@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       capacitor_server_url:
-        description: "URL distante (laisser vide = dist embarqué dans l'APK, recommandé)"
+        description: "URL du site (défaut Netlify). Mettre « embedded » pour dist embarqué + secrets GitHub VITE_*"
         required: false
-        default: ""
+        default: "https://easydunya.netlify.app"
       ref:
         description: "Branche ou tag Git à builder (ex. preview/local-updates)"
         required: false
@@ -35,19 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Vérifier les secrets requis (avant build)
+      - name: Vérifier les secrets Android (keystore + FCM)
         run: |
           missing=0
-          if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
-            echo "::error::Secret manquant : VITE_SUPABASE_ANON_KEY"
-            echo "→ Supabase Dashboard → Settings → API → anon public"
-            echo "→ GitHub → Settings → Secrets and variables → Actions"
-            missing=1
-          fi
-          if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
-            echo "::error::Secret manquant : VITE_GOOGLE_MAPS_API_KEY (referrers + https://localhost/*)"
-            missing=1
-          fi
           if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
             echo "::error::Secret manquant : GOOGLE_SERVICES_JSON (google-services.json Firebase)"
             missing=1
@@ -71,7 +61,16 @@ jobs:
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
-          echo "Secrets requis présents ✓"
+          REMOTE="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.capacitor_server_url || 'https://easydunya.netlify.app' }}"
+          if [ "$REMOTE" = "embedded" ] || [ "$REMOTE" = "local" ]; then
+            if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] || [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
+              echo "::error::Mode embedded : ajoutez VITE_SUPABASE_ANON_KEY et VITE_GOOGLE_MAPS_API_KEY dans GitHub Secrets"
+              exit 1
+            fi
+          else
+            echo "Mode Netlify ($REMOTE) — clés VITE_* lues sur Netlify, pas GitHub ✓"
+          fi
+          echo "Secrets Android OK ✓"
 
       - name: Build web (dist)
         run: npm run build
@@ -102,24 +101,11 @@ jobs:
 
       - name: Capacitor sync
         run: |
-          REMOTE_URL="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.capacitor_server_url || '' }}"
+          REMOTE_URL="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.capacitor_server_url || 'https://easydunya.netlify.app' }}"
           export CAPACITOR_SERVER_URL="$REMOTE_URL"
           npx cap sync android
-          if [ -z "$REMOTE_URL" ]; then
-            node -e "
-              const fs = require('fs');
-              const p = 'android/app/src/main/assets/capacitor.config.json';
-              const c = JSON.parse(fs.readFileSync(p, 'utf8'));
-              if (c.server && c.server.url) {
-                console.error('::error::server.url ne doit pas être défini pour un APK embarqué');
-                process.exit(1);
-              }
-              if (!c.server) c.server = { androidScheme: 'https' };
-              fs.writeFileSync(p, JSON.stringify(c, null, '\t'));
-            "
-          fi
+          echo "Capacitor → ${REMOTE_URL:-embedded}"
           test -f android/app/src/main/assets/public/index.html
-          echo "Web assets embarqués ✓ ($(find android/app/src/main/assets/public -type f | wc -l) fichiers)"
 
       - name: Rendre gradlew exécutable
         run: chmod +x android/gradlew
