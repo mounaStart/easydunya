@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       capacitor_server_url:
-        description: "URL du site (prod ou Deploy Preview Netlify)"
+        description: "URL distante (laisser vide = dist embarqué dans l'APK, recommandé)"
         required: false
-        default: "https://easydunya.netlify.app"
+        default: ""
       ref:
         description: "Branche ou tag Git à builder (ex. preview/local-updates)"
         required: false
@@ -56,6 +56,10 @@ jobs:
       - name: Vérifier les secrets requis
         run: |
           missing=0
+          if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
+            echo "::error::Secret manquant : VITE_GOOGLE_MAPS_API_KEY (clé frontend Google Maps — referrers Netlify + https://localhost/*)"
+            missing=1
+          fi
           if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
             echo "::error::Secret manquant : GOOGLE_SERVICES_JSON (fichier google-services.json Firebase)"
             missing=1
@@ -92,7 +96,7 @@ jobs:
       - name: Capacitor sync
         run: npx cap sync android
         env:
-          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacitor_server_url || 'https://easydunya.netlify.app' }}
+          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacitor_server_url || '' }}
 
       - name: Rendre gradlew exécutable
         run: chmod +x android/gradlew

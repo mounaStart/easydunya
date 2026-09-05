@@ -93,7 +93,7 @@ export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | n
       const err = el.querySelector(".gm-err-message");
       if (err?.textContent?.trim()) {
         setAuthError(
-          "Clé Google refusée. Google Cloud → Clé API 5 : activez Maps JavaScript API, facturation, et referrers http://localhost:5173 + http://localhost:5173/* + https://easydunya.netlify.app/*"
+        "Clé Google refusée. Google Cloud → clé frontend : Maps JavaScript API + referrers http://localhost:5173/* , https://easydunya.netlify.app/* , https://localhost/* (APK)"
         );
       } else {
         setAuthError(null);

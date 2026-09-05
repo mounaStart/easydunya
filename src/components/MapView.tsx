@@ -117,7 +117,7 @@ export default function MapView({
         className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
         style={{ height }}
       >
-        Configurez VITE_GOOGLE_MAPS_API_KEY dans .env
+        Carte indisponible — clé Google Maps manquante (Netlify / build APK).
       </div>
     );
   }

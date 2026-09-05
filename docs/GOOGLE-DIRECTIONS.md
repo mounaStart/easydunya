@@ -6,7 +6,7 @@ Easy Dunya trace les trajets via **Google Directions API** (Edge Function Supaba
 
 | Clé | Où | Restrictions Google Cloud | Usage |
 |-----|-----|---------------------------|--------|
-| `VITE_GOOGLE_MAPS_API_KEY` | `.env`, Netlify, GitHub APK | **Sites web** (referrers) + Maps JavaScript + Geocoding | Carte dans le navigateur |
+| `VITE_GOOGLE_MAPS_API_KEY` | `.env`, **Netlify**, **GitHub Secrets** (APK) | **Sites web** (referrers) + Maps JavaScript + Geocoding | Carte navigateur + APK |
 | `GOOGLE_MAPS_API_KEY` | Secret Supabase uniquement | **Aucun referrer** — API restriction **Directions API** seulement | Edge Function `directions` (serveur) |
 
 > ⚠️ **Ne pas réutiliser la clé frontend pour Supabase.**  
@@ -104,12 +104,31 @@ Directions API : ~5 USD / 1000 requêtes. Crédit gratuit Google Maps : **200 US
 
 ---
 
+---
+
+## 6. APK Android (GitHub Actions)
+
+L'APK **embarque** le `dist/` compilé (plus de chargement Netlify par défaut). La clé doit être :
+
+1. **GitHub** → repo → Settings → Secrets → `VITE_GOOGLE_MAPS_API_KEY`
+2. **Google Cloud** → clé frontend → referrers HTTP :
+   - `https://easydunya.netlify.app/*`
+   - `http://localhost:5173/*`
+   - **`https://localhost/*`** (WebView Capacitor dans l'APK)
+
+Relancer : **Actions** → **Build Android APK** → **Run workflow** (laisser « URL distante » **vide**).
+
+**Netlify** (site web) : ajouter aussi `VITE_GOOGLE_MAPS_API_KEY` dans Environment variables puis redéployer.
+
+---
+
 ## Dépannage
 
 | Problème | Solution |
 |----------|----------|
 | Ligne droite à travers le désert | `GOOGLE_MAPS_API_KEY` + `supabase functions deploy directions` |
-| Carte grise | `VITE_GOOGLE_MAPS_API_KEY` + Maps JavaScript API |
+| Carte grise APK « clé manquante » | Secret GitHub `VITE_GOOGLE_MAPS_API_KEY` + rebuild APK (dist embarqué) |
+| Carte grise navigateur | `VITE_GOOGLE_MAPS_API_KEY` sur **Netlify** + redeploy |
 | `REQUEST_DENIED` + referer restrictions | Clé Supabase = clé frontend. Créez une **2ᵉ clé** sans referrers (voir ci-dessus) |
 | `REQUEST_DENIED` | Activer Directions API sur le projet Google |
 | `503` sur `/directions` | Secret Supabase non défini |

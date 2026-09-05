@@ -62,7 +62,7 @@ export function ensureGoogleMapsLoaded(): Promise<void> {
   loadPromise = new Promise((resolve, reject) => {
     window.gm_authFailure = () => {
       const err = new Error(
-        "Google Maps a refusé la clé. Dans Google Cloud → Clé API 5, ajoutez les referrers : http://localhost:5173 , http://localhost:5173/* , https://easydunya.netlify.app/* — et activez Maps JavaScript API + facturation."
+        "Google Maps a refusé la clé. Google Cloud → referrers : http://localhost:5173/* , https://easydunya.netlify.app/* , https://localhost/* (APK Capacitor) — Maps JavaScript API + facturation."
       );
       loadError = err;
       loadState = "error";
