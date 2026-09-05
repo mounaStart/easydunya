@@ -2,11 +2,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+/** Build GitHub Actions APK : pas de service worker (écran blanc dans WebView Capacitor). */
+const isApkBuild = process.env.BUILD_FOR_APK === "1";
+
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      disable: isApkBuild,
+      registerType: isApkBuild ? undefined : "autoUpdate",
       includeAssets: ["favicon.svg", "robots.txt", "offline.html"],
       manifest: {
         id: "/",

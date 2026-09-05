@@ -1,9 +1,7 @@
 import { cn } from "../lib/utils";
-import { isNativePlatform } from "../lib/nativePush";
 import { BRAND_BLUE, BRAND_ORANGE } from "../lib/brandColors";
 
-const EMBLEM_URL =
-  "https://easydunya.netlify.app/brand/emblem.png";
+const EMBLEM_URL = "/brand/emblem.png";
 
 interface BrandLogoProps {
   showText?: boolean;
@@ -14,10 +12,9 @@ interface BrandLogoProps {
 }
 
 function BrandEmblem({ className }: { className?: string }) {
-  const src = isNativePlatform() ? EMBLEM_URL : "/brand/emblem.png";
   return (
     <img
-      src={src}
+      src={EMBLEM_URL}
       alt=""
       width={48}
       height={32}

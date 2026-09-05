@@ -38,6 +38,7 @@ jobs:
       - name: Build web (dist)
         run: npm run build
         env:
+          BUILD_FOR_APK: "1"
           VITE_SUPABASE_URL: https://prfmqfnaqtmyfyxqjeli.supabase.co
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}

@@ -15,7 +15,6 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    />
     <title>Easy Dunya — Transport interurbain en Mauritanie</title>
     <meta
       name="description"
@@ -24,6 +23,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Capacitor : bloquer le SW PWA avant tout chargement (évite écran blanc si ancien build). -->
+    <script>
+      (function () {
+        if (!("serviceWorker" in navigator)) return;
+        var cap = window.Capacitor;
+        if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.unregister(); });
+          });
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
