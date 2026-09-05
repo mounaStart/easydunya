@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, HashRouter } from "react-router-dom";
 import App from "./App";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 import { AuthProvider } from "./hooks/useAuth";
 import { GoogleMapsProvider } from "./components/GoogleMapsProvider";
 import { initNativeChrome } from "./lib/nativeChrome";
@@ -9,12 +10,17 @@ import { disableWebPushOnNative, initNativePush, isNativePlatform } from "./lib/
 import "./i18n";
 import "./index.css";
 
-// APK : supprimer le service worker Web Push avant tout (évite 2e notif + icône différente).
-disableWebPushOnNative();
+const AppRouter = isNativePlatform() ? HashRouter : BrowserRouter;
 
-// Initialise les listeners FCM dès le démarrage (avant connexion).
-initNativePush();
-initNativeChrome();
+function bootNativeLayer() {
+  try {
+    disableWebPushOnNative();
+    initNativePush();
+    void initNativeChrome();
+  } catch (err) {
+    console.error("[Easy Dunya] init natif:", err);
+  }
+}
 
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
@@ -22,15 +28,19 @@ if ("scrollRestoration" in history) {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <GoogleMapsProvider>
-          <App />
-        </GoogleMapsProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <AppRouter>
+        <AuthProvider>
+          <GoogleMapsProvider>
+            <App />
+          </GoogleMapsProvider>
+        </AuthProvider>
+      </AppRouter>
+    </AppErrorBoundary>
   </React.StrictMode>
 );
+
+bootNativeLayer();
 
 // Recharge automatiquement quand une nouvelle version du service worker
 // prend le contrôle (navigateur uniquement — pas dans l'APK native).

@@ -19,7 +19,11 @@ const config: CapacitorConfig = {
           errorPath: "/offline.html",
         },
       }
-    : {}),
+    : {
+        server: {
+          androidScheme: "https",
+        },
+      }),
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound"],

@@ -95,9 +95,25 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
       - name: Capacitor sync
-        run: npx cap sync android
-        env:
-          CAPACITOR_SERVER_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacitor_server_url || '' }}
+        run: |
+          REMOTE_URL="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.capacitor_server_url || '' }}"
+          export CAPACITOR_SERVER_URL="$REMOTE_URL"
+          npx cap sync android
+          if [ -z "$REMOTE_URL" ]; then
+            node -e "
+              const fs = require('fs');
+              const p = 'android/app/src/main/assets/capacitor.config.json';
+              const c = JSON.parse(fs.readFileSync(p, 'utf8'));
+              if (c.server && c.server.url) {
+                console.error('::error::server.url ne doit pas être défini pour un APK embarqué');
+                process.exit(1);
+              }
+              if (!c.server) c.server = { androidScheme: 'https' };
+              fs.writeFileSync(p, JSON.stringify(c, null, '\t'));
+            "
+          fi
+          test -f android/app/src/main/assets/public/index.html
+          echo "Web assets embarqués ✓ ($(find android/app/src/main/assets/public -type f | wc -l) fichiers)"
 
       - name: Rendre gradlew exécutable
         run: chmod +x android/gradlew
