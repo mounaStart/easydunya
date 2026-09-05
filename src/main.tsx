@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, HashRouter } from "react-router-dom";
 import App from "./App";
 import AppErrorBoundary from "./components/AppErrorBoundary";
+import SupabaseConfigGate from "./components/SupabaseConfigGate";
 import { AuthProvider } from "./hooks/useAuth";
 import { GoogleMapsProvider } from "./components/GoogleMapsProvider";
 import { initNativeChrome } from "./lib/nativeChrome";
@@ -32,7 +33,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <AppRouter>
         <AuthProvider>
           <GoogleMapsProvider>
-            <App />
+            <SupabaseConfigGate>
+              <App />
+            </SupabaseConfigGate>
           </GoogleMapsProvider>
         </AuthProvider>
       </AppRouter>

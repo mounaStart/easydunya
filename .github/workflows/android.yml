@@ -35,6 +35,44 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Vérifier les secrets requis (avant build)
+        run: |
+          missing=0
+          if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::Secret manquant : VITE_SUPABASE_ANON_KEY"
+            echo "→ Supabase Dashboard → Settings → API → anon public"
+            echo "→ GitHub → Settings → Secrets and variables → Actions"
+            missing=1
+          fi
+          if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
+            echo "::error::Secret manquant : VITE_GOOGLE_MAPS_API_KEY (referrers + https://localhost/*)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "::error::Secret manquant : GOOGLE_SERVICES_JSON (google-services.json Firebase)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Secret manquant : KEYSTORE_BASE64"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "::error::Secret manquant : KEYSTORE_PASSWORD"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "::error::Secret manquant : KEY_ALIAS"
+            missing=1
+          fi
+          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error::Secret manquant : KEY_PASSWORD"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Secrets requis présents ✓"
+
       - name: Build web (dist)
         run: npm run build
         env:
@@ -53,38 +91,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-
-      - name: Vérifier les secrets requis
-        run: |
-          missing=0
-          if [ -z "${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" ]; then
-            echo "::error::Secret manquant : VITE_GOOGLE_MAPS_API_KEY (clé frontend Google Maps — referrers Netlify + https://localhost/*)"
-            missing=1
-          fi
-          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
-            echo "::error::Secret manquant : GOOGLE_SERVICES_JSON (fichier google-services.json Firebase)"
-            missing=1
-          fi
-          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "::error::Secret manquant : KEYSTORE_BASE64 (fichier keystore.b64.txt du Bureau)"
-            missing=1
-          fi
-          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
-            echo "::error::Secret manquant : KEYSTORE_PASSWORD (signing-key-info.txt)"
-            missing=1
-          fi
-          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
-            echo "::error::Secret manquant : KEY_ALIAS (signing-key-info.txt → my-key-alias)"
-            missing=1
-          fi
-          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
-            echo "::error::Secret manquant : KEY_PASSWORD (signing-key-info.txt)"
-            missing=1
-          fi
-          if [ "$missing" -eq 1 ]; then
-            exit 1
-          fi
-          echo "Tous les secrets requis sont présents ✓"
 
       - name: Écrire google-services.json
         run: |
