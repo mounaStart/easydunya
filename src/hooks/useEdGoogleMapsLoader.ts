@@ -91,10 +91,9 @@ export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | n
 
     const check = () => {
       const err = el.querySelector(".gm-err-message");
-      if (err?.textContent?.trim()) {
-        setAuthError(
-        "Clé Google refusée. Google Cloud → clé frontend : Maps JavaScript API + referrers http://localhost:5173/* , https://easydunya.netlify.app/* , https://localhost/* (APK)"
-        );
+      const text = err?.textContent?.trim();
+      if (text) {
+        setAuthError(text);
       } else {
         setAuthError(null);
       }
@@ -103,7 +102,10 @@ export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | n
     check();
     const observer = new MutationObserver(check);
     observer.observe(el, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      setAuthError(null);
+    };
   }, [containerRef]);
 
   return authError;

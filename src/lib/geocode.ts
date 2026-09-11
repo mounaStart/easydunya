@@ -41,6 +41,19 @@ const POSITION_OPTIONS: PositionOptions = {
   maximumAge: 120_000,
 };
 
+/** APK Capacitor (y compris WebView Netlify) — pas le navigateur web seul. */
+export function useNativeGeolocation(): boolean {
+  try {
+    if (Capacitor.isNativePlatform()) return true;
+  } catch {
+    /* ignore */
+  }
+  const platform = (
+    window as Window & { Capacitor?: { getPlatform?: () => string } }
+  ).Capacitor?.getPlatform?.();
+  return platform === "android" || platform === "ios";
+}
+
 async function fetchReverse(lat: number, lng: number): Promise<ReversePayload | null> {
   const key = getGoogleMapsApiKey();
   if (!key) {
@@ -237,24 +250,23 @@ function toGeolocationPosition(pos: {
   };
 }
 
-/** Demande la permission une seule fois (sans lire la position). */
+/** Demande la boîte système « Autoriser la localisation » (sans lire la position). */
 export async function ensureLocationPermission(): Promise<boolean> {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const status = await Geolocation.checkPermissions();
-      if (status.location === "granted") return true;
-      const requested = await Geolocation.requestPermissions();
-      return requested.location === "granted";
-    } catch (err) {
-      if (isLocationServicesDisabledError(err)) {
-        const disabled = new Error("Location services disabled") as Error & { code?: number };
-        disabled.code = 2;
-        throw disabled;
-      }
-      throw err;
+  if (!useNativeGeolocation()) return true;
+  try {
+    const status = await Geolocation.checkPermissions();
+    if (status.location === "granted") return true;
+    // Au clic utilisateur : affiche la fenêtre Android/iOS si possible.
+    const requested = await Geolocation.requestPermissions();
+    return requested.location === "granted";
+  } catch (err) {
+    if (isLocationServicesDisabledError(err)) {
+      const disabled = new Error("Location services disabled") as Error & { code?: number };
+      disabled.code = 2;
+      throw disabled;
     }
+    throw err;
   }
-  return true;
 }
 
 async function getNativePosition(): Promise<GeolocationPosition> {
@@ -287,7 +299,7 @@ function getBrowserPosition(): Promise<GeolocationPosition> {
  * Une seule boîte système : autoriser la localisation.
  */
 export async function getCurrentPosition(): Promise<GeolocationPosition> {
-  if (Capacitor.isNativePlatform()) {
+  if (useNativeGeolocation()) {
     return getNativePosition();
   }
   return getBrowserPosition();

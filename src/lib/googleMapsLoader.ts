@@ -62,7 +62,7 @@ export function ensureGoogleMapsLoaded(): Promise<void> {
   loadPromise = new Promise((resolve, reject) => {
     window.gm_authFailure = () => {
       const err = new Error(
-        "Google Maps a refusé la clé. Google Cloud → referrers : http://localhost:5173/* , https://easydunya.netlify.app/* , https://localhost/* (APK Capacitor) — Maps JavaScript API + facturation."
+        "Google Maps a refusé la clé frontend. Google Cloud → clé VITE (pas la clé Supabase) : restrictions API = Maps JavaScript API + Geocoding API ; referrers = https://easydunya.netlify.app/* , http://localhost:5173/* , https://localhost/* ; facturation activée."
       );
       loadError = err;
       loadState = "error";
@@ -95,7 +95,7 @@ export function ensureGoogleMapsLoaded(): Promise<void> {
     script.async = true;
     script.defer = true;
     // Pas de auth_referrer_policy=origin : le referer complet localhost:5173/ est envoyé.
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&language=fr&region=MR&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&language=fr&region=MR`;
     script.onload = () => {
       waitForGoogleMapsApi()
         .then(() => {

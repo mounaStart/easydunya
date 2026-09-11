@@ -2,18 +2,24 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isNativePlatform } from "../lib/nativePush";
 
-const PULL_THRESHOLD = 76;
-const MAX_PULL = 96;
-const PULL_ARM_DISTANCE = 28;
-const PULL_ACTIVATION = 16;
+const PULL_THRESHOLD = 88;
+const MAX_PULL = 100;
+const PULL_ARM_DISTANCE = 36;
+const PULL_ACTIVATION = 20;
 /** Délai après un scroll avant d'autoriser le tirer-pour-actualiser. */
-const SCROLL_SETTLE_MS = 500;
+const SCROLL_SETTLE_MS = 650;
 const TOP_EPSILON = 2;
-const PULL_RESISTANCE = 0.55;
+const PULL_RESISTANCE = 0.5;
+const REFRESH_TIMEOUT_MS = 12_000;
+const MIN_INDICATOR_MS = 400;
 
 function shouldIgnorePullTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return Boolean(target.closest(".leaflet-container, .leaflet-pane, [data-no-ptr]"));
+  return Boolean(
+    target.closest(
+      ".leaflet-container, .leaflet-pane, .gm-style, [data-no-ptr], input, select, textarea, button, a"
+    )
+  );
 }
 
 function scrollTop(): number {
@@ -22,6 +28,15 @@ function scrollTop(): number {
 
 function isAtTop(): boolean {
   return scrollTop() <= TOP_EPSILON;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error("refresh timeout")), ms);
+    }),
+  ]);
 }
 
 interface PullToRefreshProps {
@@ -46,6 +61,7 @@ export default function PullToRefresh({
   const pullRef = useRef(0);
   const refreshingRef = useRef(false);
   const lastScrollAt = useRef(0);
+  const refreshStartedAt = useRef(0);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
 
@@ -112,6 +128,26 @@ export default function PullToRefresh({
       setPull(next);
     };
 
+    const finishRefresh = async () => {
+      refreshStartedAt.current = Date.now();
+      setRefreshing(true);
+      refreshingRef.current = true;
+      setPull(0);
+      try {
+        await withTimeout(onRefreshRef.current(), REFRESH_TIMEOUT_MS);
+      } catch {
+        /* timeout ou réseau — on libère quand même l'UI */
+      } finally {
+        const elapsed = Date.now() - refreshStartedAt.current;
+        const wait = Math.max(0, MIN_INDICATOR_MS - elapsed);
+        window.setTimeout(() => {
+          setRefreshing(false);
+          refreshingRef.current = false;
+          resetPull();
+        }, wait);
+      }
+    };
+
     const onTouchEnd = async () => {
       if (!tracking.current) return;
       tracking.current = false;
@@ -119,16 +155,7 @@ export default function PullToRefresh({
       pulling.current = false;
       const distance = pullRef.current;
       if (distance >= PULL_THRESHOLD && !refreshingRef.current && isAtTop()) {
-        setRefreshing(true);
-        refreshingRef.current = true;
-        setPull(PULL_THRESHOLD * 0.5);
-        try {
-          await onRefreshRef.current();
-        } finally {
-          setRefreshing(false);
-          refreshingRef.current = false;
-          resetPull();
-        }
+        void finishRefresh();
       } else {
         resetPull();
       }
@@ -154,41 +181,50 @@ export default function PullToRefresh({
     return <>{children}</>;
   }
 
-  const visible = pull > 0 || refreshing;
+  const showPullHint = pull > 0 && !refreshing;
   const ready = pull >= PULL_THRESHOLD;
 
   return (
     <>
-      <div
-        aria-live="polite"
-        aria-hidden={!visible}
-        className="pointer-events-none fixed left-0 right-0 z-[45] flex justify-center"
-        style={{
-          top: "calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 3.25rem)",
-          opacity: visible ? 1 : 0,
-          transition: "opacity 150ms ease",
-        }}
-      >
-        <div className="flex items-center gap-2 rounded-full border border-slate-100 bg-white/95 px-4 py-2 shadow-md">
-          <span
-            className={`inline-block h-5 w-5 rounded-full border-2 border-brand-500 border-t-transparent ${
-              refreshing ? "animate-spin" : ""
-            }`}
-            style={
-              refreshing
-                ? undefined
-                : { transform: `rotate(${Math.min(pull / PULL_THRESHOLD, 1) * 280}deg)` }
-            }
-          />
-          <span className="text-sm font-medium text-slate-600">
-            {refreshing
-              ? t("common.refreshing")
-              : ready
-                ? t("common.releaseToRefresh")
-                : t("common.pullToRefresh")}
-          </span>
+      {showPullHint && (
+        <div
+          aria-live="polite"
+          className="pointer-events-none fixed left-0 right-0 z-[45] flex justify-center px-4"
+          style={{
+            top: "calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 0.5rem)",
+          }}
+        >
+          <div className="flex items-center gap-2 rounded-full border border-brand-100 bg-white/95 px-3 py-1.5 shadow-sm text-xs">
+            <span
+              className="inline-block h-4 w-4 rounded-full border-2 border-brand-500 border-t-transparent"
+              style={{
+                transform: `rotate(${Math.min(pull / PULL_THRESHOLD, 1) * 280}deg)`,
+              }}
+            />
+            <span className="font-medium text-slate-600">
+              {ready ? t("common.releaseToRefresh") : t("common.pullToRefresh")}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+
+      {refreshing && (
+        <div
+          aria-live="polite"
+          className="pointer-events-none fixed left-0 right-0 z-[45] flex justify-center px-4"
+          style={{
+            bottom: "calc(4.75rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
+          <div className="flex items-center gap-2 rounded-full border border-brand-100 bg-white px-4 py-2.5 shadow-lg">
+            <span className="inline-block h-5 w-5 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+            <span className="text-sm font-semibold text-brand-700">
+              {t("common.refreshing")}
+            </span>
+          </div>
+        </div>
+      )}
+
       {children}
     </>
   );

@@ -13,6 +13,13 @@ import { clusterBookingsByQuartier } from "../../lib/mapClusters";
 import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import { cn, formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import {
+  driverBookingsPath,
+  filterActiveTrips,
+  pickPrimaryActiveTrip,
+} from "../../lib/driverActiveTrip";
+import ManageBookingsIcon from "../../components/driver/ManageBookingsIcon";
+import ManageBookingsButton from "../../components/driver/ManageBookingsButton";
 
 function withEnrichedPickup(
   bookings: Booking[],
@@ -52,10 +59,7 @@ export default function DriverHome() {
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const activeTrips = useMemo(
-    () => trips.filter((tr) => tr.status === "scheduled" || tr.status === "in_progress"),
-    [trips]
-  );
+  const activeTrips = useMemo(() => filterActiveTrips(trips), [trips]);
 
   const tripsWithPending = useMemo(
     () =>
@@ -70,6 +74,8 @@ export default function DriverHome() {
   );
 
   const activeTrip = activeTrips.find((tr) => tr.status === "in_progress") ?? null;
+  const primaryActiveTrip = useMemo(() => pickPrimaryActiveTrip(trips), [trips]);
+  const canPublishNew = !primaryActiveTrip;
   const nextTrip =
     activeTrips
       .filter((tr) => tr.status === "scheduled")
@@ -357,22 +363,7 @@ export default function DriverHome() {
         <p className="muted">{t("driver.greetingSub")}</p>
       </div>
 
-      {activeTrip ? (
-        <Link
-          to={`/driver/trips/${activeTrip.id}/bookings`}
-          className="card p-5 flex items-center gap-4 bg-brand-50 border-brand-200 hover:shadow-md transition"
-        >
-          <span className="w-14 h-14 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-2xl shrink-0">
-            🚗
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="font-bold text-brand-800">{t("driver.activeTripTitle")}</div>
-            <div className="text-sm text-brand-700 truncate">{route(activeTrip)}</div>
-            <div className="text-xs text-brand-600 mt-0.5">{t("driver.activeTripDesc")}</div>
-          </div>
-          <span className="btn-primary text-sm shrink-0">{t("driver.manageTrip")}</span>
-        </Link>
-      ) : (
+      {canPublishNew ? (
         <Link
           to="/driver/trips/new"
           className="card p-5 flex items-center gap-4 hover:shadow-md transition"
@@ -387,7 +378,22 @@ export default function DriverHome() {
           </div>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180"><path d="M9 6l6 6-6 6"/></svg>
         </Link>
-      )}
+      ) : primaryActiveTrip ? (
+        <Link
+          to={driverBookingsPath(primaryActiveTrip.id)}
+          className="card p-5 flex items-center gap-4 hover:shadow-md transition"
+          style={{ backgroundImage: "var(--brand-gradient-br)" }}
+        >
+          <span className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center shrink-0">
+            <ManageBookingsIcon size={28} />
+          </span>
+          <div className="min-w-0 flex-1 text-white">
+            <div className="font-bold text-lg">{t("driver.manageBookings")}</div>
+            <div className="text-sm text-white/85 truncate">{route(primaryActiveTrip)}</div>
+          </div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 rtl:rotate-180"><path d="M9 6l6 6-6 6"/></svg>
+        </Link>
+      ) : null}
 
       <div className="grid grid-cols-3 gap-3">
         <MiniTile icon="💰" label={t("driver.todayEarnings")} value={formatPrice(todayEarnings)} tone="brand" />
@@ -438,7 +444,7 @@ export default function DriverHome() {
               </div>
             )}
 
-            <div className="px-3 pt-2 pb-2 flex items-center justify-between gap-2">
+            <div className="px-3 pt-2 pb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="font-semibold text-ink truncate">{route(focusTrip)}</div>
                 <div className="text-xs text-slate-500">
@@ -450,12 +456,11 @@ export default function DriverHome() {
                   )}
                 </div>
               </div>
-              <Link
-                to={`/driver/trips/${focusTrip.id}/bookings`}
-                className="text-xs font-semibold text-brand-700 hover:underline shrink-0"
-              >
-                {t("driver.manageBookings")} →
-              </Link>
+              <ManageBookingsButton
+                to={driverBookingsPath(focusTrip.id)}
+                pending={pendingByTrip[focusTrip.id] ?? 0}
+                className="w-full sm:w-auto justify-center"
+              />
             </div>
 
             {isInProgress && showMap ? (
@@ -659,7 +664,15 @@ export default function DriverHome() {
       <div>
         <h2 className="h2 mb-2">{t("driver.quickActions")}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <ShortcutTile to="/driver/trips/new" icon="➕" label={t("driver.newTripTitle")} />
+          {canPublishNew ? (
+            <ShortcutTile to="/driver/trips/new" icon="➕" label={t("driver.newTripTitle")} />
+          ) : primaryActiveTrip ? (
+            <ShortcutTile
+              to={driverBookingsPath(primaryActiveTrip.id)}
+              icon="📋"
+              label={t("driver.manageBookings")}
+            />
+          ) : null}
           <ShortcutTile to="/driver/earnings" icon="💰" label={t("driver.earningsTitle")} />
           <ShortcutTile to="/driver/historique" icon="🕘" label={t("nav.historique")} />
           <ShortcutTile to="/driver/vehicles" icon="🚙" label={t("driver.myVehicles")} />

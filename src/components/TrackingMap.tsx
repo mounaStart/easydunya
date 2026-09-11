@@ -182,7 +182,7 @@ export default function TrackingMap({
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      gestureHandling: "cooperative",
+      gestureHandling: "greedy",
     }),
     []
   );
@@ -238,13 +238,24 @@ export default function TrackingMap({
     );
   }
 
-  if (loadError || authError) {
+  if (loadError) {
     return (
       <div
         className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
         style={{ height }}
       >
-        {authError ?? loadError?.message ?? "Carte Google Maps indisponible."}
+        {loadError.message}
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div
+        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
+        style={{ height }}
+      >
+        {authError}
       </div>
     );
   }

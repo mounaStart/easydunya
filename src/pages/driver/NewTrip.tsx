@@ -1,11 +1,14 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
 import { useCities } from "../../hooks/useCities";
 import { useCityPrices } from "../../hooks/useCityPrices";
-import { getCurrentPosition, reverseQuartier } from "../../lib/geocode";
+import { reverseQuartier } from "../../lib/geocode";
+import { locationFailMessage, requestAppLocation } from "../../lib/locationPermission";
+import { driverBookingsPath, pickPrimaryActiveTrip } from "../../lib/driverActiveTrip";
+import type { TripPublic } from "../../lib/types";
 import { distanceKm, formatPrice } from "../../lib/utils";
 import { fetchDrivingDistanceKm } from "../../lib/routing";
 import { tripRouteEndpoint } from "../../lib/cityRoutePoints";
@@ -20,6 +23,7 @@ export default function NewTrip() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [locked, setLocked] = useState(false);
+  const [lockedTrip, setLockedTrip] = useState<TripPublic | null>(null);
   const { cities } = useCities();
   const { prices } = useCityPrices();
 
@@ -40,23 +44,57 @@ export default function NewTrip() {
   const [departQuartier, setDepartQuartier] = useState<string | null>(null);
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoErr, setGeoErr] = useState<string | null>(null);
+  const [awaitingSettingsReturn, setAwaitingSettingsReturn] = useState(false);
 
-  async function captureDeparture() {
+  const captureDeparture = useCallback(async () => {
+    if (geoBusy) return;
     setGeoErr(null);
     setGeoBusy(true);
     try {
-      const pos = await getCurrentPosition();
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+      const result = await requestAppLocation({
+        openSettingsIfDisabled: true,
+        openAppSettingsOnDenied: true,
+      });
+      if (!result.ok) {
+        if (result.reason === "disabled") {
+          setAwaitingSettingsReturn(Boolean(result.openedSettings));
+        } else if (result.reason === "denied") {
+          setAwaitingSettingsReturn(Boolean(result.openedAppSettings));
+        }
+        setGeoErr(
+          locationFailMessage(result.reason, t, {
+            openedSettings: result.openedSettings,
+            openedAppSettings: result.openedAppSettings,
+          })
+        );
+        return;
+      }
+
+      const lat = result.position.coords.latitude;
+      const lng = result.position.coords.longitude;
       setDepartPos({ lat, lng });
+      setAwaitingSettingsReturn(false);
       const q = await reverseQuartier(lat, lng);
       setDepartQuartier(q);
     } catch {
-      setGeoErr(t("driver.departGpsError"));
+      setGeoErr(t("locationPrompt.unavailable"));
     } finally {
       setGeoBusy(false);
     }
-  }
+  }, [geoBusy, t]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible" || !awaitingSettingsReturn || geoBusy) return;
+      void captureDeparture();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [awaitingSettingsReturn, geoBusy, captureDeparture]);
 
   // Nombre de places max = capacité du véhicule (défini à la création du compte).
   // Le chauffeur peut diminuer mais pas dépasser cette capacité.
@@ -78,9 +116,17 @@ export default function NewTrip() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.rpc("is_driver_locked", { p_driver_id: user.id }).then(({ data }) => {
-      setLocked(data === true);
-    });
+    supabase
+      .from("trips_public")
+      .select("*")
+      .eq("driver_id", user.id)
+      .in("status", ["scheduled", "in_progress"])
+      .order("depart_at", { ascending: true })
+      .then(({ data }) => {
+        const active = pickPrimaryActiveTrip((data as TripPublic[] | null) ?? []);
+        setLockedTrip(active);
+        setLocked(Boolean(active));
+      });
   }, [user, profile?.current_trip_id]);
 
   useEffect(() => {
@@ -162,7 +208,13 @@ export default function NewTrip() {
           <div className="text-4xl mb-2">🔒</div>
           <h2 className="h2 mb-2">{t("driver.lockedTitle")}</h2>
           <p className="text-slate-600 mb-4">{t("driver.lockedHint")}</p>
-          <Link to="/driver" className="btn-primary">{t("nav.dashboard")}</Link>
+          {lockedTrip ? (
+            <Link to={driverBookingsPath(lockedTrip.id)} className="btn-primary">
+              {t("driver.manageBookings")}
+            </Link>
+          ) : (
+            <Link to="/driver" className="btn-primary">{t("nav.dashboard")}</Link>
+          )}
         </div>
       </div>
     );
@@ -281,7 +333,7 @@ export default function NewTrip() {
           <label className="label">{t("driver.departPoint")}</label>
           <button
             type="button"
-            onClick={captureDeparture}
+            onClick={() => void captureDeparture()}
             disabled={geoBusy}
             className="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 font-semibold transition bg-brand-50 text-brand-700 ring-1 ring-brand-200"
           >

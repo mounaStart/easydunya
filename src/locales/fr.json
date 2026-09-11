@@ -358,7 +358,7 @@
     "noPickupOnMap": "Les passagers n'ont pas encore indiqué leur quartier GPS sur la carte.",
     "mapCoordsMissing": "Coordonnées du trajet indisponibles — utilisez la liste des demandes ci-dessous.",
     "lockedTitle": "Voyage en cours",
-    "lockedHint": "Vous ne pouvez pas publier un nouveau voyage tant que le voyage actuel n'est pas terminé ou que vous n'êtes pas arrivé à destination (500 m).",
+    "lockedHint": "Vous avez déjà un voyage programmé ou en cours. Terminez-le avant d'en publier un autre.",
     "confirmedPassengers": "Voyageurs confirmés",
     "earningsTitle": "Mes gains",
     "gross": "Brut",
@@ -446,6 +446,7 @@
     "timeout": "Délai dépassé. Vérifiez que le GPS est activé et que vous avez du réseau.",
     "disabled": "Le GPS est désactivé sur cet appareil. Activez-le dans les paramètres.",
     "settingsOpened": "Paramètres GPS ouverts. Activez la localisation, puis revenez dans l'application.",
+    "appSettingsOpened": "Paramètres de l'app ouverts. Autorisez la localisation pour Easy Dunya, puis revenez.",
     "unavailable": "Position momentanément indisponible. Réessayez ou continuez avec « Plus tard »."
   },
   "profile": {

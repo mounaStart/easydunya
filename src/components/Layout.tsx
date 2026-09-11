@@ -9,6 +9,7 @@ import PassengerLocationSync from "./PassengerLocationSync";
 import DriverLocationGate from "./DriverLocationGate";
 import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
+import { dispatchAppRefresh } from "../lib/appRefresh";
 import { useAuth } from "../hooks/useAuth";
 import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import { cn } from "../lib/utils";
@@ -33,9 +34,18 @@ export default function Layout() {
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
   const handlePullRefresh = useCallback(async () => {
+    dispatchAppRefresh();
     await refreshProfile();
-    window.dispatchEvent(new CustomEvent("easydunya:refresh"));
   }, [refreshProfile]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      dispatchAppRefresh();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden max-w-[100vw]">

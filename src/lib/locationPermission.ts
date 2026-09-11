@@ -1,7 +1,7 @@
-import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import {
   isDeviceLocationEnabled,
+  openAppPermissionSettings,
   openDeviceLocationSettings,
 } from "./deviceLocationSettings";
 import {
@@ -9,6 +9,7 @@ import {
   getCurrentPosition,
   geolocationErrorReason,
   isLocationServicesDisabledError,
+  useNativeGeolocation,
   type LocationFailReason,
 } from "./geocode";
 
@@ -16,8 +17,29 @@ export type LocationPermissionState = "granted" | "denied" | "prompt" | "unsuppo
 export type { LocationFailReason };
 
 /** État de la permission géolocalisation (sans déclencher la boîte système). */
+export function locationFailMessage(
+  reason: LocationFailReason,
+  t: (key: string) => string,
+  extra?: { openedSettings?: boolean; openedAppSettings?: boolean }
+): string {
+  switch (reason) {
+    case "denied":
+      return extra?.openedAppSettings
+        ? t("locationPrompt.appSettingsOpened")
+        : t("locationPrompt.denied");
+    case "timeout":
+      return t("locationPrompt.timeout");
+    case "disabled":
+      return extra?.openedSettings
+        ? t("locationPrompt.settingsOpened")
+        : t("locationPrompt.disabled");
+    default:
+      return t("locationPrompt.unavailable");
+  }
+}
+
 export async function queryLocationPermission(): Promise<LocationPermissionState> {
-  if (Capacitor.isNativePlatform()) {
+  if (useNativeGeolocation()) {
     try {
       const deviceEnabled = await isDeviceLocationEnabled();
       if (deviceEnabled === false) return "prompt";
@@ -47,20 +69,37 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
 export interface RequestAppLocationOptions {
   /** Ouvre les paramètres GPS Android si le GPS système est éteint. */
   openSettingsIfDisabled?: boolean;
+  /** Ouvre les paramètres de l'app si la permission a déjà été refusée. */
+  openAppSettingsOnDenied?: boolean;
 }
 
 export type RequestAppLocationResult =
   | { ok: true; position: GeolocationPosition }
-  | { ok: false; reason: LocationFailReason; openedSettings?: boolean };
+  | {
+      ok: false;
+      reason: LocationFailReason;
+      openedSettings?: boolean;
+      openedAppSettings?: boolean;
+    };
 
-/** Demande la permission puis la position (une seule boîte sur Android). */
+/** Demande la permission puis la position (fenêtre système au clic). */
 export async function requestAppLocation(
   options: RequestAppLocationOptions = {}
 ): Promise<RequestAppLocationResult> {
-  const { openSettingsIfDisabled = false } = options;
+  const { openSettingsIfDisabled = false, openAppSettingsOnDenied = false } = options;
 
   try {
-    if (Capacitor.isNativePlatform()) {
+    if (useNativeGeolocation()) {
+      // 1. Boîte « Autoriser Easy Dunya à accéder à la position » (priorité au geste utilisateur).
+      const allowed = await ensureLocationPermission();
+      if (!allowed) {
+        const openedAppSettings = openAppSettingsOnDenied
+          ? await openAppPermissionSettings()
+          : false;
+        return { ok: false, reason: "denied", openedAppSettings };
+      }
+
+      // 2. GPS système activé ?
       const deviceEnabled = await isDeviceLocationEnabled();
       if (deviceEnabled === false) {
         const openedSettings = openSettingsIfDisabled
@@ -68,9 +107,6 @@ export async function requestAppLocation(
           : false;
         return { ok: false, reason: "disabled", openedSettings };
       }
-
-      const allowed = await ensureLocationPermission();
-      if (!allowed) return { ok: false, reason: "denied" };
     }
 
     const position = await getCurrentPosition();
@@ -80,6 +116,10 @@ export async function requestAppLocation(
     if (reason === "disabled" && openSettingsIfDisabled) {
       const openedSettings = await openDeviceLocationSettings();
       return { ok: false, reason, openedSettings };
+    }
+    if (reason === "denied" && openAppSettingsOnDenied) {
+      const openedAppSettings = await openAppPermissionSettings();
+      return { ok: false, reason, openedAppSettings };
     }
     return { ok: false, reason };
   }

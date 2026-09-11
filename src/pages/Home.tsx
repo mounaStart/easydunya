@@ -336,7 +336,7 @@ export default function Home() {
               />
             </div>
           ) : (
-            <div className="p-3 pt-2 pb-3 space-y-3">
+            <div className="p-3 pt-2 pb-3 space-y-3" data-no-ptr>
               <MapView
                 cities={cityCounts}
                 selectedCityId={fromId || null}
@@ -624,15 +624,6 @@ function SearchResults({
                 <p className="text-slate-400">{t("search.noTripsAvailableHint")}</p>
               </>
             )}
-          </div>
-          <div className="mt-4 text-center">
-            <Link
-              to="/a-propos"
-              className="inline-flex items-center gap-1.5 text-[#1976d2] font-bold text-[14px] hover:opacity-80 transition"
-            >
-              {t("home.aboutTitle")}
-              <span aria-hidden>→</span>
-            </Link>
           </div>
         </>
       ) : (

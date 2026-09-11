@@ -13,6 +13,13 @@ import {
   relativeDateLabel,
 } from "../../lib/utils";
 import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
+import {
+  driverBookingsPath,
+  filterActiveTrips,
+  pickPrimaryActiveTrip,
+} from "../../lib/driverActiveTrip";
+import ManageBookingsIcon from "../../components/driver/ManageBookingsIcon";
+import ManageBookingsButton from "../../components/driver/ManageBookingsButton";
 
 interface Stats {
   earnings: number;
@@ -168,15 +175,15 @@ export default function DriverDashboard() {
   }
 
   const activeTrip = trips.find((tr) => tr.status === "in_progress") ?? null;
-  const activeTrips = trips
-    .filter((tr) => tr.status === "scheduled" || tr.status === "in_progress")
-    .sort((a, b) => {
+  const activeTrips = filterActiveTrips(trips).sort((a, b) => {
       const pendingA = pendingByTrip[a.id] ?? 0;
       const pendingB = pendingByTrip[b.id] ?? 0;
       if (pendingB !== pendingA) return pendingB - pendingA;
       return new Date(a.depart_at).getTime() - new Date(b.depart_at).getTime();
     });
   const totalPending = Object.values(pendingByTrip).reduce((a, b) => a + b, 0);
+  const primaryActiveTrip = pickPrimaryActiveTrip(trips);
+  const canPublishNew = !primaryActiveTrip;
   const firstName = (profile?.full_name ?? "").split(/\s+/)[0] ?? "";
   const hasTripHistory = trips.some(
     (t) => t.status === "completed" || t.status === "cancelled"
@@ -195,9 +202,19 @@ export default function DriverDashboard() {
           <Link to="/driver/earnings" className="btn-secondary text-sm">
             💰 {t("driver.earningsTitle")}
           </Link>
-          <Link to="/driver/trips/new" className="btn-primary">
-            + {t("driver.newTripTitle")}
-          </Link>
+          {canPublishNew ? (
+            <Link to="/driver/trips/new" className="btn-primary inline-flex items-center gap-2">
+              + {t("driver.newTripTitle")}
+            </Link>
+          ) : primaryActiveTrip ? (
+            <Link
+              to={driverBookingsPath(primaryActiveTrip.id)}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <ManageBookingsIcon size={18} />
+              {t("driver.manageBookings")}
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -310,19 +327,20 @@ export default function DriverDashboard() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
-                    {t("driver.manageBookings")}
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 6l6 6-6 6"/></svg>
-                  </span>
+                <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <ManageBookingsButton
+                    pending={pending}
+                    size="sm"
+                    visual
+                    className="w-full sm:w-auto justify-center"
+                  />
                   {pending > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 text-rose-700 px-3 py-1 text-xs font-bold">
+                    <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-rose-100 text-rose-700 px-3 py-1 text-xs font-bold">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                       {pending} {t("driver.pendingRequests")}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-400 text-center sm:text-right">
                       {t("driver.noPending")}
                     </span>
                   )}

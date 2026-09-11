@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
 import type { CityTripCount, TripPublic } from "../lib/types";
 
@@ -50,6 +51,8 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
     };
   }, [fetch]);
 
+  useAppRefresh(fetch);
+
   return { trips, loading, error, refresh: fetch };
 }
 
@@ -57,19 +60,20 @@ export function useCityCounts() {
   const [cities, setCities] = useState<CityTripCount[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("city_trip_counts")
+      .select("*")
+      .order("name_fr");
+    setCities((data as CityTripCount[] | null) ?? []);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      const { data } = await supabase
-        .from("city_trip_counts")
-        .select("*")
-        .order("name_fr");
-      if (!cancelled) {
-        setCities((data as CityTripCount[] | null) ?? []);
-        setLoading(false);
-      }
-    }
-    load();
+    void load().then(() => {
+      if (cancelled) return;
+    });
     const channel = supabase
       .channel("city-counts-live")
       .on(
@@ -82,7 +86,9 @@ export function useCityCounts() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [load]);
+
+  useAppRefresh(load);
 
   return { cities, loading };
 }

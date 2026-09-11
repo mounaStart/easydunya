@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
 import { isNativePlatform } from "../lib/nativePush";
@@ -88,6 +89,8 @@ export function useNotifications(userId: string | undefined) {
       window.removeEventListener("easydunya:refresh-notifications", onVisible);
     };
   }, [userId, load]);
+
+  useAppRefresh(load);
 
   const unread = items.filter((n) => !n.read).length;
 
