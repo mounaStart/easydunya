@@ -244,8 +244,7 @@ export default function Home() {
                 </div>
               </div>
 
-          {tab === "quick" ? (
-            <div className="p-3 pt-2 pb-3">
+          <div className={tab === "quick" ? "p-3 pt-2 pb-3" : "hidden"} aria-hidden={tab !== "quick"}>
               <div className="rounded-[14px] border border-[#e8ecf0] overflow-hidden divide-y divide-[#e8ecf0]">
               <SearchField
                 label={t("search.fieldDeparture")}
@@ -335,8 +334,11 @@ export default function Home() {
                 className="mt-3"
               />
             </div>
-          ) : (
-            <div className="p-3 pt-2 pb-3 space-y-3" data-no-ptr>
+          <div
+            className={tab === "map" ? "p-3 pt-2 pb-3 space-y-3" : "hidden"}
+            data-no-ptr
+            aria-hidden={tab !== "map"}
+          >
               <MapView
                 cities={cityCounts}
                 selectedCityId={fromId || null}
@@ -345,7 +347,6 @@ export default function Home() {
               />
               <SearchTripsButton onClick={handleSearch} label={t("search.searchTripsBtn")} />
             </div>
-          )}
             </div>
           </div>
         </div>

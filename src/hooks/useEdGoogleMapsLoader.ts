@@ -81,7 +81,7 @@ export function useEdGoogleMapsLoader() {
   return useGoogleMapsScript();
 }
 
-/** Détecte l'overlay d'erreur Google (gm-err) dans le conteneur carte. */
+/** Détecte l'overlay d'erreur Google (gm-err) sans démonter la carte (évite removeChild). */
 export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | null>) {
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -89,14 +89,14 @@ export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | n
     const el = containerRef.current;
     if (!el) return;
 
+    let timer: number | undefined;
+
     const check = () => {
-      const err = el.querySelector(".gm-err-message");
-      const text = err?.textContent?.trim();
-      if (text) {
-        setAuthError(text);
-      } else {
-        setAuthError(null);
-      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const text = el.querySelector(".gm-err-message")?.textContent?.trim() ?? null;
+        setAuthError((prev) => (prev === text ? prev : text));
+      }, 120);
     };
 
     check();
@@ -104,7 +104,7 @@ export function useGoogleMapAuthGuard(containerRef: RefObject<HTMLDivElement | n
     observer.observe(el, { childList: true, subtree: true });
     return () => {
       observer.disconnect();
-      setAuthError(null);
+      window.clearTimeout(timer);
     };
   }, [containerRef]);
 

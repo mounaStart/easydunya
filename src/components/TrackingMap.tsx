@@ -249,17 +249,6 @@ export default function TrackingMap({
     );
   }
 
-  if (authError) {
-    return (
-      <div
-        className="rounded-3xl overflow-hidden shadow-soft border border-slate-100 flex items-center justify-center bg-slate-100 text-xs text-slate-600 p-4 text-center"
-        style={{ height }}
-      >
-        {authError}
-      </div>
-    );
-  }
-
   if (!isLoaded) {
     return (
       <div
@@ -286,7 +275,12 @@ export default function TrackingMap({
           <p className="mt-0.5 leading-snug">{t("trip.routeFallbackHint")}</p>
         </div>
       )}
-      <div ref={mapWrapRef} style={containerStyle}>
+      <div ref={mapWrapRef} style={containerStyle} className="relative">
+        {authError && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-100/95 p-4 text-center text-xs text-slate-600 pointer-events-none">
+            {authError}
+          </div>
+        )}
         <GoogleMap
           mapContainerStyle={containerStyle}
           onLoad={onMapLoad}

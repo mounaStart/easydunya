@@ -39,8 +39,12 @@ export default function Layout() {
   }, [refreshProfile]);
 
   useEffect(() => {
+    let lastRefresh = 0;
     function onVisible() {
       if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastRefresh < 5000) return;
+      lastRefresh = now;
       dispatchAppRefresh();
     }
     document.addEventListener("visibilitychange", onVisible);
