@@ -34,9 +34,9 @@ export default function Layout() {
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
   const handlePullRefresh = useCallback(async () => {
-    dispatchAppRefresh();
+    dispatchAppRefresh({ resetHome: isPassengerHome });
     await refreshProfile();
-  }, [refreshProfile]);
+  }, [isPassengerHome, refreshProfile]);
 
   useEffect(() => {
     let lastRefresh = 0;

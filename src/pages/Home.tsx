@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import MapView from "../components/MapView";
@@ -8,6 +8,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
 import type { TripPublic } from "../lib/types";
+import { useAppRefresh } from "../lib/appRefresh";
 import { distanceKm, formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
 
 const NOUAKCHOTT_ID = "11111111-1111-1111-1111-000000000001";
@@ -74,10 +75,6 @@ export default function Home() {
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const resultsRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
-  const fromSelectRef = useRef<HTMLSelectElement>(null);
-  const toSelectRef = useRef<HTMLSelectElement>(null);
-  const passengersSelectRef = useRef<HTMLSelectElement>(null);
 
   const cityName = (c: { name_fr: string; name_ar: string }) =>
     isAr ? c.name_ar : c.name_fr;
@@ -155,6 +152,25 @@ export default function Home() {
     const c = cities.find((x) => x.id === id);
     return c ? cityName(c) : fallback;
   };
+
+  const resetHomeView = useCallback(() => {
+    setFromId(NOUAKCHOTT_ID);
+    setToId(BOGHE_ID);
+    setDate(isoTomorrow());
+    setPassengers(1);
+    setTab("quick");
+    setSearched(false);
+    setBrowsePage(0);
+    setNearMode(false);
+    setGeoError(null);
+    setGeoLoading(false);
+    setUserPos(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useAppRefresh((detail) => {
+    if (detail?.resetHome) resetHomeView();
+  });
 
   const handleSearch = () => {
     setSearched(true);
@@ -250,13 +266,11 @@ export default function Home() {
                 label={t("search.fieldDeparture")}
                 icon={<PinIcon variant="blue" />}
                 value={fromCity ? cityName(fromCity) : defaultCityLabel(NOUAKCHOTT_ID, "Nouakchott")}
-                onClick={() => fromSelectRef.current?.showPicker?.() ?? fromSelectRef.current?.click()}
               >
                 <select
-                  ref={fromSelectRef}
                   value={fromId}
                   onChange={(e) => setFromId(e.target.value)}
-                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  className="absolute inset-0 z-10 opacity-0 w-full h-full cursor-pointer"
                   aria-label={t("search.fieldDeparture")}
                 >
                   {cities.map((c) => (
@@ -269,13 +283,11 @@ export default function Home() {
                 label={t("search.fieldArrival")}
                 icon={<PinIcon variant="red" />}
                 value={toCity ? cityName(toCity) : defaultCityLabel(BOGHE_ID, "Boghé")}
-                onClick={() => toSelectRef.current?.showPicker?.() ?? toSelectRef.current?.click()}
               >
                 <select
-                  ref={toSelectRef}
                   value={toId}
                   onChange={(e) => setToId(e.target.value)}
-                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  className="absolute inset-0 z-10 opacity-0 w-full h-full cursor-pointer"
                   aria-label={t("search.fieldArrival")}
                 >
                   <option value="">{t("search.selectCity")}</option>
@@ -289,12 +301,10 @@ export default function Home() {
                 label={t("search.tripDate")}
                 icon={<CalendarFieldIcon />}
                 value={date ? formatSearchDate(date, i18n.language) : t("search.selectDate")}
-                onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
               >
                 <input
-                  ref={dateInputRef}
                   type="date"
-                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  className="absolute inset-0 z-10 opacity-0 w-full h-full cursor-pointer"
                   value={date}
                   min={isoToday()}
                   onChange={(e) => {
@@ -312,13 +322,11 @@ export default function Home() {
                 trailing={
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0 1 14 0v1"/></svg>
                 }
-                onClick={() => passengersSelectRef.current?.showPicker?.() ?? passengersSelectRef.current?.click()}
               >
                 <select
-                  ref={passengersSelectRef}
                   value={passengers}
                   onChange={(e) => setPassengers(Number(e.target.value))}
-                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                  className="absolute inset-0 z-10 opacity-0 w-full h-full cursor-pointer"
                   aria-label={t("search.passengersLabel")}
                 >
                   {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -518,20 +526,18 @@ function SearchField({
   label,
   icon,
   value,
-  onClick,
   trailing,
   children,
 }: {
   label: string;
   icon: ReactNode;
   value: string;
-  onClick?: () => void;
   trailing?: ReactNode;
   children?: ReactNode;
 }) {
   return (
-    <div className="relative cursor-pointer" onClick={onClick}>
-      <div className="flex items-center gap-3 bg-white px-3 py-2.5 min-h-[60px]">
+    <div className="relative cursor-pointer">
+      <div className="pointer-events-none flex items-center gap-3 bg-white px-3 py-2.5 min-h-[60px]">
         <span className="shrink-0 w-11 h-11 inline-flex items-center justify-center" aria-hidden>
           {icon}
         </span>
