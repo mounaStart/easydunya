@@ -11,6 +11,7 @@ import {
   syncPassengerLocation,
 } from "../../lib/passengerLocation";
 import {
+  isGenericAreaLabel,
   isMauritaniaCityName,
   isPlusCode,
   normalizeProfileQuartier,
@@ -113,7 +114,10 @@ export default function Profile() {
     : "—";
 
   const isPassenger = profile?.role === "passenger";
-  const { city, quartier: detectedQuartier, missing } = getPassengerLocationDisplay(profile);
+  const { city, quartier: detectedQuartier, missing } = getPassengerLocationDisplay(
+    profile,
+    i18n.language
+  );
   const quartier =
     detectedQuartier &&
     city &&
@@ -124,7 +128,8 @@ export default function Profile() {
     Boolean(profile?.quartier?.trim()) &&
     (!normalizeProfileQuartier(profile?.quartier, profile?.city_label) ||
       isMauritaniaCityName(profile?.quartier) ||
-      isPlusCode(profile?.quartier));
+      isPlusCode(profile?.quartier) ||
+      isGenericAreaLabel(profile?.quartier));
 
   const refreshLocation = useCallback(
     async (options?: { force?: boolean; requestPermission?: boolean }) => {

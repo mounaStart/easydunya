@@ -136,6 +136,26 @@ function normalizeLabel(name: string): string {
     .replace(/[-_]/g, " ");
 }
 
+/** Libellés administratifs Google (ex. « La Capitale ») — pas un quartier. */
+export function isGenericAreaLabel(name: string | null | undefined): boolean {
+  if (!name?.trim()) return false;
+  const n = normalizeLabel(name);
+  return (
+    n === "la capitale" ||
+    n === "the capital" ||
+    n === "capitale" ||
+    n === "capital" ||
+    n === "centre ville" ||
+    n === "city center" ||
+    n === "downtown" ||
+    n === "centre" ||
+    n === "mauritanie" ||
+    n.startsWith("wilaya ") ||
+    n.startsWith("region ") ||
+    n.startsWith("arrondissement ")
+  );
+}
+
 /** Code Plus Google (ex. 22QQ+VFV) — pas un nom de quartier lisible. */
 export function isPlusCode(name: string | null | undefined): boolean {
   if (!name?.trim()) return false;
@@ -157,6 +177,7 @@ export function isStreetLikeName(name: string | null | undefined): boolean {
 export function isUnusableQuartierLabel(name: string | null | undefined): boolean {
   if (!name?.trim()) return true;
   if (isPlusCode(name)) return true;
+  if (isGenericAreaLabel(name)) return true;
   const n = normalizeLabel(name);
   if (isStreetLikeName(name)) return true;
   if (/^carrefour$/i.test(name.trim())) return true;
@@ -238,6 +259,53 @@ const MAURITANIA_CITIES = [
   { name: "Tidjikja", lat: 18.5421, lng: -11.4415 },
 ] as const;
 
+/** Noms de ville canoniques FR + AR (alignés sur la table cities). */
+const CITY_LOCALIZED: Record<string, { fr: string; ar: string }> = {
+  nouakchott: { fr: "Nouakchott", ar: "نواكشوط" },
+  nouadhibou: { fr: "Nouadhibou", ar: "نواذيبو" },
+  rosso: { fr: "Rosso", ar: "روصو" },
+  boghe: { fr: "Boghé", ar: "بوغي" },
+  kaedi: { fr: "Kaédi", ar: "كيهيدي" },
+  aleg: { fr: "Aleg", ar: "ألاك" },
+  kiffa: { fr: "Kiffa", ar: "كيفا" },
+  aioun: { fr: "Aioun", ar: "العيون" },
+  nema: { fr: "Néma", ar: "النعمة" },
+  atar: { fr: "Atar", ar: "أطار" },
+  zouerat: { fr: "Zouérat", ar: "الزويرات" },
+  selibaby: { fr: "Sélibaby", ar: "سيليبابي" },
+  tidjikja: { fr: "Tidjikja", ar: "تجكجة" },
+};
+
+function cityLookupKey(name: string): string | null {
+  const trimmed = name.trim();
+  const n = normalizeLabel(trimmed);
+  for (const [key, labels] of Object.entries(CITY_LOCALIZED)) {
+    if (normalizeLabel(labels.fr) === n || labels.ar === trimmed) return key;
+  }
+  for (const city of MAURITANIA_CITIES) {
+    if (normalizeLabel(city.name) === n) return normalizeLabel(city.name);
+  }
+  return null;
+}
+
+/** Nom ville en français pour la base (toujours cohérent). */
+export function canonicalCityNameFr(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  const key = cityLookupKey(raw);
+  if (key && CITY_LOCALIZED[key]) return CITY_LOCALIZED[key].fr;
+  return raw.trim();
+}
+
+/** Affichage ville selon la langue de l'app. */
+export function formatCityLabel(raw: string | null | undefined, locale: string): string | null {
+  if (!raw?.trim()) return null;
+  const key = cityLookupKey(raw);
+  if (key && CITY_LOCALIZED[key]) {
+    return locale.startsWith("ar") ? CITY_LOCALIZED[key].ar : CITY_LOCALIZED[key].fr;
+  }
+  return raw.trim();
+}
+
 /** Repères GPS des arrondissements de Nouakchott (OSM / entrées ville Easy Dunya). */
 const NOUAKCHOTT_QUARTIER_ANCHORS = [
   { name: "Arafat", lat: 18.0462, lng: -15.9183 },
@@ -282,11 +350,10 @@ export function nearestNouakchottQuartier(lat: number, lng: number, maxKm = 14):
   return best?.name ?? null;
 }
 
-/** True si le libellé correspond à une ville du réseau (pas un quartier). */
+/** True si le libellé correspond à une ville du réseau (FR, AR — pas un quartier). */
 export function isMauritaniaCityName(name: string | null | undefined): boolean {
   if (!name?.trim()) return false;
-  const n = normalizeLabel(name);
-  return MAURITANIA_CITIES.some((city) => normalizeLabel(city.name) === n);
+  return cityLookupKey(name) !== null;
 }
 
 /**
@@ -343,12 +410,19 @@ export async function reverseLocation(
   }
 
   if (!cityName) cityName = nearestCityName(lat, lng);
+  cityName = canonicalCityNameFr(cityName) ?? cityName;
 
   const inNouakchott =
     isInNouakchottArea(lat, lng) ||
     (cityName != null && normalizeLabel(cityName) === normalizeLabel("Nouakchott"));
-  if (!quartier && inNouakchott) {
+
+  const geocodeQuartier = normalizeProfileQuartier(quartier, cityName);
+  if (geocodeQuartier) {
+    quartier = geocodeQuartier;
+  } else if (inNouakchott) {
     quartier = nearestNouakchottQuartier(lat, lng);
+  } else {
+    quartier = null;
   }
 
   quartier = normalizeProfileQuartier(quartier, cityName);

@@ -1,4 +1,6 @@
 import {
+  canonicalCityNameFr,
+  formatCityLabel,
   getCurrentPosition,
   geolocationErrorReason,
   isValidQuartierLabel,
@@ -40,14 +42,17 @@ export async function capturePassengerLocation(): Promise<PassengerLocation | nu
       lat,
       lng,
       quartier: normalizeProfileQuartier(quartier, cityName),
-      cityLabel: cityName,
+      cityLabel: canonicalCityNameFr(cityName) ?? cityName,
     };
   } catch {
     return null;
   }
 }
 
-export function getPassengerLocationDisplay(profile: Profile | null): {
+export function getPassengerLocationDisplay(
+  profile: Profile | null,
+  locale = "fr"
+): {
   city: string | null;
   quartier: string | null;
   missing: boolean;
@@ -56,7 +61,10 @@ export function getPassengerLocationDisplay(profile: Profile | null): {
     return { city: null, quartier: null, missing: false };
   }
 
-  const city = profile.city_label?.trim() || null;
+  const city =
+    formatCityLabel(profile.city_label, locale) ||
+    formatCityLabel(canonicalCityNameFr(profile.city_label), locale) ||
+    null;
   let quartier = normalizeProfileQuartier(profile.quartier, city);
 
   if (
@@ -155,10 +163,11 @@ export async function backfillQuartierFromProfile(
     profile.location_lat,
     profile.location_lng
   );
-  const cityLabel = cityName ?? profile.city_label ?? null;
+  const cityLabel = canonicalCityNameFr(cityName ?? profile.city_label) ?? cityName ?? profile.city_label ?? null;
   const profileQuartier = normalizeProfileQuartier(quartier, cityLabel);
   const storedQuartier = profile.quartier?.trim() || null;
-  const storedCity = profile.city_label?.trim() || null;
+  const storedCity =
+    canonicalCityNameFr(profile.city_label) ?? (profile.city_label?.trim() || null);
   const nextQuartier = profileQuartier ?? null;
   const nextCity = cityLabel?.trim() || null;
 
