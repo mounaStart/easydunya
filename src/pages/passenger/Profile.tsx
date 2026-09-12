@@ -1,10 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
 import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
-import { queryLocationPermission, requestAppLocation } from "../../lib/locationPermission";
+import { queryLocationPermission } from "../../lib/locationPermission";
 import {
   getPassengerLocationDisplay,
   repairPassengerProfileLocation,
@@ -90,9 +90,6 @@ export default function Profile() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { isLoaded: mapsReady } = useGoogleMapsReady();
   const navigate = useNavigate();
-  const [locBusy, setLocBusy] = useState(false);
-  const [locMsg, setLocMsg] = useState<string | null>(null);
-  const autoSyncedRef = useRef(false);
 
   const isAdmin = profile?.role === "admin";
   const displayEmail =
@@ -131,54 +128,42 @@ export default function Profile() {
       isPlusCode(profile?.quartier) ||
       isGenericAreaLabel(profile?.quartier));
 
-  const refreshLocation = useCallback(
-    async (options?: { force?: boolean; requestPermission?: boolean }) => {
-      if (!user || profile?.role !== "passenger" || locBusy) return;
+  const syncProfileLocation = useCallback(async () => {
+    if (!user || profile?.role !== "passenger" || !mapsReady) return;
+    if (!missing && !needsLocationRepair && city && quartier) return;
 
-      setLocBusy(true);
-      setLocMsg(null);
-      try {
-        if (!mapsReady) {
-          setLocMsg(t("common.loading"));
-        }
-        if (options?.requestPermission) {
-          const result = await requestAppLocation({ openSettingsIfDisabled: true });
-          if (!result.ok) {
-            setLocMsg(t("profile.locationFailed"));
-            return;
-          }
-        } else {
-          const permission = await queryLocationPermission();
-          if (permission !== "granted") return;
-        }
+    const permission = await queryLocationPermission();
+    if (permission !== "granted") return;
 
-        const loc = needsLocationRepair
-          ? await repairPassengerProfileLocation(user.id, profile)
-          : await syncPassengerLocation(user.id, profile, {
-              force: true,
-            });
-        await refreshProfile();
+    const shouldForce = missing || needsLocationRepair || !quartier;
+    const loc = needsLocationRepair
+      ? await repairPassengerProfileLocation(user.id, profile)
+      : await syncPassengerLocation(user.id, profile, { force: shouldForce });
 
-        const label = loc?.quartier?.trim() || loc?.cityLabel?.trim();
-        if (label) {
-          setLocMsg(t("profile.locationSaved", { quartier: label }));
-        }
-      } catch {
-        setLocMsg(t("profile.locationFailed"));
-      } finally {
-        setLocBusy(false);
-      }
-    },
-    [user, profile, locBusy, mapsReady, needsLocationRepair, refreshProfile, t]
-  );
+    if (loc) await refreshProfile();
+  }, [
+    user,
+    profile,
+    mapsReady,
+    city,
+    missing,
+    needsLocationRepair,
+    quartier,
+    refreshProfile,
+  ]);
 
   useEffect(() => {
-    if (!user || profile?.role !== "passenger" || !mapsReady) return;
-    if (!missing && !needsLocationRepair && quartier) return;
-    if (autoSyncedRef.current && !needsLocationRepair) return;
-    autoSyncedRef.current = true;
-    void refreshLocation({ force: needsLocationRepair || !quartier });
-  }, [user?.id, profile?.role, mapsReady, missing, needsLocationRepair, quartier, refreshLocation]);
+    void syncProfileLocation();
+  }, [syncProfileLocation]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      void syncProfileLocation();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncProfileLocation]);
 
   async function handleLogout() {
     await signOut();
@@ -217,29 +202,6 @@ export default function Profile() {
       )}
       {isPassenger && !missing && !quartier && city && (
         <p className="text-xs text-slate-500 text-center px-2">{t("profile.quartierHint")}</p>
-      )}
-
-      {isPassenger && (
-        <div className="space-y-2 px-1">
-          <button
-            type="button"
-            disabled={locBusy}
-            onClick={() => void refreshLocation({ force: true, requestPermission: true })}
-            className="w-full rounded-full py-3 text-sm font-bold text-white disabled:opacity-60"
-            style={{ backgroundImage: BRAND_GRADIENT_BR }}
-          >
-            {locBusy ? t("common.loading") : t("profile.updateLocation")}
-          </button>
-          {locMsg && (
-            <p
-              className={`text-xs text-center px-2 ${
-                locMsg === t("profile.locationFailed") ? "text-rose-600" : "text-brand-700"
-              }`}
-            >
-              {locMsg}
-            </p>
-          )}
-        </div>
       )}
 
       <div className="card overflow-hidden">
