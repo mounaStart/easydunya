@@ -10,7 +10,11 @@ import {
   repairPassengerProfileLocation,
   syncPassengerLocation,
 } from "../../lib/passengerLocation";
-import { isMauritaniaCityName, normalizeProfileQuartier } from "../../lib/geocode";
+import {
+  isMauritaniaCityName,
+  isPlusCode,
+  normalizeProfileQuartier,
+} from "../../lib/geocode";
 import { useGoogleMapsReady } from "../../components/GoogleMapsProvider";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -119,7 +123,8 @@ export default function Profile() {
   const needsLocationRepair =
     Boolean(profile?.quartier?.trim()) &&
     (!normalizeProfileQuartier(profile?.quartier, profile?.city_label) ||
-      isMauritaniaCityName(profile?.quartier));
+      isMauritaniaCityName(profile?.quartier) ||
+      isPlusCode(profile?.quartier));
 
   const refreshLocation = useCallback(
     async (options?: { force?: boolean; requestPermission?: boolean }) => {

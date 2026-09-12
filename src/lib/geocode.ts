@@ -136,6 +136,13 @@ function normalizeLabel(name: string): string {
     .replace(/[-_]/g, " ");
 }
 
+/** Code Plus Google (ex. 22QQ+VFV) — pas un nom de quartier lisible. */
+export function isPlusCode(name: string | null | undefined): boolean {
+  if (!name?.trim()) return false;
+  const token = name.trim().split(/\s+/)[0] ?? "";
+  return /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,4}$/i.test(token);
+}
+
 /** Nom de rue / ruelle — pas un quartier (ex. « Rue Mohamed… »). */
 export function isStreetLikeName(name: string | null | undefined): boolean {
   if (!name?.trim()) return false;
@@ -149,6 +156,7 @@ export function isStreetLikeName(name: string | null | undefined): boolean {
  */
 export function isUnusableQuartierLabel(name: string | null | undefined): boolean {
   if (!name?.trim()) return true;
+  if (isPlusCode(name)) return true;
   const n = normalizeLabel(name);
   if (isStreetLikeName(name)) return true;
   if (/^carrefour$/i.test(name.trim())) return true;
@@ -185,7 +193,7 @@ function addressCandidates(payload: ReversePayload): string[] {
     "sublocality_level_2",
     "administrative_area_level_3",
     "administrative_area_level_4"
-  );
+  ).filter((label) => !isPlusCode(label));
 }
 
 /**
@@ -206,7 +214,11 @@ function pickFromFormattedAddress(formatted?: string): string | null {
   const parts = formatted?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
   const known = matchKnownQuartier(parts);
   if (known) return known;
-  return parts.find((p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p)) ?? null;
+  return (
+    parts.find(
+      (p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p) && !isPlusCode(p)
+    ) ?? null
+  );
 }
 
 /** Villes Easy Dunya — repli si le géocodage Google échoue (APK / clé API). */
