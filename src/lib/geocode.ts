@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import { getGoogleMapsApiKey } from "./googleMapsLoader";
+import { distanceKm } from "./utils";
 
 type GoogleAddressComponent = {
   long_name: string;
@@ -178,33 +179,64 @@ function pickFromFormattedAddress(formatted?: string): string | null {
   return parts.find((p) => isValidQuartierLabel(p) && !/mauritanie/i.test(p)) ?? null;
 }
 
+/** Villes Easy Dunya — repli si le géocodage Google échoue (APK / clé API). */
+const MAURITANIA_CITIES = [
+  { name: "Nouakchott", lat: 18.0681, lng: -15.97 },
+  { name: "Nouadhibou", lat: 20.9456, lng: -17.035 },
+  { name: "Rosso", lat: 16.5223, lng: -15.8109 },
+  { name: "Boghé", lat: 16.5925, lng: -14.2756 },
+  { name: "Kaédi", lat: 16.1487, lng: -13.511 },
+  { name: "Aleg", lat: 17.0522, lng: -13.9179 },
+  { name: "Kiffa", lat: 16.6167, lng: -11.4144 },
+  { name: "Aioun", lat: 16.661, lng: -9.6204 },
+  { name: "Néma", lat: 16.6126, lng: -7.2579 },
+  { name: "Atar", lat: 20.5146, lng: -13.055 },
+  { name: "Zouérat", lat: 22.7268, lng: -12.4786 },
+  { name: "Sélibaby", lat: 15.1699, lng: -12.1902 },
+  { name: "Tidjikja", lat: 18.5421, lng: -11.4415 },
+] as const;
+
+/** Ville la plus proche (repli hors ligne / géocodage indisponible). */
+export function nearestCityName(lat: number, lng: number, maxKm = 120): string | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  let best: { name: string; dist: number } | null = null;
+  for (const city of MAURITANIA_CITIES) {
+    const dist = distanceKm(lat, lng, city.lat, city.lng);
+    if (!best || dist < best.dist) best = { name: city.name, dist };
+  }
+  return best && best.dist <= maxKm ? best.name : null;
+}
+
 /** Reverse geocoding Google : priorité quartier/arrondissement, jamais un POI précis. */
 export async function reverseLocation(
   lat: number,
   lng: number
 ): Promise<{ quartier: string | null; cityName: string | null }> {
+  let quartier: string | null = null;
+  let cityName: string | null = null;
+
   try {
     const payload = await fetchReverse(lat, lng);
-    if (!payload) return { quartier: null, cityName: null };
-
-    const cityName = cityFromPayload(payload);
-    const allCandidates = [
-      ...addressCandidates(payload),
-      ...(payload.formatted_address?.split(",").map((s) => s.trim()) ?? []),
-    ];
-    const known = matchKnownQuartier(allCandidates);
-    if (known) return { quartier: known, cityName };
-
-    const areaQuartier = extractAreaQuartier(payload);
-    if (areaQuartier) return { quartier: areaQuartier, cityName };
-
-    return {
-      quartier: pickFromFormattedAddress(payload.formatted_address),
-      cityName,
-    };
+    if (payload) {
+      cityName = cityFromPayload(payload);
+      const allCandidates = [
+        ...addressCandidates(payload),
+        ...(payload.formatted_address?.split(",").map((s) => s.trim()) ?? []),
+      ];
+      const known = matchKnownQuartier(allCandidates);
+      if (known) {
+        quartier = known;
+      } else {
+        const areaQuartier = extractAreaQuartier(payload);
+        quartier = areaQuartier ?? pickFromFormattedAddress(payload.formatted_address);
+      }
+    }
   } catch {
-    return { quartier: null, cityName: null };
+    /* géocodage indisponible — repli ville proche */
   }
+
+  if (!cityName) cityName = nearestCityName(lat, lng);
+  return { quartier, cityName };
 }
 
 export async function reverseQuartier(

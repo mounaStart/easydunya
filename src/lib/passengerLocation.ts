@@ -45,6 +45,28 @@ export async function capturePassengerLocation(): Promise<PassengerLocation | nu
   }
 }
 
+export function getPassengerLocationDisplay(profile: Profile | null): {
+  city: string | null;
+  quartier: string | null;
+  missing: boolean;
+} {
+  if (!profile || profile.role !== "passenger") {
+    return { city: null, quartier: null, missing: false };
+  }
+
+  const city = profile.city_label?.trim() || null;
+  const rawQuartier = profile.quartier?.trim() || null;
+  const quartier =
+    rawQuartier && isValidQuartierLabel(rawQuartier)
+      ? rawQuartier
+      : rawQuartier && !rawQuartier.match(/^(rue|r\.|avenue|av\.)/i)
+        ? rawQuartier
+        : null;
+
+  const missing = !city && !quartier;
+  return { city, quartier, missing };
+}
+
 export function locationFromProfile(profile: Profile | null): PassengerLocation | null {
   if (
     !profile ||

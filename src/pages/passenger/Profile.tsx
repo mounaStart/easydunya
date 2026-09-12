@@ -1,9 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
 import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
+import { queryLocationPermission, requestAppLocation } from "../../lib/locationPermission";
+import {
+  getPassengerLocationDisplay,
+  syncPassengerLocation,
+} from "../../lib/passengerLocation";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -74,8 +79,11 @@ function Chevron() {
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [locBusy, setLocBusy] = useState(false);
+  const [locMsg, setLocMsg] = useState<string | null>(null);
+  const autoSyncedRef = useRef(false);
 
   const isAdmin = profile?.role === "admin";
   const displayEmail =
@@ -97,6 +105,49 @@ export default function Profile() {
     : "—";
 
   const isPassenger = profile?.role === "passenger";
+  const { city, quartier, missing } = getPassengerLocationDisplay(profile);
+
+  const refreshLocation = useCallback(
+    async (options?: { force?: boolean; requestPermission?: boolean }) => {
+      if (!user || profile?.role !== "passenger" || locBusy) return;
+
+      setLocBusy(true);
+      setLocMsg(null);
+      try {
+        if (options?.requestPermission) {
+          const result = await requestAppLocation({ openSettingsIfDisabled: true });
+          if (!result.ok) {
+            setLocMsg(t("profile.locationFailed"));
+            return;
+          }
+        } else {
+          const permission = await queryLocationPermission();
+          if (permission !== "granted") return;
+        }
+
+        const loc = await syncPassengerLocation(user.id, profile, {
+          force: options?.force ?? false,
+        });
+        await refreshProfile();
+
+        const label = loc?.quartier?.trim() || loc?.cityLabel?.trim();
+        if (label) {
+          setLocMsg(t("profile.locationSaved", { quartier: label }));
+        }
+      } catch {
+        setLocMsg(t("profile.locationFailed"));
+      } finally {
+        setLocBusy(false);
+      }
+    },
+    [user, profile, locBusy, refreshProfile, t]
+  );
+
+  useEffect(() => {
+    if (autoSyncedRef.current || !user || profile?.role !== "passenger" || !missing) return;
+    autoSyncedRef.current = true;
+    void refreshLocation();
+  }, [user?.id, profile?.role, missing, refreshLocation]);
 
   async function handleLogout() {
     await signOut();
@@ -123,15 +174,38 @@ export default function Profile() {
         <Row label={t("common.phone")} value={profile?.phone ?? "—"} />
         {isPassenger && (
           <>
-            <Row label={t("profile.city")} value={profile?.city_label ?? "—"} />
-            <Row label={t("profile.quartier")} value={profile?.quartier ?? "—"} />
+            <Row label={t("profile.city")} value={city ?? "—"} />
+            <Row label={t("profile.quartier")} value={quartier ?? "—"} />
           </>
         )}
         <Row label={t("profile.memberSince")} value={memberSince} />
       </div>
 
-      {isPassenger && !profile?.quartier?.trim() && (
+      {isPassenger && missing && (
         <p className="text-xs text-slate-500 text-center px-2">{t("profile.locationHint")}</p>
+      )}
+
+      {isPassenger && (
+        <div className="space-y-2 px-1">
+          <button
+            type="button"
+            disabled={locBusy}
+            onClick={() => void refreshLocation({ force: true, requestPermission: true })}
+            className="w-full rounded-full py-3 text-sm font-bold text-white disabled:opacity-60"
+            style={{ backgroundImage: BRAND_GRADIENT_BR }}
+          >
+            {locBusy ? t("common.loading") : t("profile.updateLocation")}
+          </button>
+          {locMsg && (
+            <p
+              className={`text-xs text-center px-2 ${
+                locMsg === t("profile.locationFailed") ? "text-rose-600" : "text-brand-700"
+              }`}
+            >
+              {locMsg}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="card overflow-hidden">

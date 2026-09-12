@@ -26,7 +26,7 @@ export default function PassengerLocationSync() {
 
   useEffect(() => {
     syncIfAllowed();
-  }, [user?.id, profile?.role]);
+  }, [user?.id, profile?.role, profile?.city_label, profile?.quartier, profile?.location_lat]);
 
   useEffect(() => {
     if (!user || profile?.role !== "passenger") return;
