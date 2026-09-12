@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
@@ -9,7 +9,9 @@ import PassengerLocationSync from "./PassengerLocationSync";
 import DriverLocationGate from "./DriverLocationGate";
 import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
+import TermsGate from "./TermsGate";
 import { dispatchAppRefresh } from "../lib/appRefresh";
+import { hasAcceptedTerms } from "../lib/termsAcceptance";
 import { useAuth } from "../hooks/useAuth";
 import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import { cn } from "../lib/utils";
@@ -30,8 +32,23 @@ function PasswordChangeGate() {
 export default function Layout() {
   const location = useLocation();
   const { isDriver, isAdmin, refreshProfile } = useAuth();
+  const [termsAccepted, setTermsAccepted] = useState(hasAcceptedTerms);
   useAndroidBackButton();
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (!hasAcceptedTerms()) setTermsAccepted(false);
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
+
+  if (!termsAccepted) {
+    return <TermsGate onAccepted={() => setTermsAccepted(true)} />;
+  }
 
   const handlePullRefresh = useCallback(async () => {
     dispatchAppRefresh({ resetHome: isPassengerHome });

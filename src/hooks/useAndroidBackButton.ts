@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { App } from "@capacitor/app";
 import { isNativePlatform } from "../lib/nativePush";
+import { hasAcceptedTerms } from "../lib/termsAcceptance";
 import { useAuth } from "./useAuth";
 
 /** Écrans « racine » : retour système = quitter l'app. */
@@ -26,6 +27,11 @@ export function useAndroidBackButton() {
 
     let removed = false;
     const sub = App.addListener("backButton", () => {
+      if (!hasAcceptedTerms()) {
+        void App.exitApp();
+        return;
+      }
+
       const path = location.pathname;
 
       if (isRootScreen(path, isDriver, isAdmin)) {

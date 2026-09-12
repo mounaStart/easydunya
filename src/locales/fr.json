@@ -468,5 +468,14 @@
   "lang": {
     "fr": "Français",
     "ar": "العربية"
+  },
+  "terms": {
+    "title": "Conditions Générales d'Utilisation",
+    "subtitle": "Veuillez lire et accepter les CGU pour utiliser Easy Dunya.",
+    "acceptCgu": "J'ai lu et j'accepte les Conditions Générales d'Utilisation d'Easy Dunya.",
+    "acceptPrivacy": "J'ai pris connaissance de la Politique de confidentialité.",
+    "acceptDriver": "J'accepte les conditions applicables aux chauffeurs partenaires.",
+    "accept": "Accepter et continuer",
+    "decline": "Refuser et quitter"
   }
 }
