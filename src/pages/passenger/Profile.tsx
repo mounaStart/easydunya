@@ -143,11 +143,17 @@ export default function Profile() {
     [user, profile, locBusy, refreshProfile, t]
   );
 
+  const quartierLooksLikeCity =
+    Boolean(profile?.quartier?.trim()) &&
+    profile.quartier!.trim().toLowerCase() === (profile?.city_label?.trim().toLowerCase() ?? "");
+
   useEffect(() => {
-    if (autoSyncedRef.current || !user || profile?.role !== "passenger" || !missing) return;
+    if (!user || profile?.role !== "passenger") return;
+    if (!missing && !quartierLooksLikeCity) return;
+    if (autoSyncedRef.current && !quartierLooksLikeCity) return;
     autoSyncedRef.current = true;
-    void refreshLocation();
-  }, [user?.id, profile?.role, missing, refreshLocation]);
+    void refreshLocation({ force: quartierLooksLikeCity });
+  }, [user?.id, profile?.role, missing, quartierLooksLikeCity, refreshLocation]);
 
   async function handleLogout() {
     await signOut();
@@ -183,6 +189,9 @@ export default function Profile() {
 
       {isPassenger && missing && (
         <p className="text-xs text-slate-500 text-center px-2">{t("profile.locationHint")}</p>
+      )}
+      {isPassenger && !missing && !quartier && city && (
+        <p className="text-xs text-slate-500 text-center px-2">{t("profile.quartierHint")}</p>
       )}
 
       {isPassenger && (

@@ -196,6 +196,27 @@ const MAURITANIA_CITIES = [
   { name: "Tidjikja", lat: 18.5421, lng: -11.4415 },
 ] as const;
 
+/** True si le libellé correspond à une ville du réseau (pas un quartier). */
+export function isMauritaniaCityName(name: string | null | undefined): boolean {
+  if (!name?.trim()) return false;
+  const n = normalizeLabel(name);
+  return MAURITANIA_CITIES.some((city) => normalizeLabel(city.name) === n);
+}
+
+/**
+ * Quartier enregistrable sur le profil : exclut noms de ville et doublons ville/quartier.
+ */
+export function normalizeProfileQuartier(
+  quartier: string | null | undefined,
+  cityName: string | null | undefined
+): string | null {
+  const q = quartier?.trim();
+  if (!q || !isValidQuartierLabel(q) || isMauritaniaCityName(q)) return null;
+  const city = cityName?.trim();
+  if (city && normalizeLabel(q) === normalizeLabel(city)) return null;
+  return q;
+}
+
 /** Ville la plus proche (repli hors ligne / géocodage indisponible). */
 export function nearestCityName(lat: number, lng: number, maxKm = 120): string | null {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -236,6 +257,7 @@ export async function reverseLocation(
   }
 
   if (!cityName) cityName = nearestCityName(lat, lng);
+  quartier = normalizeProfileQuartier(quartier, cityName);
   return { quartier, cityName };
 }
 

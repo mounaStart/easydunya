@@ -2,6 +2,7 @@ import {
   getCurrentPosition,
   geolocationErrorReason,
   isValidQuartierLabel,
+  normalizeProfileQuartier,
   reverseLocation,
 } from "./geocode";
 import { supabase } from "./supabase";
@@ -16,15 +17,15 @@ export interface PassengerLocation {
 
 const SYNC_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
-function resolveQuartierLabel(
+/** Zone de prise en charge réservation (quartier ou, à défaut, ville). */
+function resolvePickupAreaLabel(
   quartier: string | null | undefined,
   cityName: string | null | undefined,
   fallback?: string | null
 ): string | null {
-  const q = quartier?.trim();
-  if (q) return q;
-  const city = cityName?.trim() || fallback?.trim();
-  return city || null;
+  const profileQuartier = normalizeProfileQuartier(quartier, cityName ?? fallback);
+  if (profileQuartier) return profileQuartier;
+  return cityName?.trim() || fallback?.trim() || null;
 }
 
 /** Capture GPS + reverse geocoding (quartier + ville). */
@@ -37,7 +38,7 @@ export async function capturePassengerLocation(): Promise<PassengerLocation | nu
     return {
       lat,
       lng,
-      quartier: resolveQuartierLabel(quartier, cityName),
+      quartier: normalizeProfileQuartier(quartier, cityName),
       cityLabel: cityName,
     };
   } catch {
@@ -55,16 +56,13 @@ export function getPassengerLocationDisplay(profile: Profile | null): {
   }
 
   const city = profile.city_label?.trim() || null;
-  const rawQuartier = profile.quartier?.trim() || null;
-  const quartier =
-    rawQuartier && isValidQuartierLabel(rawQuartier)
-      ? rawQuartier
-      : rawQuartier && !rawQuartier.match(/^(rue|r\.|avenue|av\.)/i)
-        ? rawQuartier
-        : null;
-
+  const quartier = normalizeProfileQuartier(profile.quartier, city);
   const missing = !city && !quartier;
   return { city, quartier, missing };
+}
+
+function isStoredProfileQuartierValid(profile: Profile): boolean {
+  return Boolean(normalizeProfileQuartier(profile.quartier, profile.city_label));
 }
 
 export function locationFromProfile(profile: Profile | null): PassengerLocation | null {
@@ -121,18 +119,22 @@ export async function backfillQuartierFromProfile(
     profile.location_lat,
     profile.location_lng
   );
-  const resolved = resolveQuartierLabel(quartier, cityName, profile.city_label);
-  if (!resolved) return locationFromProfile(profile);
+  const cityLabel = cityName ?? profile.city_label ?? null;
+  const profileQuartier = normalizeProfileQuartier(quartier, cityLabel);
+  const storedQuartier = profile.quartier?.trim() || null;
+  const storedCity = profile.city_label?.trim() || null;
+  const nextQuartier = profileQuartier ?? null;
+  const nextCity = cityLabel?.trim() || null;
 
-  if (profile.quartier?.trim() === resolved && isValidQuartierLabel(resolved)) {
+  if (storedQuartier === (nextQuartier ?? "") && storedCity === (nextCity ?? "")) {
     return locationFromProfile(profile);
   }
 
   const loc: PassengerLocation = {
     lat: profile.location_lat,
     lng: profile.location_lng,
-    quartier: resolved,
-    cityLabel: profile.city_label ?? cityName,
+    quartier: nextQuartier,
+    cityLabel: nextCity,
   };
   await savePassengerLocation(userId, loc);
   return loc;
@@ -141,7 +143,7 @@ export async function backfillQuartierFromProfile(
 function needsLocationRefresh(profile: Profile | null): boolean {
   if (!profile || profile.role !== "passenger") return false;
   if (profile.location_lat == null || profile.location_lng == null) return true;
-  if (!profile.quartier?.trim() || !isValidQuartierLabel(profile.quartier)) return true;
+  if (!isStoredProfileQuartierValid(profile)) return true;
   if (!profile.location_updated_at) return true;
   return Date.now() - new Date(profile.location_updated_at).getTime() > SYNC_MAX_AGE_MS;
 }
@@ -225,25 +227,31 @@ export async function requireBookingLocation(
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     const { quartier, cityName } = await reverseLocation(lat, lng);
-    const resolved = resolveQuartierLabel(quartier, cityName, profile?.city_label);
-    const areaLabel = isValidQuartierLabel(resolved)
-      ? resolved
-      : cityName ?? profile?.city_label ?? null;
-    if (!areaLabel) {
+    const pickupLabel = resolvePickupAreaLabel(quartier, cityName, profile?.city_label);
+    const profileQuartier = normalizeProfileQuartier(quartier, cityName);
+    const cityLabel = cityName ?? profile?.city_label ?? null;
+    if (!pickupLabel && !cityLabel) {
       const fallback = await bookingLocationFromProfile(userId, profile);
       if (fallback) return { ok: true, location: fallback };
       const coordsOnly: PassengerLocation = { lat, lng, quartier: null, cityLabel: cityName };
       await savePassengerLocation(userId, coordsOnly);
       return { ok: true, location: coordsOnly };
     }
-    const loc: PassengerLocation = {
+    await savePassengerLocation(userId, {
       lat,
       lng,
-      quartier: areaLabel,
-      cityLabel: cityName,
+      quartier: profileQuartier,
+      cityLabel,
+    });
+    return {
+      ok: true,
+      location: {
+        lat,
+        lng,
+        quartier: pickupLabel,
+        cityLabel,
+      },
     };
-    await savePassengerLocation(userId, loc);
-    return { ok: true, location: loc };
   } catch (err) {
     const fallback = await bookingLocationFromProfile(userId, profile);
     if (fallback) return { ok: true, location: fallback };
