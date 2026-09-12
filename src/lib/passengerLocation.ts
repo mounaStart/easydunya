@@ -1,10 +1,9 @@
 import {
   canonicalCityNameFr,
   formatCityLabel,
-  getCurrentPosition,
   geolocationErrorReason,
+  getCurrentPosition,
   isValidQuartierLabel,
-  nearestNouakchottQuartier,
   normalizeProfileQuartier,
   reverseLocation,
 } from "./geocode";
@@ -31,10 +30,12 @@ function resolvePickupAreaLabel(
   return cityName?.trim() || fallback?.trim() || null;
 }
 
-/** Capture GPS + reverse geocoding (quartier + ville). */
-export async function capturePassengerLocation(): Promise<PassengerLocation | null> {
+/** Capture GPS + reverse geocoding Google Maps (quartier + ville). */
+export async function capturePassengerLocation(options?: {
+  accurate?: boolean;
+}): Promise<PassengerLocation | null> {
   try {
-    const pos = await getCurrentPosition();
+    const pos = await getCurrentPosition({ accurate: options?.accurate });
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     const { quartier, cityName } = await reverseLocation(lat, lng);
@@ -65,20 +66,7 @@ export function getPassengerLocationDisplay(
     formatCityLabel(profile.city_label, locale) ||
     formatCityLabel(canonicalCityNameFr(profile.city_label), locale) ||
     null;
-  let quartier = normalizeProfileQuartier(profile.quartier, city);
-
-  if (
-    !quartier &&
-    profile.location_lat != null &&
-    profile.location_lng != null &&
-    Number.isFinite(profile.location_lat) &&
-    Number.isFinite(profile.location_lng)
-  ) {
-    quartier = normalizeProfileQuartier(
-      nearestNouakchottQuartier(profile.location_lat, profile.location_lng),
-      city
-    );
-  }
+  const quartier = normalizeProfileQuartier(profile.quartier, city);
 
   const missing = !city && !quartier;
   return { city, quartier, missing };
@@ -120,11 +108,11 @@ export async function repairPassengerProfileLocation(
     profile = { ...profile, quartier: null };
   }
 
-  if (profile.location_lat != null && profile.location_lng != null) {
-    return backfillQuartierFromProfile(userId, profile);
-  }
-
-  return syncPassengerLocation(userId, profile, { force: true });
+  return capturePassengerLocation({ accurate: true }).then(async (loc) => {
+    if (!loc) return null;
+    await savePassengerLocation(userId, loc);
+    return loc;
+  });
 }
 
 /** Enregistre la position du passager sur son profil. */
@@ -204,10 +192,13 @@ export async function syncPassengerLocation(
 ): Promise<PassengerLocation | null> {
   if (profile?.role !== "passenger") return null;
 
-  // Recalcule le quartier depuis les coordonnées déjà enregistrées (ex. Arafat)
-  if (profile.location_lat != null && profile.location_lng != null) {
+  if (
+    !options?.force &&
+    profile.location_lat != null &&
+    profile.location_lng != null
+  ) {
     const backfilled = await backfillQuartierFromProfile(userId, profile);
-    if (!options?.force && !needsLocationRefresh(profile)) {
+    if (!needsLocationRefresh(profile)) {
       return backfilled ?? locationFromProfile(profile);
     }
   }
@@ -216,7 +207,7 @@ export async function syncPassengerLocation(
     return locationFromProfile(profile);
   }
 
-  const captured = await capturePassengerLocation();
+  const captured = await capturePassengerLocation({ accurate: options?.force ?? false });
   if (!captured) return locationFromProfile(profile);
 
   await savePassengerLocation(userId, captured);

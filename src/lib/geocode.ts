@@ -55,14 +55,35 @@ export function useNativeGeolocation(): boolean {
   return platform === "android" || platform === "ios";
 }
 
-function geocoderResultToPayload(result: google.maps.GeocoderResult): ReversePayload {
+function mergeGeocoderResults(results: google.maps.GeocoderResult[]): ReversePayload {
+  const seen = new Set<string>();
+  const components: GoogleAddressComponent[] = [];
+
+  for (const result of results.slice(0, 6)) {
+    for (const c of result.address_components ?? []) {
+      const key = `${c.long_name}|${c.types.join(",")}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      components.push({
+        long_name: c.long_name,
+        short_name: c.short_name,
+        types: [...c.types],
+      });
+    }
+  }
+
+  const preferred =
+    results.find((r) =>
+      r.address_components?.some((c) =>
+        c.types.some((t) =>
+          ["neighborhood", "sublocality", "sublocality_level_1", "sublocality_level_2"].includes(t)
+        )
+      )
+    ) ?? results[0];
+
   return {
-    address_components: result.address_components?.map((c) => ({
-      long_name: c.long_name,
-      short_name: c.short_name,
-      types: [...c.types],
-    })),
-    formatted_address: result.formatted_address,
+    address_components: components,
+    formatted_address: preferred.formatted_address,
   };
 }
 
@@ -90,14 +111,14 @@ async function fetchReverseViaMapsJs(lat: number, lng: number): Promise<ReverseP
     geocoder.geocode(
       { location: { lat, lng }, language: "fr", region: "MR" },
       (results, status) => {
-        if (status !== google.maps.GeocoderStatus.OK || !results?.[0]) {
+        if (status !== google.maps.GeocoderStatus.OK || !results?.length) {
           if (status !== google.maps.GeocoderStatus.ZERO_RESULTS) {
             console.warn("[geocode] Geocoder status:", status);
           }
           resolve(null);
           return;
         }
-        resolve(geocoderResultToPayload(results[0]));
+        resolve(mergeGeocoderResults(results));
       }
     );
   });
@@ -412,19 +433,6 @@ export async function reverseLocation(
   if (!cityName) cityName = nearestCityName(lat, lng);
   cityName = canonicalCityNameFr(cityName) ?? cityName;
 
-  const inNouakchott =
-    isInNouakchottArea(lat, lng) ||
-    (cityName != null && normalizeLabel(cityName) === normalizeLabel("Nouakchott"));
-
-  const geocodeQuartier = normalizeProfileQuartier(quartier, cityName);
-  if (geocodeQuartier) {
-    quartier = geocodeQuartier;
-  } else if (inNouakchott) {
-    quartier = nearestNouakchottQuartier(lat, lng);
-  } else {
-    quartier = null;
-  }
-
   quartier = normalizeProfileQuartier(quartier, cityName);
   return { quartier, cityName };
 }
@@ -491,7 +499,13 @@ export async function ensureLocationPermission(): Promise<boolean> {
   }
 }
 
-async function getNativePosition(): Promise<GeolocationPosition> {
+const ACCURATE_POSITION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 25_000,
+  maximumAge: 0,
+};
+
+async function getNativePosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {
   const allowed = await ensureLocationPermission();
   if (!allowed) {
     const err = new Error("Geolocation permission denied") as Error & { code?: number };
@@ -499,32 +513,34 @@ async function getNativePosition(): Promise<GeolocationPosition> {
     throw err;
   }
   const pos = await Geolocation.getCurrentPosition({
-    enableHighAccuracy: false,
-    timeout: POSITION_OPTIONS.timeout,
-    maximumAge: POSITION_OPTIONS.maximumAge,
+    enableHighAccuracy: options.enableHighAccuracy ?? false,
+    timeout: options.timeout ?? POSITION_OPTIONS.timeout,
+    maximumAge: options.maximumAge ?? POSITION_OPTIONS.maximumAge,
   });
   return toGeolocationPosition(pos);
 }
 
-function getBrowserPosition(): Promise<GeolocationPosition> {
+function getBrowserPosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation unavailable"));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, POSITION_OPTIONS);
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
   });
 }
 
 /**
- * Position actuelle — localisation de l'appareil uniquement (pas de haute précision Google).
- * Une seule boîte système : autoriser la localisation.
+ * Position actuelle. `accurate: true` pour le profil passager (GPS frais, haute précision).
  */
-export async function getCurrentPosition(): Promise<GeolocationPosition> {
+export async function getCurrentPosition(options?: {
+  accurate?: boolean;
+}): Promise<GeolocationPosition> {
+  const opts = options?.accurate ? ACCURATE_POSITION_OPTIONS : POSITION_OPTIONS;
   if (useNativeGeolocation()) {
-    return getNativePosition();
+    return getNativePosition(opts);
   }
-  return getBrowserPosition();
+  return getBrowserPosition(opts);
 }
 
 export type LocationFailReason = "denied" | "timeout" | "disabled" | "unavailable";

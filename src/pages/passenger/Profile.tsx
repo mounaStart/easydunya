@@ -155,7 +155,7 @@ export default function Profile() {
         const loc = needsLocationRepair
           ? await repairPassengerProfileLocation(user.id, profile)
           : await syncPassengerLocation(user.id, profile, {
-              force: options?.force ?? false,
+              force: true,
             });
         await refreshProfile();
 
