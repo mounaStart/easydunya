@@ -196,6 +196,50 @@ const MAURITANIA_CITIES = [
   { name: "Tidjikja", lat: 18.5421, lng: -11.4415 },
 ] as const;
 
+/** Repères GPS des arrondissements de Nouakchott (OSM / entrées ville Easy Dunya). */
+const NOUAKCHOTT_QUARTIER_ANCHORS = [
+  { name: "Arafat", lat: 18.0462, lng: -15.9183 },
+  { name: "Tevragh Zeina", lat: 18.0954, lng: -15.9761 },
+  { name: "Dar Naim", lat: 18.085, lng: -15.905 },
+  { name: "Toujounine", lat: 18.115, lng: -15.935 },
+  { name: "Ksar", lat: 18.09, lng: -15.95 },
+  { name: "Sebkha", lat: 18.055, lng: -15.965 },
+  { name: "El Mina", lat: 18.035, lng: -15.945 },
+  { name: "Teyarett", lat: 18.075, lng: -15.935 },
+  { name: "Riyad", lat: 18.05, lng: -15.955 },
+  { name: "Las Palmas", lat: 18.1, lng: -15.955 },
+  { name: "Cinquième", lat: 18.062, lng: -15.9498 },
+] as const;
+
+const NOUAKCHOTT_BOUNDS = {
+  minLat: 17.95,
+  maxLat: 18.15,
+  minLng: -16.05,
+  maxLng: -15.85,
+};
+
+export function isInNouakchottArea(lat: number, lng: number): boolean {
+  return (
+    lat >= NOUAKCHOTT_BOUNDS.minLat &&
+    lat <= NOUAKCHOTT_BOUNDS.maxLat &&
+    lng >= NOUAKCHOTT_BOUNDS.minLng &&
+    lng <= NOUAKCHOTT_BOUNDS.maxLng
+  );
+}
+
+/** Quartier Nouakchott le plus proche des coordonnées GPS (si Google ne renvoie que la ville). */
+export function nearestNouakchottQuartier(lat: number, lng: number, maxKm = 14): string | null {
+  if (!isInNouakchottArea(lat, lng)) return null;
+  let best: { name: string; dist: number } | null = null;
+  for (const anchor of NOUAKCHOTT_QUARTIER_ANCHORS) {
+    const dist = distanceKm(lat, lng, anchor.lat, anchor.lng);
+    if (dist <= maxKm && (!best || dist < best.dist)) {
+      best = { name: anchor.name, dist };
+    }
+  }
+  return best?.name ?? null;
+}
+
 /** True si le libellé correspond à une ville du réseau (pas un quartier). */
 export function isMauritaniaCityName(name: string | null | undefined): boolean {
   if (!name?.trim()) return false;
@@ -257,6 +301,14 @@ export async function reverseLocation(
   }
 
   if (!cityName) cityName = nearestCityName(lat, lng);
+
+  const inNouakchott =
+    isInNouakchottArea(lat, lng) ||
+    (cityName != null && normalizeLabel(cityName) === normalizeLabel("Nouakchott"));
+  if (!quartier && inNouakchott) {
+    quartier = nearestNouakchottQuartier(lat, lng);
+  }
+
   quartier = normalizeProfileQuartier(quartier, cityName);
   return { quartier, cityName };
 }

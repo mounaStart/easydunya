@@ -2,6 +2,7 @@ import {
   getCurrentPosition,
   geolocationErrorReason,
   isValidQuartierLabel,
+  nearestNouakchottQuartier,
   normalizeProfileQuartier,
   reverseLocation,
 } from "./geocode";
@@ -56,7 +57,21 @@ export function getPassengerLocationDisplay(profile: Profile | null): {
   }
 
   const city = profile.city_label?.trim() || null;
-  const quartier = normalizeProfileQuartier(profile.quartier, city);
+  let quartier = normalizeProfileQuartier(profile.quartier, city);
+
+  if (
+    !quartier &&
+    profile.location_lat != null &&
+    profile.location_lng != null &&
+    Number.isFinite(profile.location_lat) &&
+    Number.isFinite(profile.location_lng)
+  ) {
+    quartier = normalizeProfileQuartier(
+      nearestNouakchottQuartier(profile.location_lat, profile.location_lng),
+      city
+    );
+  }
+
   const missing = !city && !quartier;
   return { city, quartier, missing };
 }
@@ -81,6 +96,27 @@ export function locationFromProfile(profile: Profile | null): PassengerLocation 
     quartier: profile.quartier ?? null,
     cityLabel: profile.city_label ?? null,
   };
+}
+
+/** Corrige un profil où le quartier = ville, puis recalcule depuis le GPS enregistré. */
+export async function repairPassengerProfileLocation(
+  userId: string,
+  profile: Profile
+): Promise<PassengerLocation | null> {
+  const city = profile.city_label?.trim() || null;
+  const storedQuartier = profile.quartier?.trim() || null;
+  const invalidQuartier = storedQuartier && !normalizeProfileQuartier(storedQuartier, city);
+
+  if (invalidQuartier) {
+    await supabase.from("profiles").update({ quartier: null }).eq("id", userId);
+    profile = { ...profile, quartier: null };
+  }
+
+  if (profile.location_lat != null && profile.location_lng != null) {
+    return backfillQuartierFromProfile(userId, profile);
+  }
+
+  return syncPassengerLocation(userId, profile, { force: true });
 }
 
 /** Enregistre la position du passager sur son profil. */

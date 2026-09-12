@@ -7,8 +7,10 @@ import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
 import { queryLocationPermission, requestAppLocation } from "../../lib/locationPermission";
 import {
   getPassengerLocationDisplay,
+  repairPassengerProfileLocation,
   syncPassengerLocation,
 } from "../../lib/passengerLocation";
+import { isMauritaniaCityName, normalizeProfileQuartier } from "../../lib/geocode";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -105,7 +107,17 @@ export default function Profile() {
     : "—";
 
   const isPassenger = profile?.role === "passenger";
-  const { city, quartier, missing } = getPassengerLocationDisplay(profile);
+  const { city, quartier: detectedQuartier, missing } = getPassengerLocationDisplay(profile);
+  const quartier =
+    detectedQuartier &&
+    city &&
+    detectedQuartier.trim().toLowerCase() === city.trim().toLowerCase()
+      ? null
+      : detectedQuartier;
+  const needsLocationRepair =
+    Boolean(profile?.quartier?.trim()) &&
+    (!normalizeProfileQuartier(profile?.quartier, profile?.city_label) ||
+      isMauritaniaCityName(profile?.quartier));
 
   const refreshLocation = useCallback(
     async (options?: { force?: boolean; requestPermission?: boolean }) => {
@@ -125,9 +137,11 @@ export default function Profile() {
           if (permission !== "granted") return;
         }
 
-        const loc = await syncPassengerLocation(user.id, profile, {
-          force: options?.force ?? false,
-        });
+        const loc = needsLocationRepair
+          ? await repairPassengerProfileLocation(user.id, profile)
+          : await syncPassengerLocation(user.id, profile, {
+              force: options?.force ?? false,
+            });
         await refreshProfile();
 
         const label = loc?.quartier?.trim() || loc?.cityLabel?.trim();
@@ -140,20 +154,16 @@ export default function Profile() {
         setLocBusy(false);
       }
     },
-    [user, profile, locBusy, refreshProfile, t]
+    [user, profile, locBusy, needsLocationRepair, refreshProfile, t]
   );
-
-  const quartierLooksLikeCity =
-    Boolean(profile?.quartier?.trim()) &&
-    profile.quartier!.trim().toLowerCase() === (profile?.city_label?.trim().toLowerCase() ?? "");
 
   useEffect(() => {
     if (!user || profile?.role !== "passenger") return;
-    if (!missing && !quartierLooksLikeCity) return;
-    if (autoSyncedRef.current && !quartierLooksLikeCity) return;
+    if (!missing && !needsLocationRepair && quartier) return;
+    if (autoSyncedRef.current && !needsLocationRepair) return;
     autoSyncedRef.current = true;
-    void refreshLocation({ force: quartierLooksLikeCity });
-  }, [user?.id, profile?.role, missing, quartierLooksLikeCity, refreshLocation]);
+    void refreshLocation({ force: needsLocationRepair || !quartier });
+  }, [user?.id, profile?.role, missing, needsLocationRepair, quartier, refreshLocation]);
 
   async function handleLogout() {
     await signOut();
