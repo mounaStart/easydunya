@@ -46,10 +46,6 @@ export default function Layout() {
 
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
-  if (!termsAccepted) {
-    return <TermsGate onAccepted={() => setTermsAccepted(true)} />;
-  }
-
   const handlePullRefresh = useCallback(async () => {
     dispatchAppRefresh({ resetHome: isPassengerHome });
     await refreshProfile();
@@ -67,6 +63,10 @@ export default function Layout() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+
+  if (!termsAccepted) {
+    return <TermsGate onAccepted={() => setTermsAccepted(true)} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden max-w-[100vw]">
