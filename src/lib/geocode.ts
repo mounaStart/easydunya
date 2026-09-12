@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
-import { getGoogleMapsApiKey } from "./googleMapsLoader";
+import { ensureGoogleMapsLoaded, getGoogleMapsApiKey } from "./googleMapsLoader";
 import { distanceKm } from "./utils";
 
 type GoogleAddressComponent = {
@@ -55,26 +55,56 @@ export function useNativeGeolocation(): boolean {
   return platform === "android" || platform === "ios";
 }
 
-async function fetchReverse(lat: number, lng: number): Promise<ReversePayload | null> {
-  const key = getGoogleMapsApiKey();
-  if (!key) {
+function geocoderResultToPayload(result: google.maps.GeocoderResult): ReversePayload {
+  return {
+    address_components: result.address_components?.map((c) => ({
+      long_name: c.long_name,
+      short_name: c.short_name,
+      types: [...c.types],
+    })),
+    formatted_address: result.formatted_address,
+  };
+}
+
+/** Même API que les cartes (Maps JavaScript + Geocoder), pas l'endpoint REST séparé. */
+async function fetchReverseViaMapsJs(lat: number, lng: number): Promise<ReversePayload | null> {
+  if (!getGoogleMapsApiKey()) {
     console.warn("[geocode] VITE_GOOGLE_MAPS_API_KEY manquante");
     return null;
   }
-  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
-  url.searchParams.set("latlng", `${lat},${lng}`);
-  url.searchParams.set("language", "fr");
-  url.searchParams.set("region", "mr");
-  url.searchParams.set("key", key);
 
-  const res = await fetch(url.toString());
-  if (!res.ok) return null;
-  const data = (await res.json()) as {
-    status?: string;
-    results?: ReversePayload[];
-  };
-  if (data.status !== "OK" || !data.results?.[0]) return null;
-  return data.results[0];
+  try {
+    await ensureGoogleMapsLoaded();
+  } catch (err) {
+    console.warn("[geocode] Google Maps indisponible:", err);
+    return null;
+  }
+
+  if (!window.google?.maps?.Geocoder) {
+    console.warn("[geocode] google.maps.Geocoder indisponible");
+    return null;
+  }
+
+  const geocoder = new google.maps.Geocoder();
+  return new Promise((resolve) => {
+    geocoder.geocode(
+      { location: { lat, lng }, language: "fr", region: "MR" },
+      (results, status) => {
+        if (status !== google.maps.GeocoderStatus.OK || !results?.[0]) {
+          if (status !== google.maps.GeocoderStatus.ZERO_RESULTS) {
+            console.warn("[geocode] Geocoder status:", status);
+          }
+          resolve(null);
+          return;
+        }
+        resolve(geocoderResultToPayload(results[0]));
+      }
+    );
+  });
+}
+
+async function fetchReverse(lat: number, lng: number): Promise<ReversePayload | null> {
+  return fetchReverseViaMapsJs(lat, lng);
 }
 
 function componentsByType(

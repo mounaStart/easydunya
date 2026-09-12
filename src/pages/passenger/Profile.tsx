@@ -11,6 +11,7 @@ import {
   syncPassengerLocation,
 } from "../../lib/passengerLocation";
 import { isMauritaniaCityName, normalizeProfileQuartier } from "../../lib/geocode";
+import { useGoogleMapsReady } from "../../components/GoogleMapsProvider";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -82,6 +83,7 @@ function Chevron() {
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { user, profile, signOut, refreshProfile } = useAuth();
+  const { isLoaded: mapsReady } = useGoogleMapsReady();
   const navigate = useNavigate();
   const [locBusy, setLocBusy] = useState(false);
   const [locMsg, setLocMsg] = useState<string | null>(null);
@@ -126,6 +128,9 @@ export default function Profile() {
       setLocBusy(true);
       setLocMsg(null);
       try {
+        if (!mapsReady) {
+          setLocMsg(t("common.loading"));
+        }
         if (options?.requestPermission) {
           const result = await requestAppLocation({ openSettingsIfDisabled: true });
           if (!result.ok) {
@@ -154,16 +159,16 @@ export default function Profile() {
         setLocBusy(false);
       }
     },
-    [user, profile, locBusy, needsLocationRepair, refreshProfile, t]
+    [user, profile, locBusy, mapsReady, needsLocationRepair, refreshProfile, t]
   );
 
   useEffect(() => {
-    if (!user || profile?.role !== "passenger") return;
+    if (!user || profile?.role !== "passenger" || !mapsReady) return;
     if (!missing && !needsLocationRepair && quartier) return;
     if (autoSyncedRef.current && !needsLocationRepair) return;
     autoSyncedRef.current = true;
     void refreshLocation({ force: needsLocationRepair || !quartier });
-  }, [user?.id, profile?.role, missing, needsLocationRepair, quartier, refreshLocation]);
+  }, [user?.id, profile?.role, mapsReady, missing, needsLocationRepair, quartier, refreshLocation]);
 
   async function handleLogout() {
     await signOut();

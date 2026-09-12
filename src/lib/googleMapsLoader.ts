@@ -143,7 +143,7 @@ export function useGoogleMapsScript() {
 
 declare global {
   interface Window {
-    google?: { maps?: { Map?: unknown; SymbolPath?: { CIRCLE: unknown }; event?: unknown; LatLngBounds?: unknown } };
+    google?: typeof google;
     gm_authFailure?: () => void;
   }
 }
