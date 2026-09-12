@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
 import type { CityTripCount, TripPublic } from "../lib/types";
@@ -12,9 +12,10 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
   const [trips, setTrips] = useState<TripPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const fetch = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     // Début du jour local : inclut les voyages programmés aujourd'hui même si l'heure est passée
     const startOfToday = new Date();
@@ -33,10 +34,12 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
     const { data, error } = await q;
     if (error) setError(error.message);
     setTrips((data as TripPublic[] | null) ?? []);
+    hasLoadedRef.current = true;
     setLoading(false);
   }, [cityId, days]);
 
   useEffect(() => {
+    hasLoadedRef.current = false;
     fetch();
     const channel = supabase
       .channel("trips-public-live")

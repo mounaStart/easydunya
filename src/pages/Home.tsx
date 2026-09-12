@@ -56,7 +56,7 @@ function formatSearchDate(dateStr: string, locale: string): string {
 
 export default function Home() {
   const { t, i18n } = useTranslation();
-  const { user, profile, authReady } = useAuth();
+  const { user, profile } = useAuth();
   const isAr = i18n.language === "ar";
   const { cities } = useCities();
   const { cities: cityCounts } = useCityCounts();
@@ -208,16 +208,15 @@ export default function Home() {
     );
   };
 
-  const firstName =
-    authReady && user && profile?.full_name
-      ? profile.full_name.split(/\s+/)[0]
-      : "";
+  const firstName = profile?.full_name
+    ? profile.full_name.split(/\s+/)[0]
+    : "";
 
   return (
     <div className="w-full max-w-[379px] mx-auto bg-[#eef5fc] min-h-full pb-6">
       {/* Hero + carte recherche en dessous (sans chevauchement) */}
       <div className="px-3 pt-4">
-        {user && authReady && (
+        {user && profile && (
           <div className="mb-4">
             <h1 className="h1">
               {t("home.greeting")}{firstName ? `, ${firstName}` : ""} 👋
@@ -363,7 +362,7 @@ export default function Home() {
       {/* Résultats */}
       <div ref={resultsRef} className="px-4 mt-5 scroll-mt-24">
         <SearchResults
-          loading={loading}
+          loading={loading && trips.length === 0}
           tripsError={tripsError}
           geoError={geoError}
           results={displayedResults}

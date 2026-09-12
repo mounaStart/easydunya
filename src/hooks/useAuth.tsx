@@ -79,10 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfileForRef = useRef<string | null>(null);
   const initialAuthDoneRef = useRef(false);
 
-  const loadProfile = useCallback(async (u: User) => {
+  const loadProfile = useCallback(async (u: User, opts?: { silent?: boolean }) => {
     loadProfileForRef.current = u.id;
-    setProfileLoading(true);
-    setProfile((prev) => (prev?.id === u.id ? prev : null));
+    if (!opts?.silent) {
+      setProfileLoading(true);
+      setProfile((prev) => (prev?.id === u.id ? prev : null));
+    }
 
     try {
       const { data, error } = await supabase
@@ -124,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (loadProfileForRef.current !== u.id) return;
       setProfile((created as Profile | null) ?? (payload as unknown as Profile));
     } finally {
-      if (loadProfileForRef.current === u.id) {
+      if (loadProfileForRef.current === u.id && !opts?.silent) {
         setProfileLoading(false);
       }
     }
@@ -134,7 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (s: Session | null, event?: string) => {
       setSession(s);
       if (s?.user) {
-        await loadProfile(s.user);
+        const silent =
+          event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
+        await loadProfile(s.user, { silent });
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           rebindPushToUser(s.user.id).catch(() => {});
         }
@@ -149,8 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshSessionFromStorage = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
-    await applySession(data.session);
-  }, [applySession]);
+    const s = data.session;
+    setSession(s);
+    if (s?.user) {
+      await loadProfile(s.user, {
+        silent: loadProfileForRef.current === s.user.id,
+      });
+    } else {
+      loadProfileForRef.current = null;
+      setProfile(null);
+      setProfileLoading(false);
+    }
+  }, [loadProfile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -430,7 +444,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) await loadProfile(session.user);
+    if (session?.user) await loadProfile(session.user, { silent: true });
   }, [session, loadProfile]);
 
   const value = useMemo<AuthContextValue>(() => {

@@ -153,8 +153,27 @@ export default function LocationPrompt() {
 
   useEffect(() => {
     setChecked(false);
-    refresh();
-  }, [refresh]);
+  }, [user?.id]);
+
+  useEffect(() => {
+    void refresh();
+  }, [user?.id, hidden, profile?.role]);
+
+  useEffect(() => {
+    if (!user || hidden || !isPassenger) return;
+    const hasQuartier =
+      isValidQuartierLabel(profile?.quartier) &&
+      profile?.location_lat != null &&
+      profile?.location_lng != null;
+    if (hasQuartier) setNeedsPrompt(false);
+  }, [
+    user,
+    hidden,
+    isPassenger,
+    profile?.quartier,
+    profile?.location_lat,
+    profile?.location_lng,
+  ]);
 
   useEffect(() => {
     if (checked && !visible) signalLocationPromptSettled();
