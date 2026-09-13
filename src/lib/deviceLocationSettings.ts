@@ -8,9 +8,15 @@ interface EasyDunyaLocationPlugin {
 
 const EasyDunyaLocation = registerPlugin<EasyDunyaLocationPlugin>("EasyDunyaLocation");
 
-/** Vrai si le GPS système Android est activé. null = inconnu (web / iOS). */
+function isNativeLocationPlatform(): boolean {
+  if (!Capacitor.isNativePlatform()) return false;
+  const platform = Capacitor.getPlatform();
+  return platform === "android" || platform === "ios";
+}
+
+/** Vrai si le GPS système est activé. null = inconnu (web). */
 export async function isDeviceLocationEnabled(): Promise<boolean | null> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+  if (!isNativeLocationPlatform()) {
     return null;
   }
   try {
@@ -21,9 +27,9 @@ export async function isDeviceLocationEnabled(): Promise<boolean | null> {
   }
 }
 
-/** Ouvre l'écran « Localisation » des paramètres Android. */
+/** Ouvre l'écran Localisation (Android) ou Réglages de l'app (iOS). */
 export async function openDeviceLocationSettings(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+  if (!isNativeLocationPlatform()) {
     return false;
   }
   try {
@@ -36,7 +42,7 @@ export async function openDeviceLocationSettings(): Promise<boolean> {
 
 /** Ouvre les paramètres de l'app (autorisation localisation). */
 export async function openAppPermissionSettings(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+  if (!isNativeLocationPlatform()) {
     return false;
   }
   try {
