@@ -8,7 +8,8 @@ const NETLIFY_URL = "https://easydunya.netlify.app";
  * - non défini ou URL → charge le site distant (défaut Netlify, comme avant)
  * - "embedded" → dist/ embarqué dans l'APK / IPA (secrets GitHub VITE_* requis au build)
  */
-const raw = process.env.CAPACITOR_SERVER_URL?.trim() ?? "";
+const isIosSync = process.argv.includes("ios");
+const raw = process.env.CAPACITOR_SERVER_URL?.trim() ?? (isIosSync ? "embedded" : "");
 const useEmbedded = raw === "embedded" || raw === "local";
 const remoteUrl = useEmbedded ? "" : (raw.replace(/\/$/, "") || NETLIFY_URL);
 

@@ -417,5 +417,5 @@ le site distant).
 | Bannière iOS n’apparaît pas | Vérifier `send-fcm` (payload `apns`) déployé ; permission Notifications = Autoriser |
 | Localisation refusée | Réglages iPhone → Easy Dunya → Position → **Lorsque l’app est active** |
 | Écran blanc | Rebuild avec les bonnes variables `VITE_*` (mode `embedded`) ou vérifier l’URL Netlify |
-| Profil introuvable après login | Rebuild l’IPA embarquée (le JS doit inclure le chargement profil hors `onAuthStateChange`). Puis supprimer l’app et relancer. |
+| Profil introuvable après login | `npm run cap:ios` (embarqué). L’app ne doit **pas** charger Netlify. Supprimer l’app, Clean, ▶. |
 | `npx cap open ios` sur Linux | Normal : ouvrez le projet sur un Mac |

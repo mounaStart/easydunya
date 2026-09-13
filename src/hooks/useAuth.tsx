@@ -11,6 +11,7 @@ import {
 import { type Session, type User } from "@supabase/supabase-js";
 import { App } from "@capacitor/app";
 import { supabase } from "../lib/supabase";
+import { fetchProfileWithAccessToken, profileFromUser } from "../lib/profileApi";
 import { phoneToEmail } from "../lib/phone";
 import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
@@ -77,89 +78,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const loadProfileForRef = useRef<string | null>(null);
+  const loadGenRef = useRef(0);
   const initialAuthDoneRef = useRef(false);
 
-  const loadProfile = useCallback(async (u: User, opts?: { silent?: boolean }) => {
-    loadProfileForRef.current = u.id;
-    if (!opts?.silent) {
-      setProfileLoading(true);
-      setProfile((prev) => (prev?.id === u.id ? prev : null));
-    }
+  const loadProfile = useCallback(
+    async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
+      const requestId = ++loadGenRef.current;
+      loadProfileForRef.current = u.id;
+      // Ne jamais vider le profil : l'écran « introuvable » bloquait iOS
+      // (select timeout + upsert admin/chauffeur refusé par le RLS).
+      setProfile((prev) => (prev?.id === u.id ? prev : profileFromUser(u)));
+      if (!opts?.silent) setProfileLoading(false);
 
-    const queryOnce = () => {
-      const profileQuery = supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", u.id)
-        .maybeSingle();
-      const timeout = new Promise<{ data: null; error: { message: string } }>(
-        (resolve) =>
-          setTimeout(
-            () => resolve({ data: null, error: { message: "profile_timeout" } }),
-            8_000
-          )
-      );
-      return Promise.race([profileQuery, timeout]);
-    };
-
-    try {
-      let data: Profile | null = null;
-      let lastError: string | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const result = await queryOnce();
-        if (loadProfileForRef.current !== u.id) return;
-        if (result.data) {
-          data = result.data as Profile;
-          lastError = null;
-          break;
+      const token = opts?.accessToken;
+      if (!token) return;
+      void fetchProfileWithAccessToken(u.id, token).then((data) => {
+        if (requestId !== loadGenRef.current || loadProfileForRef.current !== u.id) {
+          return;
         }
-        lastError = result.error?.message ?? null;
-        if (!result.error) break;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
-      }
-
-      if (loadProfileForRef.current !== u.id) return;
-
-      if (data) {
-        setProfile(data);
-        return;
-      }
-
-      // Aucun profil (ou select en timeout) → upsert pour débloquer la session.
-      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-      const roleMeta = meta.role;
-      const role: UserRole =
-        roleMeta === "driver" || roleMeta === "admin" ? roleMeta : "passenger";
-      const payload = {
-        id: u.id,
-        role,
-        full_name: (meta.full_name as string) ?? null,
-        phone: (meta.phone as string) ?? null,
-        driver_status: role === "driver" ? "pending" : null,
-      };
-      const { data: created, error: upsertError } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" })
-        .select()
-        .maybeSingle();
-
-      if (loadProfileForRef.current !== u.id) return;
-      if (created) {
-        setProfile(created as Profile);
-        return;
-      }
-      if (upsertError && lastError) {
-        console.warn("[auth] profil:", lastError, upsertError.message);
-        setProfile(null);
-        return;
-      }
-      setProfile((created as Profile | null) ?? (payload as unknown as Profile));
-    } finally {
-      if (loadProfileForRef.current === u.id && !opts?.silent) {
-        setProfileLoading(false);
-      }
-    }
-  }, []);
+        if (data) setProfile(data);
+      });
+    },
+    []
+  );
 
   const applySession = useCallback(
     async (s: Session | null, event?: string) => {
@@ -167,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         const silent =
           event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
-        await loadProfile(s.user, { silent });
+        await loadProfile(s.user, { silent, accessToken: s.access_token });
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           rebindPushToUser(s.user.id).catch(() => {});
         }
@@ -187,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (s?.user) {
       await loadProfile(s.user, {
         silent: loadProfileForRef.current === s.user.id,
+        accessToken: s.access_token,
       });
     } else {
       loadProfileForRef.current = null;
@@ -352,7 +294,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phone: trimmedPhone,
           });
           if (data.session?.user) {
-            await loadProfile(data.session.user);
+            await loadProfile(data.session.user, {
+              accessToken: data.session.access_token,
+            });
             return {};
           }
         }
@@ -451,7 +395,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from("profiles")
           .update({ must_change_password: false })
           .eq("id", session.user.id);
-        await loadProfile(session.user);
+        await loadProfile(session.user, { accessToken: session.access_token });
         await supabase.rpc("notify_user", {
           p_user: session.user.id,
           p_title: "Mot de passe réinitialisé ✓",
@@ -490,6 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!session?.user) return;
     await loadProfile(session.user, {
       silent: !!profile && profile.id === session.user.id,
+      accessToken: session.access_token,
     });
   }, [session, profile, loadProfile]);
 
