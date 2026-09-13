@@ -58,9 +58,19 @@ export default function Layout() {
   );
 
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(termsResolved);
+  const [pendingTooLong, setPendingTooLong] = useState(false);
 
   useEffect(() => {
     setTermsAccepted(termsResolved);
+  }, [termsResolved]);
+
+  useEffect(() => {
+    if (termsResolved !== null) {
+      setPendingTooLong(false);
+      return;
+    }
+    const id = window.setTimeout(() => setPendingTooLong(true), 2500);
+    return () => window.clearTimeout(id);
   }, [termsResolved]);
 
   useEffect(() => {
@@ -98,7 +108,7 @@ export default function Layout() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  if (termsAccepted === null) {
+  if (termsAccepted === null && !pendingTooLong) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Spinner label="Connexion…" />

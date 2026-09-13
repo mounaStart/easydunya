@@ -47,7 +47,11 @@ bootNativeLayer();
 
 // Recharge automatiquement quand une nouvelle version du service worker
 // prend le contrôle (navigateur uniquement — pas dans l'APK native).
-if ("serviceWorker" in navigator && !isNativePlatform()) {
+if (
+  "serviceWorker" in navigator &&
+  !isNativePlatform() &&
+  !/iPad|iPhone|iPod/.test(navigator.userAgent || "")
+) {
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;

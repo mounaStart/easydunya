@@ -39,16 +39,18 @@
         }
       });
     </script>
-    <!-- Capacitor : bloquer le SW PWA avant tout chargement (évite écran blanc si ancien build). -->
+    <!-- iOS Safari + Capacitor : le SW PWA provoque un chargement infini après login. -->
     <script>
       (function () {
         if (!("serviceWorker" in navigator)) return;
+        var ua = navigator.userAgent || "";
+        var ios = /iPad|iPhone|iPod/.test(ua);
         var cap = window.Capacitor;
-        if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) { r.unregister(); });
-          });
-        }
+        var native = cap && cap.isNativePlatform && cap.isNativePlatform();
+        if (!ios && !native) return;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (r) { r.unregister(); });
+        });
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
