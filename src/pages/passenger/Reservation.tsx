@@ -21,7 +21,7 @@ import TrackingMap from "../../components/TrackingMap";
 import TripTrackingStats from "../../components/TripTrackingStats";
 import { useTripRouteDistanceKm } from "../../hooks/useDrivingRoute";
 import { formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
-import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../../lib/brandColors";
+import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
 
 const ACTIVE = ["pending", "confirmed"];
 
@@ -312,40 +312,49 @@ export default function Reservation() {
         )}
       </div>
 
-      {/* Suivi en direct */}
+      {/* Suivi en direct — même carte horizontale pleine largeur que côté chauffeur */}
       {trip && (
         <div className="card overflow-hidden">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-ink px-5 pt-5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BRAND_BLUE} strokeWidth="2"><path d="M4.9 19.1A10 10 0 0 1 4.9 5M19.1 5a10 10 0 0 1 0 14M8 16a5 5 0 0 1 0-8M16 8a5 5 0 0 1 0 8"/><circle cx="12" cy="12" r="1.5" fill={BRAND_BLUE}/></svg>
-            {t("trip.liveTracking")}
-          </h2>
-          {!started && (
-            <div className="mx-5 mt-3 bg-amber-50 text-amber-700 rounded-2xl px-4 py-3 text-sm flex items-center gap-2">
-              <span>⏳</span>
-              {t("trip.notStarted")}
+          <div className="px-3 pt-3 pb-2">
+            <h2 className="h2 mb-2">{t("trip.trackingMap")}</h2>
+            <div className="font-semibold text-ink truncate">
+              {fromName} → {toName}
             </div>
-          )}
-          <div className="p-5 pt-3">
+            <div className="text-xs text-slate-500">
+              {relativeDateLabel(trip.depart_at)} · {formatPeriod(trip.depart_at)}
+            </div>
+            {!started && (
+              <div className="mt-3 bg-amber-50 text-amber-700 rounded-2xl px-4 py-3 text-sm flex items-center gap-2">
+                <span>⏳</span>
+                {t("trip.notStarted")}
+              </div>
+            )}
             <TripTrackingStats
               trip={trip}
               driverPos={driverPos}
               started={started}
-              className="mb-3"
+              className="mt-3"
             />
-            <TrackingMap
-              from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
-              to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
-              driver={driverPos}
-            />
-            {started && !driverPos && (
-              <p className="muted text-center mt-3">{t("trip.waitingGps")}</p>
-            )}
-            {started && driverPos && staleDriver && staleMins != null && (
-              <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-3">
-                {t("trip.staleDriverPos", { minutes: staleMins })}
-              </p>
-            )}
           </div>
+          <TrackingMap
+            fullBleed
+            from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
+            to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
+            driver={driverPos}
+          />
+          {(started && !driverPos) ||
+          (started && driverPos && staleDriver && staleMins != null) ? (
+            <div className="px-3 py-2 space-y-2 border-t border-slate-100">
+              {started && !driverPos && (
+                <p className="muted text-sm text-center">{t("trip.waitingGps")}</p>
+              )}
+              {started && driverPos && staleDriver && staleMins != null && (
+                <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+                  {t("trip.staleDriverPos", { minutes: staleMins })}
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
 

@@ -44,6 +44,8 @@ interface Props {
   onPickupSelect?: (id: string) => void;
   height?: number | string;
   variant?: "route" | "pickups";
+  /** Pleine largeur dans une card (bords plats, format horizontal). */
+  fullBleed?: boolean;
 }
 
 const FALLBACK_LINE = {
@@ -71,6 +73,9 @@ const GOOGLE_LINE = {
   geodesic: true,
 };
 
+/** Hauteur standard (carte horizontale pleine largeur, identique chauffeur / passager). */
+export const TRACKING_MAP_HEIGHT = 240;
+
 export default function TrackingMap({
   from,
   to,
@@ -78,8 +83,9 @@ export default function TrackingMap({
   pickups = [],
   selectedPickupId = null,
   onPickupSelect,
-  height = 320,
+  height = TRACKING_MAP_HEIGHT,
   variant = "route",
+  fullBleed = false,
 }: Props) {
   const { t } = useTranslation();
   const pickupsOnly = variant === "pickups";
@@ -262,8 +268,12 @@ export default function TrackingMap({
 
   const driverMarker = mapReady ? googleDriverMarker() : null;
 
+  const shellClass = fullBleed
+    ? "relative overflow-hidden shadow-soft border-y border-slate-100"
+    : "relative rounded-3xl overflow-hidden shadow-soft border border-slate-100";
+
   return (
-    <div className="relative rounded-3xl overflow-hidden shadow-soft border border-slate-100" data-no-ptr>
+    <div className={shellClass} data-no-ptr>
       {showRoute && routeStatus === "loading" && (
         <div className="pointer-events-none absolute z-[1000] top-2 left-2 right-2 bg-white/95 backdrop-blur rounded-xl px-3 py-1.5 text-[11px] text-slate-600 border border-slate-100 shadow-sm">
           {t("trip.routeLoading")}

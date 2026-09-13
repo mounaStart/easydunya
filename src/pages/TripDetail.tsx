@@ -339,34 +339,42 @@ export default function TripDetail() {
         </div>
       </div>
 
-      {/* Carte de suivi (voyage en cours) */}
+      {/* Carte de suivi (voyage en cours) — pleine largeur comme côté chauffeur */}
       {trip.status === "in_progress" &&
         Number.isFinite(trip.from_lat) &&
         Number.isFinite(trip.to_lat) && (
-          <div className="card p-3.5">
-            <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              {t("trip.trackingMap")}
-            </h2>
-            <TripTrackingStats
-              trip={trip}
-              driverPos={driverPos}
-              started
-              className="mb-2"
-            />
+          <div className="card overflow-hidden">
+            <div className="px-3 pt-3 pb-2">
+              <h2 className="h2 mb-2">{t("trip.trackingMap")}</h2>
+              <div className="font-semibold text-ink truncate">
+                {fromName} → {toName}
+              </div>
+              <TripTrackingStats
+                trip={trip}
+                driverPos={driverPos}
+                started
+                className="mt-3"
+              />
+            </div>
             <TrackingMap
+              fullBleed
               from={{ lat: trip.from_lat, lng: trip.from_lng, label: fromName }}
               to={{ lat: trip.to_lat, lng: trip.to_lng, label: toName }}
               driver={driverPos}
-              height={240}
             />
-            {!driverPos && (
-              <p className="muted text-sm mt-2">{t("trip.waitingDriverPos")}</p>
-            )}
-            {driverPos && staleDriver && staleMins != null && (
-              <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-2">
-                {t("trip.staleDriverPos", { minutes: staleMins })}
-              </p>
-            )}
+            {!driverPos ||
+            (driverPos && staleDriver && staleMins != null) ? (
+              <div className="px-3 py-2 space-y-2 border-t border-slate-100">
+                {!driverPos && (
+                  <p className="muted text-sm">{t("trip.waitingDriverPos")}</p>
+                )}
+                {driverPos && staleDriver && staleMins != null && (
+                  <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+                    {t("trip.staleDriverPos", { minutes: staleMins })}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         )}
 

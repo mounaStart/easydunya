@@ -465,7 +465,7 @@ export default function DriverHome() {
 
             {isInProgress && showMap ? (
               <TrackingMap
-                height={240}
+                fullBleed
                 from={{
                   lat: focusTrip.from_lat,
                   lng: focusTrip.from_lng,
@@ -480,8 +480,8 @@ export default function DriverHome() {
               />
             ) : mapPickups.length > 0 ? (
               <TrackingMap
+                fullBleed
                 variant="pickups"
-                height={240}
                 pickups={mapPickups}
                 driver={driverPos}
                 selectedPickupId={selectedClusterId}
