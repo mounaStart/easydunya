@@ -31,9 +31,11 @@ const config: CapacitorConfig = {
           errorPath: "/offline.html",
         },
       }),
+  backgroundColor: "#f8fafc",
   ios: {
     contentInset: "automatic",
     scheme: "Easy Dunya",
+    backgroundColor: "#f8fafc",
   },
   plugins: {
     PushNotifications: {

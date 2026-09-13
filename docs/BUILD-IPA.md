@@ -417,5 +417,5 @@ le site distant).
 | Bannière iOS n’apparaît pas | Vérifier `send-fcm` (payload `apns`) déployé ; permission Notifications = Autoriser |
 | Localisation refusée | Réglages iPhone → Easy Dunya → Position → **Lorsque l’app est active** |
 | Écran blanc | Rebuild avec les bonnes variables `VITE_*` (mode `embedded`) ou vérifier l’URL Netlify |
-| Xcode garde l’ancien JS | Fermer Xcode, `git pull` + `npm run cap:ios` jusqu’à `OK — Xcode a le JS embarqué`. Clean, supprimer l’app, ▶. La connexion doit afficher **iOS build 6**. |
+| Xcode garde l’ancien JS | Fermer Xcode, `git pull` + `npm run cap:ios` jusqu’à `OK — Xcode a le JS embarqué`. Clean, supprimer l’app, ▶. La connexion doit afficher **iOS build 7**. |
 | `npx cap open ios` sur Linux | Normal : ouvrez le projet sur un Mac |

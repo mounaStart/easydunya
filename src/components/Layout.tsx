@@ -43,8 +43,8 @@ export default function Layout() {
   } = useAuth();
   useAndroidBackButton();
 
-  // Ne pas bloquer sur !authReady si le profil a échoué (sinon spinner infini).
-  const authPending = loading || profileLoading;
+  // Ne bloquer le visiteur que s'il n'y a pas encore de session.
+  const authPending = !user && (loading || profileLoading);
 
   const termsResolved = useMemo(
     () =>

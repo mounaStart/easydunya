@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, HashRouter } from "react-router-dom";
 import App from "./App";
@@ -30,6 +30,13 @@ if ("scrollRestoration" in history) {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AppErrorBoundary>
+      <Suspense
+        fallback={
+          <div style={{ padding: 24, fontFamily: "system-ui", background: "#f8fafc", minHeight: "100vh" }}>
+            Chargement Easy Dunya…
+          </div>
+        }
+      >
       <AppRouter>
         <AuthProvider>
           <GoogleMapsProvider>
@@ -39,6 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           </GoogleMapsProvider>
         </AuthProvider>
       </AppRouter>
+      </Suspense>
     </AppErrorBoundary>
   </React.StrictMode>
 );
