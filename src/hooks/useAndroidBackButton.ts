@@ -32,7 +32,7 @@ export function useAndroidBackButton() {
         profile,
         authPending: loading || (!!user && !authReady),
       });
-      if (termsOk === false) {
+      if (user && termsOk === false) {
         void App.exitApp();
         return;
       }

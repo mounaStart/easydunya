@@ -33,16 +33,12 @@ export default function TermsGate({ onAccepted }: Props) {
     acceptCgu && acceptPrivacy && (!isDriver || acceptDriver) && !busy;
 
   async function handleAccept() {
-    if (!canAccept) return;
+    if (!canAccept || !user) return;
     setBusy(true);
     setError(null);
     try {
-      const { error: acceptError } = await acceptTerms({ userId: user?.id });
-      if (acceptError) {
-        setError(acceptError);
-        return;
-      }
-      if (user) await refreshProfile();
+      await acceptTerms(user.id);
+      await refreshProfile();
       onAccepted();
     } finally {
       setBusy(false);

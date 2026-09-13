@@ -93,7 +93,7 @@ export default function Layout() {
     return <Spinner />;
   }
 
-  if (!termsAccepted) {
+  if (user && !termsAccepted) {
     return <TermsGate onAccepted={() => setTermsAccepted(true)} />;
   }
 

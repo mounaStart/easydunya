@@ -4,8 +4,6 @@ import type { Profile } from "./types";
 /** Version des CGU — incrémenter pour redemander l'acceptation. */
 export const TERMS_VERSION = "1";
 
-const GUEST_STORAGE_KEY = "ed_terms_guest";
-
 type StoredTerms = {
   version: string;
   acceptedAt: string;
@@ -43,14 +41,10 @@ export function profileHasAcceptedTerms(
   return readStorage(userStorageKey(profile.id)) !== null;
 }
 
-/** Visiteur non connecté : CGU acceptées sur cet appareil ? */
-export function guestHasAcceptedTerms(): boolean {
-  return readStorage(GUEST_STORAGE_KEY) !== null;
-}
-
 /**
  * null = auth en cours (attendre avant d'afficher l'app ou le gate).
- * true/false = décision prête.
+ * true = accès autorisé (visiteur ou CGU déjà acceptées).
+ * false = utilisateur connecté, CGU à afficher.
  */
 export function resolveTermsAccepted(opts: {
   userId: string | null | undefined;
@@ -58,30 +52,21 @@ export function resolveTermsAccepted(opts: {
   authPending: boolean;
 }): boolean | null {
   if (opts.authPending) return null;
-  if (opts.userId) {
-    if (!opts.profile || opts.profile.id !== opts.userId) return false;
-    return profileHasAcceptedTerms(opts.profile);
-  }
-  return guestHasAcceptedTerms();
+  // Visiteur non connecté : pas de CGU à l'ouverture de l'app
+  if (!opts.userId) return true;
+  if (!opts.profile || opts.profile.id !== opts.userId) return false;
+  return profileHasAcceptedTerms(opts.profile);
 }
 
-export async function acceptTerms(opts: {
-  userId?: string | null;
-}): Promise<{ error?: string }> {
-  if (opts.userId) {
-    writeStorage(userStorageKey(opts.userId));
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        terms_accepted_version: TERMS_VERSION,
-        terms_accepted_at: new Date().toISOString(),
-      })
-      .eq("id", opts.userId);
-    // localStorage déjà enregistré ; ignorer si colonnes DB pas encore migrées
-    if (error) console.warn("terms acceptance db update failed:", error.message);
-    return {};
-  }
-
-  writeStorage(GUEST_STORAGE_KEY);
+export async function acceptTerms(userId: string): Promise<{ error?: string }> {
+  writeStorage(userStorageKey(userId));
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      terms_accepted_version: TERMS_VERSION,
+      terms_accepted_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+  if (error) console.warn("terms acceptance db update failed:", error.message);
   return {};
 }
