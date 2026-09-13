@@ -126,10 +126,10 @@ on conflict (provider, provider_id) do nothing;
 
 -- Forcer les rôles dans profiles (au cas où le trigger n'aurait pas pris)
 update public.profiles set role = 'admin',     driver_status = null,        full_name = 'Admin Easy Dunya',     phone = '+22230000001' where id = '22222222-2222-2222-2222-000000000001';
-update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Mohamed Ould Sidi',    phone = '+22230000002' where id = '22222222-2222-2222-2222-000000000002';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Mohamed Ould Sidi',    phone = '+22230000002', gps_consent = true where id = '22222222-2222-2222-2222-000000000002';
 update public.profiles set role = 'passenger', full_name = 'Aminata Diallo', phone = '+22230000003'              where id = '22222222-2222-2222-2222-000000000003';
-update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Sidi Ould Ahmed',      phone = '+22230000004' where id = '22222222-2222-2222-2222-000000000004';
-update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Yahya Ould Brahim',    phone = '+22230000005' where id = '22222222-2222-2222-2222-000000000005';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Sidi Ould Ahmed',      phone = '+22230000004', gps_consent = true where id = '22222222-2222-2222-2222-000000000004';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Yahya Ould Brahim',    phone = '+22230000005', gps_consent = true where id = '22222222-2222-2222-2222-000000000005';
 
 -- Sécurité : si les triggers n'ont pas créé les profils, on les insère
 insert into public.profiles (id, role, full_name, phone, driver_status)
