@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { type Session, type User } from "@supabase/supabase-js";
-import { App } from "@capacitor/app";
 import { supabase } from "../lib/supabase";
 import { fetchProfileWithAccessToken, profileFromUser } from "../lib/profileApi";
 import { phoneToEmail } from "../lib/phone";
@@ -79,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const loadProfileForRef = useRef<string | null>(null);
   const loadGenRef = useRef(0);
+  const sessionRef = useRef<Session | null>(null);
   const initialAuthDoneRef = useRef(false);
 
   const loadProfile = useCallback(
@@ -103,39 +103,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const applySession = useCallback(
-    async (s: Session | null, event?: string) => {
+    async (s: Session, event?: string) => {
+      sessionRef.current = s;
       setSession(s);
-      if (s?.user) {
-        const silent =
-          event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
-        await loadProfile(s.user, { silent, accessToken: s.access_token });
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          rebindPushToUser(s.user.id).catch(() => {});
-        }
-      } else {
-        loadProfileForRef.current = null;
-        setProfile(null);
-        setProfileLoading(false);
+      setProfile((prev) => (prev?.id === s.user.id ? prev : profileFromUser(s.user)));
+      setProfileLoading(false);
+      const silent =
+        event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
+      await loadProfile(s.user, { silent, accessToken: s.access_token });
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        rebindPushToUser(s.user.id).catch(() => {});
       }
     },
     [loadProfile]
   );
 
+  const clearSession = useCallback(() => {
+    sessionRef.current = null;
+    loadProfileForRef.current = null;
+    setSession(null);
+    setProfile(null);
+    setProfileLoading(false);
+  }, []);
+
   const refreshSessionFromStorage = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const s = data.session;
-    setSession(s);
     if (s?.user) {
-      await loadProfile(s.user, {
-        silent: loadProfileForRef.current === s.user.id,
-        accessToken: s.access_token,
-      });
-    } else {
-      loadProfileForRef.current = null;
-      setProfile(null);
-      setProfileLoading(false);
+      await applySession(s);
+      return;
     }
-  }, [loadProfile]);
+    // iOS : getSession() peut renvoyer null juste après un login réussi.
+    // Ne pas effacer la session mémoire (sinon « Profil introuvable »).
+    if (sessionRef.current) return;
+    clearSession();
+  }, [applySession, clearSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,12 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      void applySession(data.session).finally(finishInitialLoad);
+      if (data.session?.user) {
+        void applySession(data.session).finally(finishInitialLoad);
+      } else {
+        finishInitialLoad();
+      }
     });
 
-    // Ne pas await de requêtes Supabase dans ce callback : le client auth
-    // retient un verrou jusqu'à la fin, et from("profiles") attend le même
-    // verrou → deadlock iOS (Safari / WKWebView) = « Profil introuvable ».
+    // Ne pas await dans ce callback (verrou auth iOS). Ignorer les sessions
+    // vides : getSession / TOKEN_REFRESHED peuvent arriver à vide sur WKWebView.
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (cancelled) return;
       if (evt === "INITIAL_SESSION") {
@@ -164,7 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       window.setTimeout(() => {
         if (cancelled) return;
-        void applySession(s, evt);
+        if (evt === "SIGNED_OUT") {
+          clearSession();
+          return;
+        }
+        if (s?.user) void applySession(s, evt);
       }, 0);
     });
 
@@ -173,22 +182,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(bootstrapTimeout);
       sub.subscription.unsubscribe();
     };
-  }, [applySession]);
+  }, [applySession, clearSession]);
 
   useEffect(() => {
     if (isNativePlatform()) {
-      try {
-        const sub = App.addListener("appStateChange", ({ isActive }) => {
-          if (isActive) void refreshSessionFromStorage();
-        });
-        return () => {
-          void Promise.resolve(sub)
-            .then((handle) => handle.remove())
-            .catch(() => {});
-        };
-      } catch {
-        return undefined;
-      }
+      return undefined;
     }
 
     const onVisible = () => {
@@ -206,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
-    if (data.session) await applySession(data.session, "SIGNED_IN");
+    if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
 
@@ -216,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
-    if (data.session) await applySession(data.session, "SIGNED_IN");
+    if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
 
@@ -423,12 +421,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     void unsubscribeFromPush();
-    loadProfileForRef.current = null;
-    setProfile(null);
-    setProfileLoading(false);
+    clearSession();
     await supabase.auth.signOut();
-    setSession(null);
-  }, []);
+  }, [clearSession]);
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user) return;
@@ -440,25 +435,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => {
     const user = session?.user ?? null;
-    const profileMatchesUser = !user || profile?.id === user.id;
-    const authReady =
-      !loading &&
-      !profileLoading &&
-      profileMatchesUser &&
-      (!user || profile !== null);
-    const role = profileMatchesUser ? (profile?.role ?? null) : null;
+    const resolvedProfile = user
+      ? profile?.id === user.id
+        ? profile
+        : profileFromUser(user)
+      : null;
+    const authReady = !loading && !profileLoading && (!user || resolvedProfile !== null);
+    const role = resolvedProfile?.role ?? null;
     return {
       loading,
       profileLoading,
       authReady,
       session,
       user,
-      profile: profileMatchesUser ? profile : null,
+      profile: resolvedProfile,
       role,
       isAdmin: role === "admin",
       isDriver: role === "driver",
       isPassenger: role === "passenger",
-      mustChangePassword: !!profile?.must_change_password && profileMatchesUser,
+      mustChangePassword: !!resolvedProfile?.must_change_password,
       signInWithPhone,
       signInWithEmail,
       signUpPassenger,

@@ -36,7 +36,6 @@ export default function Layout() {
     isDriver,
     isAdmin,
     refreshProfile,
-    signOut,
     user,
     profile,
     loading,
@@ -112,35 +111,6 @@ export default function Layout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Spinner label="Connexion…" />
-      </div>
-    );
-  }
-
-  if (user && !profile && !profileLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md w-full rounded-2xl bg-white border border-slate-200 shadow-lg p-5">
-          <h1 className="text-lg font-bold text-slate-800">Profil introuvable</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            La connexion a réussi, mais le profil n’a pas pu être chargé.
-            Vérifiez le réseau, puis réessayez. Si ça continue, déconnectez-vous
-            et reconnectez-vous.
-          </p>
-          <button
-            type="button"
-            className="mt-4 w-full rounded-xl bg-brand-600 text-white py-3 font-semibold"
-            onClick={() => void refreshProfile()}
-          >
-            Réessayer
-          </button>
-          <button
-            type="button"
-            className="mt-2 w-full rounded-xl border border-slate-200 py-3 font-semibold text-slate-700"
-            onClick={() => void signOut()}
-          >
-            Déconnexion
-          </button>
-        </div>
       </div>
     );
   }

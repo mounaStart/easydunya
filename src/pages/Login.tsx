@@ -94,6 +94,7 @@ export default function Login() {
             {t("auth.signUp")}
           </Link>
         </p>
+        <p className="text-center text-[11px] text-slate-400 mt-4">iOS build 5</p>
       </div>
     </div>
   );
