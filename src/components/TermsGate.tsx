@@ -93,48 +93,55 @@ export default function TermsGate({ onAccepted }: Props) {
             </p>
           )}
 
-          <div className="rounded-2xl bg-gradient-to-br from-brand-50 via-white to-accent-50/60 p-4 shadow-soft ring-2 ring-brand-200 border-l-4 border-brand-600 space-y-2.5">
-            <p className="text-xs font-bold uppercase tracking-wide text-brand-700">
-              {t("terms.acceptanceTitle")}
-            </p>
+          <div className="rounded-2xl overflow-hidden shadow-soft ring-1 ring-accent-200/70">
+            <div className="h-1.5 bg-brand-gradient" aria-hidden />
+            <div className="bg-gradient-to-br from-brand-50 via-white to-accent-100/80 p-4 space-y-2.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-transparent bg-clip-text bg-logo-gradient">
+                {t("terms.acceptanceTitle")}
+              </p>
 
-            <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white/90 px-3 py-2.5 ring-1 ring-brand-100 hover:ring-brand-200 transition">
-              <input
-                type="checkbox"
-                checked={acceptCgu}
-                onChange={(e) => setAcceptCgu(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-sm text-ink-soft font-medium">
-                {t("terms.acceptCgu")}
-              </span>
-            </label>
-
-            <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white/90 px-3 py-2.5 ring-1 ring-brand-100 hover:ring-brand-200 transition">
-              <input
-                type="checkbox"
-                checked={acceptPrivacy}
-                onChange={(e) => setAcceptPrivacy(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-sm text-ink-soft font-medium">
-                {t("terms.acceptPrivacy")}
-              </span>
-            </label>
-
-            {isDriver && (
-              <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white/90 px-3 py-2.5 ring-1 ring-accent-200 hover:ring-accent-300 transition">
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white/95 px-3 py-2.5 border-l-[3px] border-brand-600 ring-1 ring-brand-100/80 hover:ring-brand-300 transition">
                 <input
                   type="checkbox"
-                  checked={acceptDriver}
-                  onChange={(e) => setAcceptDriver(e.target.checked)}
+                  checked={acceptCgu}
+                  onChange={(e) => setAcceptCgu(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-brand-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-sm text-ink-soft font-medium">
+                  {t("terms.acceptCgu")}
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer rounded-xl bg-white/95 px-3 py-2.5 border-l-[3px] border-accent-500 ring-1 ring-accent-100/80 hover:ring-accent-300 transition">
+                <input
+                  type="checkbox"
+                  checked={acceptPrivacy}
+                  onChange={(e) => setAcceptPrivacy(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-accent-300 text-accent-500 focus:ring-accent-400"
                 />
                 <span className="text-sm text-ink-soft font-medium">
-                  {t("terms.acceptDriver")}
+                  {t("terms.acceptPrivacy")}
                 </span>
               </label>
-            )}
+
+              {isDriver && (
+                <label className="relative flex items-start gap-3 cursor-pointer rounded-xl bg-white/95 px-3 py-2.5 ring-1 ring-accent-200/80 hover:ring-accent-400 transition overflow-hidden">
+                  <span
+                    className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-gradient"
+                    aria-hidden
+                  />
+                  <input
+                    type="checkbox"
+                    checked={acceptDriver}
+                    onChange={(e) => setAcceptDriver(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-accent-400 text-accent-500 focus:ring-accent-400"
+                  />
+                  <span className="text-sm text-ink-soft font-medium">
+                    {t("terms.acceptDriver")}
+                  </span>
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
