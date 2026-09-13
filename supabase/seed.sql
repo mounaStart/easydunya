@@ -65,10 +65,71 @@ values (
   'authenticated','authenticated','00000000-0000-0000-0000-000000000000'
 ) on conflict (id) do nothing;
 
+-- ----- CHAUFFEURS SUPPLÉMENTAIRES
+-- Un seul voyage actif par chauffeur (cf. 0045_driver_one_active_trip.sql),
+-- chaque voyage de démo appartient donc à un chauffeur distinct.
+insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data, aud, role, instance_id)
+values (
+  '22222222-2222-2222-2222-000000000004',
+  'driver2@easydunya.mr',
+  crypt('password123', gen_salt('bf')),
+  now(),
+  jsonb_build_object('role','driver','full_name','Sidi Ould Ahmed','phone','+22230000004'),
+  'authenticated','authenticated','00000000-0000-0000-0000-000000000000'
+) on conflict (id) do nothing;
+
+insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data, aud, role, instance_id)
+values (
+  '22222222-2222-2222-2222-000000000005',
+  'driver3@easydunya.mr',
+  crypt('password123', gen_salt('bf')),
+  now(),
+  jsonb_build_object('role','driver','full_name','Yahya Ould Brahim','phone','+22230000005'),
+  'authenticated','authenticated','00000000-0000-0000-0000-000000000000'
+) on conflict (id) do nothing;
+
+-- GoTrue (>= v2.18x) ne supporte pas les colonnes de jetons NULL : il faut
+-- des chaînes vides, sinon la connexion renvoie "Database error querying schema".
+update auth.users set
+  confirmation_token         = coalesce(confirmation_token, ''),
+  recovery_token             = coalesce(recovery_token, ''),
+  email_change               = coalesce(email_change, ''),
+  email_change_token_current = coalesce(email_change_token_current, ''),
+  email_change_token_new     = coalesce(email_change_token_new, ''),
+  phone_change               = coalesce(phone_change, ''),
+  phone_change_token         = coalesce(phone_change_token, ''),
+  reauthentication_token     = coalesce(reauthentication_token, ''),
+  created_at                 = coalesce(created_at, now()),
+  updated_at                 = coalesce(updated_at, now())
+where id in (
+  '22222222-2222-2222-2222-000000000001',
+  '22222222-2222-2222-2222-000000000002',
+  '22222222-2222-2222-2222-000000000003',
+  '22222222-2222-2222-2222-000000000004',
+  '22222222-2222-2222-2222-000000000005'
+);
+
+-- Identités (auth.identities) requises par GoTrue pour le login email/password.
+insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select u.id::text, u.id,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
+       'email', now(), now(), now()
+from auth.users u
+where u.id in (
+  '22222222-2222-2222-2222-000000000001',
+  '22222222-2222-2222-2222-000000000002',
+  '22222222-2222-2222-2222-000000000003',
+  '22222222-2222-2222-2222-000000000004',
+  '22222222-2222-2222-2222-000000000005'
+)
+on conflict (provider, provider_id) do nothing;
+
 -- Forcer les rôles dans profiles (au cas où le trigger n'aurait pas pris)
 update public.profiles set role = 'admin',     driver_status = null,        full_name = 'Admin Easy Dunya',     phone = '+22230000001' where id = '22222222-2222-2222-2222-000000000001';
-update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Mohamed Ould Sidi',    phone = '+22230000002' where id = '22222222-2222-2222-2222-000000000002';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Mohamed Ould Sidi',    phone = '+22230000002', gps_consent = true where id = '22222222-2222-2222-2222-000000000002';
 update public.profiles set role = 'passenger', full_name = 'Aminata Diallo', phone = '+22230000003'              where id = '22222222-2222-2222-2222-000000000003';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Sidi Ould Ahmed',      phone = '+22230000004', gps_consent = true where id = '22222222-2222-2222-2222-000000000004';
+update public.profiles set role = 'driver',    driver_status = 'approved',  full_name = 'Yahya Ould Brahim',    phone = '+22230000005', gps_consent = true where id = '22222222-2222-2222-2222-000000000005';
 
 -- Sécurité : si les triggers n'ont pas créé les profils, on les insère
 insert into public.profiles (id, role, full_name, phone, driver_status)
@@ -80,6 +141,12 @@ insert into public.profiles (id, role, full_name, phone, driver_status)
 insert into public.profiles (id, role, full_name, phone, driver_status)
   values ('22222222-2222-2222-2222-000000000003','passenger','Aminata Diallo','+22230000003',null)
   on conflict (id) do nothing;
+insert into public.profiles (id, role, full_name, phone, driver_status)
+  values ('22222222-2222-2222-2222-000000000004','driver','Sidi Ould Ahmed','+22230000004','approved')
+  on conflict (id) do nothing;
+insert into public.profiles (id, role, full_name, phone, driver_status)
+  values ('22222222-2222-2222-2222-000000000005','driver','Yahya Ould Brahim','+22230000005','approved')
+  on conflict (id) do nothing;
 
 -- ----- VÉHICULE pour le chauffeur démo
 insert into public.vehicles (id, driver_id, make, model, plate, seats, features)
@@ -87,6 +154,20 @@ values (
   '33333333-3333-3333-3333-000000000001',
   '22222222-2222-2222-2222-000000000002',
   'Toyota','Hiace','3456 AA RIM',8,'Climatisé, bagages autorisés'
+) on conflict (id) do nothing;
+
+insert into public.vehicles (id, driver_id, make, model, plate, seats, features)
+values (
+  '33333333-3333-3333-3333-000000000002',
+  '22222222-2222-2222-2222-000000000004',
+  'Toyota','Hiace','7890 BB RIM',8,'Climatisé, bagages autorisés'
+) on conflict (id) do nothing;
+
+insert into public.vehicles (id, driver_id, make, model, plate, seats, features)
+values (
+  '33333333-3333-3333-3333-000000000003',
+  '22222222-2222-2222-2222-000000000005',
+  'Mercedes','Sprinter','1234 CC RIM',8,'Climatisé, WiFi'
 ) on conflict (id) do nothing;
 
 -- ----- VOYAGES DE DÉMO (dans les 7 prochains jours)
@@ -100,15 +181,15 @@ values
    now() + interval '6 hours', 5000, 8, 6,
    'Départ du garage Carrefour Madrid, climatisé', 'scheduled'),
   ('44444444-4444-4444-4444-000000000002',
-   '22222222-2222-2222-2222-000000000002',
-   '33333333-3333-3333-3333-000000000001',
+   '22222222-2222-2222-2222-000000000004',
+   '33333333-3333-3333-3333-000000000002',
    '11111111-1111-1111-1111-000000000001',
    '11111111-1111-1111-1111-000000000005', -- Kaédi
    now() + interval '1 day 8 hours', 7000, 8, 8,
    'Voyage rapide', 'scheduled'),
   ('44444444-4444-4444-4444-000000000003',
-   '22222222-2222-2222-2222-000000000002',
-   '33333333-3333-3333-3333-000000000001',
+   '22222222-2222-2222-2222-000000000005',
+   '33333333-3333-3333-3333-000000000003',
    '11111111-1111-1111-1111-000000000001',
    '11111111-1111-1111-1111-000000000003', -- Rosso
    now() + interval '2 days 10 hours', 3000, 8, 5,
