@@ -123,50 +123,250 @@ déjà ajouté pour les tokens FCM iOS.
 
 ## 5. Ouverture dans Xcode et signature
 
+Voir la procédure complète **A → Z** ci-dessous (sections 4 et 5).
+
 ```bash
 npx cap open ios
 ```
 
 Ou : ouvrir `ios/App/App.xcodeproj` (Capacitor 8 = SPM, pas de `.xcworkspace`).
 
-Dans Xcode :
-
-1. Sélectionnez le projet **App** → cible **App** → onglet **Signing & Capabilities**
-2. Cochez **Automatically manage signing**
-3. **Team** : votre équipe Apple Developer
-4. Vérifiez **Bundle Identifier** = `app.easydunya`
-5. Ajoutez si absentes :
-   - **Push Notifications**
-   - **Background Modes** → **Remote notifications**
-6. Branchez un iPhone (ou choisissez un simulateur — le simulateur
-   **ne reçoit pas** de vrais push APNs)
-
-Au premier lancement, iOS demandera la **localisation**
-(texte Info.plist) puis les **notifications**.
-
 ---
 
 ## 6. Archive et export de l’IPA
 
-### Test sur votre iPhone (développement)
-
-1. En haut : destination = votre iPhone
-2. Menu **Product → Run** (▶)
-3. Sur l’iPhone : **Réglages → Général → Gestion de l’appareil**
-   → faire confiance au certificat développeur
-
-### IPA Ad Hoc / TestFlight / App Store
-
-1. Destination : **Any iOS Device (arm64)**
-2. Menu **Product → Archive**
-3. Organizer → sélectionnez l’archive → **Distribute App**
-4. Choisissez :
-   - **Development** / **Ad Hoc** : IPA à installer via Finder / Apple Configurator
-   - **App Store Connect** : TestFlight + publication
-5. Laissez Xcode gérer le provisioning → **Export** → récupérez le `.ipa`
+Voir **Étape Z** dans le parcours A → Z ci-dessous.
 
 L’IPA n’est **pas** généré par `npx cap` : seule Xcode (ou `xcodebuild`
 sur macOS) le produit.
+
+---
+
+## Étapes 4 et 5 — A → Z (Mac + Xcode)
+
+Ces étapes se font **uniquement sur un Mac**. Prévoyez un compte Apple
+et, pour un iPhone réel / TestFlight / App Store, le programme
+**Apple Developer** (99 $/an).
+
+### A. Préparer le Mac (une seule fois)
+
+1. Installez **Xcode** depuis l’App Store, puis ouvrez-le une fois
+   (licence + composants supplémentaires).
+2. Terminal :
+
+   ```bash
+   xcode-select --install
+   sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+   sudo xcodebuild -license accept
+   ```
+
+3. Installez **Node.js 20+** (https://nodejs.org ou `brew install node`).
+4. Xcode → menu **Xcode → Settings… → Accounts** → **+** → connectez
+   l’**Apple ID** qui paie le Developer Program.
+5. Vérifiez qu’une **Team** apparaît (Personal Team = tests limités 7 jours ;
+   **Apple Developer** = IPA / TestFlight / App Store).
+
+### B. Récupérer le projet
+
+```bash
+git clone https://github.com/mounaStart/easydunya.git
+cd easydunya
+git checkout cursor/add-capacitor-ios-0cb8
+npm ci
+```
+
+### C. Build web + sync Capacitor iOS
+
+```bash
+npm run build
+npx cap sync ios
+```
+
+Raccourci : `npm run cap:ios`.
+
+Par défaut l’app charge **https://easydunya.netlify.app** (comme l’APK).
+Pour embarquer `dist/` dans l’IPA :
+
+```bash
+export CAPACITOR_SERVER_URL=embedded
+npm run build
+npx cap sync ios
+```
+
+### D. Ouvrir le projet Xcode
+
+```bash
+npx cap open ios
+```
+
+Sinon : double-clic sur `ios/App/App.xcodeproj`  
+(**pas** un `.xcworkspace` — Capacitor 8 = Swift Package Manager).
+
+Au premier ouvert, Xcode télécharge les packages SPM
+(Capacitor, Geolocation, Push, StatusBar). Attendez la fin
+(barre de progression en haut). Si erreur :
+
+**File → Packages → Reset Package Caches**, puis **File → Packages → Resolve**.
+
+### E. Choisir la cible App
+
+1. À gauche : icône bleue **App** (le projet, tout en haut).
+2. Au centre : sous **TARGETS**, cliquez **App** (pas le projet).
+3. Onglets utiles : **General**, **Signing & Capabilities**, **Info**.
+
+Vérifiez **General** :
+
+| Champ | Valeur attendue |
+| --- | --- |
+| Display Name | Easy Dunya |
+| Bundle Identifier | `app.easydunya` |
+| Version | `1.0.7` |
+| Build | `8` |
+| Minimum Deployments | iOS 15.0 |
+| Supported Destinations | iPhone (portrait) |
+
+### F. Signature (Signing & Capabilities)
+
+1. Onglet **Signing & Capabilities**.
+2. Cochez **Automatically manage signing**.
+3. **Team** : votre équipe Apple Developer (pas « None »).
+4. **Bundle Identifier** : `app.easydunya` (ne pas le changer :
+   il doit matcher Firebase / Android).
+5. Xcode crée tout seul certificat + profil de provisioning.
+   Statut attendu : **Signing Certificate** = Apple Development,
+   pas de bandeau rouge.
+
+Si **Team** est grisé : revenez à l’étape A.4 (Accounts).
+Si « Failed to register bundle identifier » : l’ID `app.easydunya`
+est déjà pris par un autre compte Apple — il faut que **le même
+compte** qui a l’app Android / Firebase soit sélectionné, ou
+contacter le titulaire de l’équipe.
+
+### G. Capabilities push (si absentes à l’écran)
+
+Le fichier `App.entitlements` contient déjà `aps-environment = development`.
+
+Si **Push Notifications** n’apparaît pas dans la liste :
+
+1. Bouton **+ Capability**
+2. Ajoutez **Push Notifications**
+3. Ajoutez **Background Modes** → cochez **Remote notifications**
+
+(Le `Info.plist` a déjà `UIBackgroundModes` = `remote-notification`.)
+
+Pour un IPA **Development / test** : laissez `development`.  
+Pour **TestFlight / App Store**, Xcode bascule en général vers
+`production` à l’export. Si Validation échoue sur `aps-environment`,
+passez la valeur à `production` uniquement pour l’archive Store.
+
+### H. (Optionnel) Firebase — uniquement pour les push iOS
+
+Sans ça, l’app se lance (UI, GPS, site Netlify) mais `send-fcm`
+n’enverra pas de bannières iOS.
+
+1. [Firebase Console](https://console.firebase.google.com/) → projet Easy Dunya.
+2. **Ajouter une app iOS**, bundle ID `app.easydunya`, nom Easy Dunya.
+3. Téléchargez **GoogleService-Info.plist**.
+4. Dans Xcode : glissez le fichier dans le dossier **App** (même niveau
+   que `AppDelegate.swift`). Cochez **Copy items if needed** et la
+   cible **App**.
+5. Project settings → **Cloud Messaging** → **APNs Authentication Key**
+   : uploadez le `.p8` (Apple Developer → Certificates, Identifiers &
+   Profiles → Keys → une clé avec Apple Push Notifications service).
+6. Ne commitez **pas** `GoogleService-Info.plist`.
+
+### I. Brancher l’iPhone
+
+1. Câble USB, déverrouillez l’iPhone, touchez **Faire confiance**.
+2. iPhone : **Réglages → Confidentialité et sécurité → Mode développeur**
+   → activer (iOS 16+), redémarrer si demandé.
+3. Dans Xcode, en haut à côté du bouton ▶ : choisissez **votre iPhone**.
+   Évitez « Any iOS Device » pour un simple test, et le **simulateur**
+   si vous voulez tester le push (APNs = appareil réel).
+
+### J. Premier lancement (test sans IPA)
+
+1. **Product → Run** (▶) ou `⌘R`.
+2. Si « Untrusted Developer » sur l’iPhone :
+   **Réglages → Général → VPN et gestion de l’appareil**
+   (ou **Gestion de l’appareil**) → votre certificat → **Faire confiance**.
+3. L’app **Easy Dunya** s’ouvre. Autorisez **position** puis
+   **notifications** quand iOS le demande.
+4. Connectez-vous : le site Netlify se charge dans la WebView Capacitor.
+
+C’est l’étape 4 terminée : projet ouvert, signé, installé en debug.
+
+### K. Préparer l’archive (étape 5)
+
+1. En haut, destination : **Any iOS Device (arm64)**  
+   (pas un simulateur — Archive est grisé sinon).
+2. Menu **Product → Destination** si la liste est cachée.
+3. **Product → Clean Build Folder** (`⇧⌘K`) — recommandé.
+4. **Product → Archive** (`⌃⌘A` selon raccourcis).
+5. Attendez la compilation (plusieurs minutes la 1ʳᵉ fois, SPM).
+
+Si Archive est grisé : la destination est encore un simulateur.
+
+### L. Organizer → Distribute App
+
+La fenêtre **Organizer** s’ouvre (sinon **Window → Organizer**).
+Onglet **Archives** → dernière archive **Easy Dunya** / **App**.
+
+Cliquez **Distribute App**. Choisissez **une** méthode :
+
+| Méthode | Pour qui | Résultat |
+| --- | --- | --- |
+| **Development** | Vos iPhones enregistrés (Udids de l’équipe) | `.ipa` de test, signature dev |
+| **Ad Hoc** | Jusqu’à 100 iPhones dont l’UDID est dans le profil | `.ipa` à envoyer (AirDrop, Drive) |
+| **App Store Connect** | TestFlight + App Store | upload, pas toujours un IPA local |
+| **Enterprise** | Compte Entreprise Apple uniquement | distribution interne |
+
+Pour « j’ai un fichier IPA à installer » : **Development** (vos
+appareils) ou **Ad Hoc** (testeurs dont vous avez l’UDID).
+
+### M. Assistant d’export (écrans suivants)
+
+1. **Distribution options** : laissez **All compatible device variants**.
+2. **Re-sign** : **Automatically manage signing** (même Team).
+3. **Review** : Bundle `app.easydunya`, version `1.0.7` (8).
+4. **Export** (Development / Ad Hoc) → choisissez un dossier
+   (ex. Bureau) → **Export**.
+5. Vous obtenez un dossier avec **`App.ipa`** (renommez-le
+   `EasyDunya-1.0.7.ipa` si vous voulez).
+
+Pour **App Store Connect** : **Upload** → Xcode envoie le binaire.
+Puis [App Store Connect](https://appstoreconnect.apple.com/) →
+votre app → **TestFlight** (traitement ~5–30 min) → ajouter des
+testeurs.
+
+### N. Installer l’IPA sur un iPhone
+
+**Development / Ad Hoc :**
+
+1. Sur le Mac : **Finder** → iPhone dans la barre latérale →
+   **Fichiers** / section Apps, ou glisser l’IPA sur l’icône
+   de l’iPhone (selon la version de macOS).
+2. Ou **Apple Configurator 2** (App Store) → glisser l’IPA.
+3. Ou Xcode → **Window → Devices and Simulators** → iPhone →
+   **Installed Apps** → **+** → choisir l’IPA.
+
+Sur l’iPhone, faire confiance au profil si demandé
+(étape J.2).
+
+**TestFlight :** installer l’app **TestFlight**, accepter
+l’invitation e-mail / public link, installer Easy Dunya.
+
+### O. Après chaque modification du code web
+
+```bash
+npm run build
+npx cap sync ios
+```
+
+Puis dans Xcode : **Run** (test) ou **Archive** (nouvel IPA).
+Incrémentez **Build** (`CURRENT_PROJECT_VERSION`) avant chaque
+upload TestFlight (8 → 9 → 10…). Le site Netlify se met à jour
+sans nouvel IPA si vous restez en mode URL distante.
 
 ---
 
