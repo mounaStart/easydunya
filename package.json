@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-native-icons.mjs",
     "native-icons": "node scripts/make-native-icons.mjs && npx capacitor-assets generate --android --ios",
-    "cap:ios": "npm run build && npx cap sync ios",
+    "cap:ios": "npm run build && npx cap sync ios && node scripts/ios-strip-push-xcode15.mjs",
     "cap:open:ios": "npx cap open ios",
     "vapid": "node scripts/generate-vapid.mjs",
     "test:route": "node scripts/test-route-remaining.mjs",
