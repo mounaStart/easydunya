@@ -122,8 +122,9 @@ export default function Layout() {
         <div className="max-w-md w-full rounded-2xl bg-white border border-slate-200 shadow-lg p-5">
           <h1 className="text-lg font-bold text-slate-800">Profil introuvable</h1>
           <p className="mt-2 text-sm text-slate-600">
-            La connexion a réussi, mais le profil n’a pas pu être chargé. Vérifiez
-            le réseau, puis réessayez.
+            La connexion a réussi, mais le profil n’a pas pu être chargé.
+            Vérifiez le réseau, puis réessayez. Si ça continue, déconnectez-vous
+            et reconnectez-vous.
           </p>
           <button
             type="button"

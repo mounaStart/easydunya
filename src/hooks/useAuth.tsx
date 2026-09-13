@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile((prev) => (prev?.id === u.id ? prev : null));
     }
 
-    try {
+    const queryOnce = () => {
       const profileQuery = supabase
         .from("profiles")
         .select("*")
@@ -96,24 +96,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (resolve) =>
           setTimeout(
             () => resolve({ data: null, error: { message: "profile_timeout" } }),
-            10_000
+            8_000
           )
       );
-      const { data, error } = await Promise.race([profileQuery, timeout]);
+      return Promise.race([profileQuery, timeout]);
+    };
+
+    try {
+      let data: Profile | null = null;
+      let lastError: string | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const result = await queryOnce();
+        if (loadProfileForRef.current !== u.id) return;
+        if (result.data) {
+          data = result.data as Profile;
+          lastError = null;
+          break;
+        }
+        lastError = result.error?.message ?? null;
+        if (!result.error) break;
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      }
 
       if (loadProfileForRef.current !== u.id) return;
 
-      if (error) {
-        setProfile(null);
-        return;
-      }
-
       if (data) {
-        setProfile(data as Profile);
+        setProfile(data);
         return;
       }
 
-      // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
+      // Aucun profil (ou select en timeout) → upsert pour débloquer la session.
       const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
       const roleMeta = meta.role;
       const role: UserRole =
@@ -125,13 +137,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: (meta.phone as string) ?? null,
         driver_status: role === "driver" ? "pending" : null,
       };
-      const { data: created } = await supabase
+      const { data: created, error: upsertError } = await supabase
         .from("profiles")
         .upsert(payload, { onConflict: "id" })
         .select()
         .maybeSingle();
 
       if (loadProfileForRef.current !== u.id) return;
+      if (created) {
+        setProfile(created as Profile);
+        return;
+      }
+      if (upsertError && lastError) {
+        console.warn("[auth] profil:", lastError, upsertError.message);
+        setProfile(null);
+        return;
+      }
       setProfile((created as Profile | null) ?? (payload as unknown as Profile));
     } finally {
       if (loadProfileForRef.current === u.id && !opts?.silent) {
@@ -190,13 +211,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void applySession(data.session).finally(finishInitialLoad);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, s) => {
+    // Ne pas await de requêtes Supabase dans ce callback : le client auth
+    // retient un verrou jusqu'à la fin, et from("profiles") attend le même
+    // verrou → deadlock iOS (Safari / WKWebView) = « Profil introuvable ».
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (cancelled) return;
       if (evt === "INITIAL_SESSION") {
         finishInitialLoad();
         return;
       }
-      await applySession(s, evt);
+      window.setTimeout(() => {
+        if (cancelled) return;
+        void applySession(s, evt);
+      }, 0);
     });
 
     return () => {
@@ -208,12 +235,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isNativePlatform()) {
-      const sub = App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void refreshSessionFromStorage();
-      });
-      return () => {
-        void sub.then((handle) => handle.remove());
-      };
+      try {
+        const sub = App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) void refreshSessionFromStorage();
+        });
+        return () => {
+          void Promise.resolve(sub)
+            .then((handle) => handle.remove())
+            .catch(() => {});
+        };
+      } catch {
+        return undefined;
+      }
     }
 
     const onVisible = () => {
@@ -226,22 +259,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshSessionFromStorage]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    if (data.session) await applySession(data.session, "SIGNED_IN");
     return {};
-  }, []);
+  }, [applySession]);
 
   const signInWithPhone = useCallback(async (phone: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: phoneToEmail(phone),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    if (data.session) await applySession(data.session, "SIGNED_IN");
     return {};
-  }, []);
+  }, [applySession]);
 
   const signUpPassenger = useCallback(
     async ({
@@ -452,8 +487,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) await loadProfile(session.user, { silent: true });
-  }, [session, loadProfile]);
+    if (!session?.user) return;
+    await loadProfile(session.user, {
+      silent: !!profile && profile.id === session.user.id,
+    });
+  }, [session, profile, loadProfile]);
 
   const value = useMemo<AuthContextValue>(() => {
     const user = session?.user ?? null;
