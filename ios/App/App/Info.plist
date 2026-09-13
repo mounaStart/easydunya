@@ -30,10 +30,6 @@
 	<string>Easy Dunya utilise votre position pour afficher les voyages à proximité, le suivi GPS et votre point de prise en charge.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Easy Dunya utilise votre position pour le suivi GPS du voyage en cours.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
