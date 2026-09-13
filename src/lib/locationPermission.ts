@@ -67,7 +67,7 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
 }
 
 export interface RequestAppLocationOptions {
-  /** Ouvre les paramètres GPS Android si le GPS système est éteint. */
+  /** Ouvre les paramètres GPS (Android) ou Réglages de l'app (iOS) si le GPS est éteint. */
   openSettingsIfDisabled?: boolean;
   /** Ouvre les paramètres de l'app si la permission a déjà été refusée. */
   openAppSettingsOnDenied?: boolean;

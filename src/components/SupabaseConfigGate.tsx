@@ -13,12 +13,14 @@ export default function SupabaseConfigGate({ children }: { children: ReactNode }
         <h1 className="text-lg font-bold text-amber-800">Configuration manquante</h1>
         <p className="mt-2 text-sm text-slate-600 leading-relaxed">
           La clé Supabase (<code className="text-xs">VITE_SUPABASE_ANON_KEY</code>) n&apos;est pas
-          incluse dans cette APK.
+          incluse dans cette app (APK / IPA embarquée).
         </p>
         <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-          GitHub → repo → <strong>Settings → Secrets → Actions</strong> → ajoutez{" "}
-          <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> (clé anon publique Supabase →
-          Settings → API), puis relancez le workflow <strong>Build Android APK</strong>.
+          Sur le Mac : créez un fichier <code className="text-xs">.env</code> à la racine du
+          projet avec <code className="text-xs">VITE_SUPABASE_URL</code> et{" "}
+          <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> (Netlify → Environment
+          variables, ou Supabase → Settings → API → anon). Puis{" "}
+          <code className="text-xs">npm run cap:ios:embedded</code> et relancez ▶ dans Xcode.
         </p>
       </div>
     </div>

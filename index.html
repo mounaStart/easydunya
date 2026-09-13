@@ -5,6 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1976D2" />
+    <meta name="color-scheme" content="light" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Easy Dunya" />
@@ -24,7 +25,7 @@
   <body>
     <div id="root">
       <p id="boot-fallback" style="margin:0;padding:2rem;text-align:center;font-family:system-ui,sans-serif;color:#64748b">
-        Chargement Easy Dunya…
+        Chargement Easy Dunya build 7…
       </p>
     </div>
     <script>
@@ -39,16 +40,18 @@
         }
       });
     </script>
-    <!-- Capacitor : bloquer le SW PWA avant tout chargement (évite écran blanc si ancien build). -->
+    <!-- iOS Safari + Capacitor : le SW PWA provoque un chargement infini après login. -->
     <script>
       (function () {
         if (!("serviceWorker" in navigator)) return;
+        var ua = navigator.userAgent || "";
+        var ios = /iPad|iPhone|iPod/.test(ua);
         var cap = window.Capacitor;
-        if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) { r.unregister(); });
-          });
-        }
+        var native = cap && cap.isNativePlatform && cap.isNativePlatform();
+        if (!ios && !native) return;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (r) { r.unregister(); });
+        });
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

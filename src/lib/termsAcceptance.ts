@@ -51,9 +51,11 @@ export function resolveTermsAccepted(opts: {
   profile: Profile | null | undefined;
   authPending: boolean;
 }): boolean | null {
-  if (opts.authPending) return null;
-  // Visiteur non connecté : pas de CGU à l'ouverture de l'app
-  if (!opts.userId) return true;
+  // Visiteur : pas de CGU. Ne pas rester sur « authPending » si on a déjà un user
+  // (getSession iOS peut rester bloqué → écran blanc infini).
+  if (!opts.userId) {
+    return opts.authPending ? null : true;
+  }
   if (!opts.profile || opts.profile.id !== opts.userId) return false;
   return profileHasAcceptedTerms(opts.profile);
 }

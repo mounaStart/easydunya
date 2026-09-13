@@ -19,7 +19,13 @@ export default function ProtectedRoute({
   const { authReady, loading, user, role, profile } = useAuth();
   const location = useLocation();
 
-  if (loading || (user && !authReady)) return <Spinner />;
+  if (loading || (user && !authReady)) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Spinner label="Connexion…" />
+      </div>
+    );
+  }
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

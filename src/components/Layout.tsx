@@ -32,11 +32,19 @@ function PasswordChangeGate() {
 
 export default function Layout() {
   const location = useLocation();
-  const { isDriver, isAdmin, refreshProfile, user, profile, loading, authReady } =
-    useAuth();
+  const {
+    isDriver,
+    isAdmin,
+    refreshProfile,
+    user,
+    profile,
+    loading,
+    profileLoading,
+  } = useAuth();
   useAndroidBackButton();
 
-  const authPending = loading || (!!user && !authReady);
+  // Ne bloquer le visiteur que s'il n'y a pas encore de session.
+  const authPending = !user && (loading || profileLoading);
 
   const termsResolved = useMemo(
     () =>
@@ -49,9 +57,19 @@ export default function Layout() {
   );
 
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(termsResolved);
+  const [pendingTooLong, setPendingTooLong] = useState(false);
 
   useEffect(() => {
     setTermsAccepted(termsResolved);
+  }, [termsResolved]);
+
+  useEffect(() => {
+    if (termsResolved !== null) {
+      setPendingTooLong(false);
+      return;
+    }
+    const id = window.setTimeout(() => setPendingTooLong(true), 2500);
+    return () => window.clearTimeout(id);
   }, [termsResolved]);
 
   useEffect(() => {
@@ -61,13 +79,13 @@ export default function Layout() {
         resolveTermsAccepted({
           userId: user?.id,
           profile,
-          authPending: loading || (!!user && !authReady),
+          authPending: loading || profileLoading,
         })
       );
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [user?.id, profile, loading, authReady]);
+  }, [user?.id, profile, loading, profileLoading]);
 
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
@@ -89,8 +107,12 @@ export default function Layout() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  if (termsAccepted === null) {
-    return <Spinner />;
+  if (termsAccepted === null && !pendingTooLong) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Spinner label="Connexion…" />
+      </div>
+    );
   }
 
   if (user && !termsAccepted) {

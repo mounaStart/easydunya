@@ -18,7 +18,8 @@ reçoivent et gèrent les réservations, partagent leur position GPS.
 | PWA          | vite-plugin-pwa + Workbox (offline, install, cache cartes 7 jours)   |
 | Backend      | Supabase self-hosted (PostgreSQL + Auth + Realtime + Storage)        |
 | Sécurité     | Row Level Security PostgreSQL, JWT, bcrypt, HTTPS                    |
-| Déploiement  | Docker (Coolify), Nginx + Traefik                                    |
+| Natif        | Capacitor 8 (Android `android/` + iOS `ios/`)                        |
+| Déploiement  | Docker (Coolify), Nginx + Traefik, Netlify, APK / IPA                |
 
 ## 🚀 Démarrage rapide
 
@@ -74,6 +75,13 @@ Ouvrez http://localhost:5173
 npm run build
 npm run preview
 ```
+
+### 6. Apps natives (Capacitor)
+
+- **Android** : dossier `android/` — voir [docs/BUILD-APK.md](docs/BUILD-APK.md) et le workflow GitHub Actions.
+- **iOS** : dossier `ios/` — voir [docs/BUILD-IPA.md](docs/BUILD-IPA.md).
+  Sur un Mac : `npm run build && npx cap sync ios && npx cap open ios`,
+  puis signature + Archive dans Xcode pour obtenir l’IPA.
 
 ## 👥 Comptes de test (créés par `seed.sql`)
 

@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
 const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? "";
 
+export const supabaseUrl = url ?? "https://prfmqfnaqtmyfyxqjeli.supabase.co";
+
 /** Clé anon valide (JWT Supabase, ~200+ caractères). */
 export function isSupabaseConfigured(): boolean {
   return Boolean(
@@ -13,7 +15,7 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-const supabaseAnonKey = isSupabaseConfigured()
+export const supabaseAnonKey = isSupabaseConfigured()
   ? rawKey
   : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXseIn0.placeholder";
 
