@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { App } from "@capacitor/app";
 import { isNativePlatform } from "../lib/nativePush";
-import { hasAcceptedTerms } from "../lib/termsAcceptance";
+import { resolveTermsAccepted } from "../lib/termsAcceptance";
 import { useAuth } from "./useAuth";
 
 /** Écrans « racine » : retour système = quitter l'app. */
@@ -20,14 +20,19 @@ function isRootScreen(path: string, isDriver: boolean, isAdmin: boolean): boolea
 export function useAndroidBackButton() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDriver, isAdmin } = useAuth();
+  const { isDriver, isAdmin, user, profile, loading, authReady } = useAuth();
 
   useEffect(() => {
     if (!isNativePlatform()) return;
 
     let removed = false;
     const sub = App.addListener("backButton", () => {
-      if (!hasAcceptedTerms()) {
+      const termsOk = resolveTermsAccepted({
+        userId: user?.id,
+        profile,
+        authPending: loading || (!!user && !authReady),
+      });
+      if (termsOk === false) {
         void App.exitApp();
         return;
       }
@@ -60,5 +65,5 @@ export function useAndroidBackButton() {
       removed = true;
       void sub.then((handle) => handle.remove());
     };
-  }, [location.pathname, navigate, isDriver, isAdmin]);
+  }, [location.pathname, navigate, isDriver, isAdmin, user?.id, profile, loading, authReady]);
 }

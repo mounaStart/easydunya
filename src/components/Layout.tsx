@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import BottomNav from "./BottomNav";
@@ -10,8 +10,9 @@ import DriverLocationGate from "./DriverLocationGate";
 import DriverGpsSync from "./DriverGpsSync";
 import PullToRefresh from "./PullToRefresh";
 import TermsGate from "./TermsGate";
+import Spinner from "./Spinner";
 import { dispatchAppRefresh } from "../lib/appRefresh";
-import { hasAcceptedTerms } from "../lib/termsAcceptance";
+import { resolveTermsAccepted } from "../lib/termsAcceptance";
 import { useAuth } from "../hooks/useAuth";
 import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import { cn } from "../lib/utils";
@@ -31,18 +32,42 @@ function PasswordChangeGate() {
 
 export default function Layout() {
   const location = useLocation();
-  const { isDriver, isAdmin, refreshProfile } = useAuth();
-  const [termsAccepted, setTermsAccepted] = useState(hasAcceptedTerms);
+  const { isDriver, isAdmin, refreshProfile, user, profile, loading, authReady } =
+    useAuth();
   useAndroidBackButton();
+
+  const authPending = loading || (!!user && !authReady);
+
+  const termsResolved = useMemo(
+    () =>
+      resolveTermsAccepted({
+        userId: user?.id,
+        profile,
+        authPending,
+      }),
+    [user?.id, profile, authPending]
+  );
+
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(termsResolved);
+
+  useEffect(() => {
+    setTermsAccepted(termsResolved);
+  }, [termsResolved]);
 
   useEffect(() => {
     function onVisible() {
       if (document.visibilityState !== "visible") return;
-      if (!hasAcceptedTerms()) setTermsAccepted(false);
+      setTermsAccepted(
+        resolveTermsAccepted({
+          userId: user?.id,
+          profile,
+          authPending: loading || (!!user && !authReady),
+        })
+      );
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
+  }, [user?.id, profile, loading, authReady]);
 
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
@@ -63,6 +88,10 @@ export default function Layout() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+
+  if (termsAccepted === null) {
+    return <Spinner />;
+  }
 
   if (!termsAccepted) {
     return <TermsGate onAccepted={() => setTermsAccepted(true)} />;

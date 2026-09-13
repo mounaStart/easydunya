@@ -51,6 +51,8 @@ export interface Profile {
   location_lat?: number | null;
   location_lng?: number | null;
   location_updated_at?: string | null;
+  terms_accepted_version?: string | null;
+  terms_accepted_at?: string | null;
   created_at: string;
   updated_at: string;
 }

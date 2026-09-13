@@ -18,23 +18,35 @@ function formatCguBlocks(text: string): string[] {
 
 export default function TermsGate({ onAccepted }: Props) {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const isDriver = profile?.role === "driver";
 
   const [acceptCgu, setAcceptCgu] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptDriver, setAcceptDriver] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const blocks = useMemo(() => formatCguBlocks(CGU_V1_TEXT), []);
 
   const canAccept =
     acceptCgu && acceptPrivacy && (!isDriver || acceptDriver) && !busy;
 
-  function handleAccept() {
+  async function handleAccept() {
     if (!canAccept) return;
-    acceptTerms();
-    onAccepted();
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: acceptError } = await acceptTerms({ userId: user?.id });
+      if (acceptError) {
+        setError(acceptError);
+        return;
+      }
+      if (user) await refreshProfile();
+      onAccepted();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleDecline() {
@@ -75,6 +87,12 @@ export default function TermsGate({ onAccepted }: Props) {
 
       <footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 safe-bottom">
         <div className="mx-auto max-w-2xl space-y-3">
+          {error && (
+            <p className="text-sm text-rose-600 bg-rose-50 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -122,7 +140,7 @@ export default function TermsGate({ onAccepted }: Props) {
             </button>
             <button
               type="button"
-              onClick={handleAccept}
+              onClick={() => void handleAccept()}
               disabled={!canAccept}
               className="inline-flex items-center justify-center rounded-2xl px-4 py-3 font-semibold text-white bg-brand-600 hover:bg-brand-700 transition disabled:opacity-50"
             >
