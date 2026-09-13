@@ -87,11 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { data, error } = await supabase
+      const profileQuery = supabase
         .from("profiles")
         .select("*")
         .eq("id", u.id)
         .maybeSingle();
+      const timeout = new Promise<{ data: null; error: { message: string } }>(
+        (resolve) =>
+          setTimeout(
+            () => resolve({ data: null, error: { message: "profile_timeout" } }),
+            10_000
+          )
+      );
+      const { data, error } = await Promise.race([profileQuery, timeout]);
 
       if (loadProfileForRef.current !== u.id) return;
 

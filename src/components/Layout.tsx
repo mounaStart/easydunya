@@ -32,11 +32,20 @@ function PasswordChangeGate() {
 
 export default function Layout() {
   const location = useLocation();
-  const { isDriver, isAdmin, refreshProfile, user, profile, loading, authReady } =
-    useAuth();
+  const {
+    isDriver,
+    isAdmin,
+    refreshProfile,
+    signOut,
+    user,
+    profile,
+    loading,
+    profileLoading,
+  } = useAuth();
   useAndroidBackButton();
 
-  const authPending = loading || (!!user && !authReady);
+  // Ne pas bloquer sur !authReady si le profil a échoué (sinon spinner infini).
+  const authPending = loading || profileLoading;
 
   const termsResolved = useMemo(
     () =>
@@ -61,13 +70,13 @@ export default function Layout() {
         resolveTermsAccepted({
           userId: user?.id,
           profile,
-          authPending: loading || (!!user && !authReady),
+          authPending: loading || profileLoading,
         })
       );
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [user?.id, profile, loading, authReady]);
+  }, [user?.id, profile, loading, profileLoading]);
 
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
@@ -90,7 +99,39 @@ export default function Layout() {
   }, []);
 
   if (termsAccepted === null) {
-    return <Spinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Spinner label="Connexion…" />
+      </div>
+    );
+  }
+
+  if (user && !profile && !profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full rounded-2xl bg-white border border-slate-200 shadow-lg p-5">
+          <h1 className="text-lg font-bold text-slate-800">Profil introuvable</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            La connexion a réussi, mais le profil n’a pas pu être chargé. Vérifiez
+            le réseau, puis réessayez.
+          </p>
+          <button
+            type="button"
+            className="mt-4 w-full rounded-xl bg-brand-600 text-white py-3 font-semibold"
+            onClick={() => void refreshProfile()}
+          >
+            Réessayer
+          </button>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-xl border border-slate-200 py-3 font-semibold text-slate-700"
+            onClick={() => void signOut()}
+          >
+            Déconnexion
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (user && !termsAccepted) {
