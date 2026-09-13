@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-native-icons.mjs",
     "native-icons": "node scripts/make-native-icons.mjs && npx capacitor-assets generate --android --ios && node scripts/ios-apply-icon.mjs",
+    "ios:check": "node scripts/ios-mac-check.mjs",
     "cap:ios": "node scripts/check-vite-env.mjs && BUILD_FOR_APK=1 CAPACITOR_SERVER_URL=embedded npm run build && npx cap sync ios && node scripts/ios-strip-push-xcode15.mjs && node scripts/ios-verify-embed.mjs",
     "cap:ios:embedded": "node scripts/check-vite-env.mjs && BUILD_FOR_APK=1 CAPACITOR_SERVER_URL=embedded npm run build && npx cap sync ios && node scripts/ios-strip-push-xcode15.mjs && node scripts/ios-verify-embed.mjs",
     "cap:open:ios": "npx cap open ios",
