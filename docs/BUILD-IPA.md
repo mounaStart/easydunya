@@ -150,15 +150,36 @@ et, pour un iPhone réel / TestFlight / App Store, le programme
 
 ### A. Préparer le Mac (une seule fois)
 
-1. Installez **Xcode** depuis l’App Store, puis ouvrez-le une fois
-   (licence + composants supplémentaires).
-2. Terminal :
+1. Installez **Xcode** depuis l’App Store (pas seulement les
+   « Command Line Tools »). Vérifiez :
 
    ```bash
-   xcode-select --install
-   sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-   sudo xcodebuild -license accept
+   ls /Applications/Xcode.app
    ```
+
+   S’il n’existe pas : App Store → chercher **Xcode** → Installer
+   (plusieurs Go d’espace libre). Puis ouvrez Xcode une fois : acceptez
+   la licence dans la fenêtre graphique (pas besoin de `sudo`).
+
+2. Terminal — ces commandes **suffisent**, sans administrateur :
+
+   ```bash
+   xcode-select -p
+   xcodebuild -version
+   ```
+
+   - `xcode-select --install` qui répond *already installed* : **OK, passez**.
+   - `xcode-select -p` doit afficher
+     `/Applications/Xcode.app/Contents/Developer`.
+     S’il affiche `CommandLineTools` et que vous n’avez **pas** `sudo` :
+     ouvrez simplement **Xcode.app** ; ou demandez à l’admin du Mac :
+
+     ```bash
+     sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+     ```
+
+   - `easydunya is not in the sudoers file` : **ignorez toutes les
+     commandes `sudo`**. Ce n’est pas bloquant si Xcode s’ouvre.
 
 3. Installez **Node.js 20+** (https://nodejs.org ou `brew install node`).
 4. Xcode → menu **Xcode → Settings… → Accounts** → **+** → connectez
