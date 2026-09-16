@@ -47,7 +47,7 @@ export default function Login() {
     <div className="page max-w-md">
       <div className="card p-6 sm:p-8">
         <div className="mb-4 rounded-xl bg-amber-100 border border-amber-300 px-3 py-2 text-center text-sm font-bold text-amber-950">
-          iOS build 7 — si tu ne vois pas cette bande, Xcode a l’ancien JS
+          iOS build 8 — GPS iOS via CoreLocation
         </div>
         <h1 className="h1 mb-1">{t("auth.loginTitle")}</h1>
         <p className="muted mb-6">
@@ -102,7 +102,7 @@ export default function Login() {
             {t("auth.signUp")}
           </Link>
         </p>
-        <p className="text-center text-[11px] text-slate-400 mt-4">iOS build 7</p>
+        <p className="text-center text-[11px] text-slate-400 mt-4">iOS build 8</p>
       </div>
     </div>
   );

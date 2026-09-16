@@ -4,9 +4,20 @@ interface EasyDunyaLocationPlugin {
   isEnabled(): Promise<{ enabled: boolean }>;
   openSettings(): Promise<void>;
   openAppSettings(): Promise<void>;
+  checkPermission(): Promise<{ status: string; enabled?: boolean }>;
+  requestPermission(): Promise<{ status: string; enabled?: boolean }>;
+  getCurrentPosition(options?: {
+    timeout?: number;
+    enableHighAccuracy?: boolean;
+  }): Promise<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  }>;
 }
 
-const EasyDunyaLocation = registerPlugin<EasyDunyaLocationPlugin>("EasyDunyaLocation");
+export const EasyDunyaLocation = registerPlugin<EasyDunyaLocationPlugin>("EasyDunyaLocation");
 
 function isNativeLocationPlatform(): boolean {
   if (!Capacitor.isNativePlatform()) return false;

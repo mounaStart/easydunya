@@ -119,7 +119,7 @@ export default function DriverLocationGate() {
   if (!needsGate) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50 p-4">
       <div className="mx-auto w-full max-w-md rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200 p-6">
         <div className="flex items-start gap-3">
           <span className="shrink-0 w-12 h-12 rounded-full bg-brand-50 text-brand-600 inline-flex items-center justify-center text-xl">

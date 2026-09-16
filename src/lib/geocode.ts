@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { EasyDunyaLocation } from "./deviceLocationSettings";
 import { ensureGoogleMapsLoaded, getGoogleMapsApiKey } from "./googleMapsLoader";
 import { distanceKm } from "./utils";
 
@@ -480,13 +481,33 @@ function toGeolocationPosition(pos: {
   };
 }
 
+async function ensureIosCoreLocationPermission(): Promise<boolean | null> {
+  try {
+    const current = await EasyDunyaLocation.checkPermission();
+    if (current.status === "granted") return true;
+    const requested = await EasyDunyaLocation.requestPermission();
+    if (requested.enabled === false) {
+      const disabled = new Error("Location services disabled") as Error & { code?: number };
+      disabled.code = 2;
+      throw disabled;
+    }
+    return requested.status === "granted";
+  } catch (err) {
+    if (isLocationServicesDisabledError(err)) throw err;
+    return null;
+  }
+}
+
 /** Demande la boîte système « Autoriser la localisation » (sans lire la position). */
 export async function ensureLocationPermission(): Promise<boolean> {
   if (!useNativeGeolocation()) return true;
+  if (Capacitor.getPlatform() === "ios") {
+    const ios = await ensureIosCoreLocationPermission();
+    if (ios !== null) return ios;
+  }
   try {
     const status = await Geolocation.checkPermissions();
     if (status.location === "granted") return true;
-    // Au clic utilisateur : affiche la fenêtre Android/iOS si possible.
     const requested = await Geolocation.requestPermissions();
     return requested.location === "granted";
   } catch (err) {
@@ -505,6 +526,36 @@ const ACCURATE_POSITION_OPTIONS: PositionOptions = {
   maximumAge: 0,
 };
 
+async function getIosCoreLocationPosition(
+  options: PositionOptions
+): Promise<GeolocationPosition | null> {
+  if (Capacitor.getPlatform() !== "ios") return null;
+  try {
+    const pos = await EasyDunyaLocation.getCurrentPosition({
+      enableHighAccuracy: options.enableHighAccuracy ?? false,
+      timeout: options.timeout ?? POSITION_OPTIONS.timeout,
+    });
+    if (!Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)) return null;
+    return toGeolocationPosition({
+      coords: {
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        accuracy: pos.accuracy || 0,
+      },
+      timestamp: pos.timestamp || Date.now(),
+    });
+  } catch (err) {
+    if (isLocationServicesDisabledError(err)) throw err;
+    const text = String((err as Error)?.message ?? err).toLowerCase();
+    if (text.includes("denied")) {
+      const denied = new Error("Geolocation permission denied") as Error & { code?: number };
+      denied.code = 1;
+      throw denied;
+    }
+    return null;
+  }
+}
+
 async function getNativePosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {
   const allowed = await ensureLocationPermission();
   if (!allowed) {
@@ -512,12 +563,21 @@ async function getNativePosition(options: PositionOptions = POSITION_OPTIONS): P
     err.code = 1;
     throw err;
   }
-  const pos = await Geolocation.getCurrentPosition({
-    enableHighAccuracy: options.enableHighAccuracy ?? false,
-    timeout: options.timeout ?? POSITION_OPTIONS.timeout,
-    maximumAge: options.maximumAge ?? POSITION_OPTIONS.maximumAge,
-  });
-  return toGeolocationPosition(pos);
+  const iosPos = await getIosCoreLocationPosition(options);
+  if (iosPos) return iosPos;
+  try {
+    const pos = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: options.enableHighAccuracy ?? false,
+      timeout: options.timeout ?? POSITION_OPTIONS.timeout,
+      maximumAge: options.maximumAge ?? POSITION_OPTIONS.maximumAge,
+    });
+    return toGeolocationPosition(pos);
+  } catch (err) {
+    if (Capacitor.getPlatform() === "ios") {
+      return getBrowserPosition(options);
+    }
+    throw err;
+  }
 }
 
 function getBrowserPosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {
@@ -567,9 +627,10 @@ export function isLocationServicesDisabledError(err: unknown): boolean {
 
 export function geolocationErrorReason(err: unknown): LocationFailReason {
   if (isLocationServicesDisabledError(err)) return "disabled";
+  const text = errorText(err).toLowerCase();
   const code = (err as GeolocationPositionError)?.code;
-  if (code === 1) return "denied";
-  if (code === 3) return "timeout";
+  if (code === 1 || text.includes("denied")) return "denied";
+  if (code === 3 || text.includes("timeout")) return "timeout";
   if (code === 2) return "disabled";
   return "unavailable";
 }

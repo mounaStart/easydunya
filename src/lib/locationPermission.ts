@@ -1,5 +1,7 @@
 import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor } from "@capacitor/core";
 import {
+  EasyDunyaLocation,
   isDeviceLocationEnabled,
   openAppPermissionSettings,
   openDeviceLocationSettings,
@@ -43,6 +45,17 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
     try {
       const deviceEnabled = await isDeviceLocationEnabled();
       if (deviceEnabled === false) return "prompt";
+
+      if (Capacitor.getPlatform() === "ios") {
+        try {
+          const native = await EasyDunyaLocation.checkPermission();
+          if (native.status === "granted") return "granted";
+          if (native.status === "denied") return "denied";
+          return "prompt";
+        } catch {
+          /* plugin iOS : repli Capacitor / prompt */
+        }
+      }
 
       const status = await Geolocation.checkPermissions();
       if (status.location === "granted") return "granted";

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
-import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "../lib/supabase";
 import { fetchRemainingToDestinationM, type RoutePoint } from "../lib/routing";
+import { ensureLocationPermission, getCurrentPosition } from "../lib/geocode";
 
 export interface TripRouteEndpoints {
   from: RoutePoint;
@@ -92,11 +92,7 @@ export function useDriverGps(
 
     async function sendCurrentNative() {
       try {
-        const pos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 20_000,
-          maximumAge: 5_000,
-        });
+        const pos = await getCurrentPosition({ accurate: true });
         await sendCoords(pos.coords.latitude, pos.coords.longitude);
       } catch {
         /* position momentanément indisponible */
@@ -104,23 +100,9 @@ export function useDriverGps(
     }
 
     async function startNative() {
-      const perm = await Geolocation.checkPermissions();
-      if (perm.location !== "granted") {
-        const req = await Geolocation.requestPermissions();
-        if (req.location !== "granted") return;
-      }
+      const allowed = await ensureLocationPermission();
+      if (!allowed) return;
       await sendCurrentNative();
-      watchRef.current = await Geolocation.watchPosition(
-        {
-          enableHighAccuracy: true,
-          timeout: 20_000,
-          maximumAge: 10_000,
-        },
-        (pos, err) => {
-          if (cancelled || err || !pos) return;
-          void sendCoords(pos.coords.latitude, pos.coords.longitude);
-        }
-      );
       intervalRef.current = window.setInterval(() => {
         void sendCurrentNative();
       }, SEND_INTERVAL_MS);
@@ -155,19 +137,22 @@ export function useDriverGps(
 
     if (Capacitor.isNativePlatform()) {
       void startNative();
-      const appListener = App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void sendCurrentNative();
-      });
+      let appListener: Promise<{ remove: () => Promise<void> }> | null = null;
+      try {
+        appListener = App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) void sendCurrentNative();
+        });
+      } catch {
+        appListener = null;
+      }
       return () => {
         cancelled = true;
-        void appListener.then((h) => h.remove());
+        if (appListener) {
+          void appListener.then((h) => h.remove()).catch(() => {});
+        }
         if (intervalRef.current !== null) {
           window.clearInterval(intervalRef.current);
           intervalRef.current = null;
-        }
-        if (watchRef.current !== null) {
-          void Geolocation.clearWatch({ id: String(watchRef.current) });
-          watchRef.current = null;
         }
       };
     }
