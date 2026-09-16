@@ -12,7 +12,6 @@
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		ED01LOCBUILD001 /* EasyDunyaLocationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED01LOCFILE001 /* EasyDunyaLocationPlugin.swift */; };
-		ED01VCBUILD001 /* EasyDunyaBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED01VCFILE001 /* EasyDunyaBridgeViewController.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -25,7 +24,6 @@
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		ED01LOCFILE001 /* EasyDunyaLocationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyDunyaLocationPlugin.swift; sourceTree = "<group>"; };
-		ED01VCFILE001 /* EasyDunyaBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyDunyaBridgeViewController.swift; sourceTree = "<group>"; };
 		ED01ENTFILE001 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -71,7 +69,6 @@
 				ED01ENTFILE001 /* App.entitlements */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				ED01LOCFILE001 /* EasyDunyaLocationPlugin.swift */,
-				ED01VCFILE001 /* EasyDunyaBridgeViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -165,7 +162,6 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				ED01LOCBUILD001 /* EasyDunyaLocationPlugin.swift in Sources */,
-				ED01VCBUILD001 /* EasyDunyaBridgeViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

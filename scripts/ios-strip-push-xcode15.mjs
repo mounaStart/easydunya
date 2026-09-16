@@ -49,11 +49,11 @@ if (fs.existsSync(cfgPath)) {
   try {
     const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
     const list = Array.isArray(cfg.packageClassList) ? cfg.packageClassList : [];
-    if (!list.includes("EasyDunyaLocationPlugin")) {
-      list.push("EasyDunyaLocationPlugin");
-      cfg.packageClassList = list;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+    for (const name of ["EasyDunyaLocationPlugin", "App.EasyDunyaLocationPlugin"]) {
+      if (!list.includes(name)) list.push(name);
     }
+    cfg.packageClassList = list;
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
     console.log("ios-xcode15: packageClassList + EasyDunyaLocationPlugin");
   } catch (err) {
     console.warn("ios-xcode15: capacitor.config.json non modifié:", err);
