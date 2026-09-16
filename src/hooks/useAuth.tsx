@@ -16,6 +16,7 @@ import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
 import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/nativePush";
 import { rememberAcceptedTerms, TERMS_VERSION } from "../lib/termsAcceptance";
+import { decideIosSignedOut } from "../lib/iosAuthSession";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -87,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** iOS WKWebView envoie parfois SIGNED_OUT tout seul après le login. */
   const explicitSignOutRef = useRef(false);
   const restoringSessionRef = useRef(false);
+  const iosRestoreDisabledRef = useRef(false);
+  const lastIosRestoreAtRef = useRef(0);
 
   const loadProfile = useCallback(
     async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
@@ -196,29 +199,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => {
         if (cancelled) return;
         if (evt === "SIGNED_OUT") {
-          if (!explicitSignOutRef.current && isIosApp()) {
+          if (isIosApp()) {
             const kept = sessionRef.current;
-            if (
-              kept?.access_token &&
-              kept.refresh_token &&
-              !restoringSessionRef.current
-            ) {
-              restoringSessionRef.current = true;
-              console.warn("[auth] SIGNED_OUT ignoré — restauration session iOS");
-              void supabase.auth
-                .setSession({
-                  access_token: kept.access_token,
-                  refresh_token: kept.refresh_token,
-                })
-                .catch((err) => {
-                  console.warn("[auth] restauration session iOS:", err);
-                })
-                .finally(() => {
-                  restoringSessionRef.current = false;
-                });
-            } else {
-              console.warn("[auth] SIGNED_OUT ignoré (iOS, déconnexion non demandée)");
+            const action = decideIosSignedOut({
+              explicitSignOut: explicitSignOutRef.current,
+              accessToken: kept?.access_token,
+              refreshToken: kept?.refresh_token,
+              restoring: restoringSessionRef.current,
+              restoreDisabled: iosRestoreDisabledRef.current,
+              lastRestoreAt: lastIosRestoreAtRef.current,
+              now: Date.now(),
+            });
+            if (action === "clear") {
+              clearSession();
+              return;
             }
+            if (action === "keep") {
+              return;
+            }
+            const accessToken = kept?.access_token;
+            const refreshToken = kept?.refresh_token;
+            if (!accessToken || !refreshToken) {
+              clearSession();
+              return;
+            }
+            restoringSessionRef.current = true;
+            lastIosRestoreAtRef.current = Date.now();
+            console.warn("[auth] SIGNED_OUT ignoré — restauration session iOS (1×)");
+            void supabase.auth
+              .setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              })
+              .then((result) => {
+                if (result.error) {
+                  iosRestoreDisabledRef.current = true;
+                  console.warn(
+                    "[auth] restauration iOS stoppée — session mémoire conservée:",
+                    result.error.message
+                  );
+                }
+              })
+              .catch((err) => {
+                iosRestoreDisabledRef.current = true;
+                console.warn("[auth] restauration session iOS:", err);
+              })
+              .finally(() => {
+                restoringSessionRef.current = false;
+              });
             return;
           }
           clearSession();
@@ -255,6 +283,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    iosRestoreDisabledRef.current = false;
+    lastIosRestoreAtRef.current = 0;
     if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
@@ -265,6 +295,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    iosRestoreDisabledRef.current = false;
+    lastIosRestoreAtRef.current = 0;
     if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
@@ -472,6 +504,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     explicitSignOutRef.current = true;
+    iosRestoreDisabledRef.current = false;
+    lastIosRestoreAtRef.current = 0;
     void unsubscribeFromPush();
     clearSession();
     try {
