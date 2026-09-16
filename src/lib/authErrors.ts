@@ -1,5 +1,30 @@
 /** Messages d'erreur auth sans jargon « email » pour les comptes téléphone. */
-export function mapAuthError(msg: string, code?: string): string {
+
+export type AuthErrorContext = "signin" | "signup";
+
+const SIGNIN_RATE_LIMIT =
+  "Trop de tentatives de connexion. Attendez 5 à 10 minutes, puis réessayez.";
+const SIGNUP_RATE_LIMIT =
+  "Trop de tentatives d'inscription. Attendez 5 à 10 minutes, puis réessayez.";
+
+function isRateLimit(msg: string, code?: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    code === "over_email_send_rate_limit" ||
+    code === "over_request_rate_limit" ||
+    code === "over_sms_send_rate_limit" ||
+    code === "429" ||
+    lower.includes("rate limit") ||
+    lower.includes("email rate limit") ||
+    lower.includes("too many requests")
+  );
+}
+
+export function mapAuthError(
+  msg: string,
+  code?: string,
+  context: AuthErrorContext = "signin"
+): string {
   const lower = msg.toLowerCase();
 
   if (code === "email_not_confirmed" || lower.includes("not confirmed")) {
@@ -20,12 +45,12 @@ export function mapAuthError(msg: string, code?: string): string {
   if (lower.includes("email logins are disabled")) {
     return "Connexion indisponible. Contactez l'administrateur.";
   }
-  if (
-    code === "over_email_send_rate_limit" ||
-    lower.includes("rate limit") ||
-    lower.includes("email rate limit")
-  ) {
-    return "Trop de tentatives d'inscription. Attendez 5 à 10 minutes, puis réessayez.";
+  if (isRateLimit(msg, code)) {
+    return context === "signup" ? SIGNUP_RATE_LIMIT : SIGNIN_RATE_LIMIT;
+  }
+  // Connexion : ne jamais afficher le texte « inscription » d'un mapping précédent.
+  if (context === "signin" && lower.includes("trop de tentatives d'inscription")) {
+    return SIGNIN_RATE_LIMIT;
   }
   if (
     lower.includes("reset-user-password") ||

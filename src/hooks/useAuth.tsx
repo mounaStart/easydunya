@@ -292,7 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           trimmedPhone,
           password
         );
-        if (signInError) return { error: mapAuthError(signInError, code) };
+        if (signInError) return { error: mapAuthError(signInError, code, "signin") };
         return {};
       };
 
@@ -311,10 +311,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             raw.includes("not found") ||
             raw.includes("404");
           if (missing) return { unavailable: true };
-          return { error: mapAuthError(fnError.message) };
+          return { error: mapAuthError(fnError.message, undefined, "signup") };
         }
         const payload = fnData as { error?: string } | null;
-        if (payload?.error) return { error: mapAuthError(payload.error) };
+        if (payload?.error) return { error: mapAuthError(payload.error, undefined, "signup") };
         return {};
       };
 
@@ -328,7 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
-          return { error: mapAuthError(error.message, error.code) };
+          return { error: mapAuthError(error.message, error.code, "signup") };
         }
 
         if (data.user && (data.user.identities?.length ?? 0) === 0) {
