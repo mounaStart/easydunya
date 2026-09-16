@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
 import { getPushState, subscribeToPush } from "../lib/push";
-import { isNotificationPromptSupported } from "../lib/nativePush";
+import { isIosApp, isNotificationPromptSupported } from "../lib/nativePush";
 import { cn } from "../lib/utils";
 
 type NotificationBellProps = {
@@ -20,9 +20,10 @@ export default function NotificationBell({ alwaysVisible = false }: Notification
   // si la permission est accordée mais l'appareil pas encore abonné, on abonne.
   const ensurePush = useCallback(async () => {
     if (!user || !isNotificationPromptSupported()) return;
+    if (isIosApp()) return;
     const st = await getPushState(user.id);
     if (st === "off") await subscribeToPush(user.id);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     ensurePush();

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
-import { subscribeToPush } from "../lib/push";
-import { isNotificationPromptSupported } from "../lib/nativePush";
 import { showIosLocalNotification } from "../lib/iosLocalNotify";
 import type { AppNotification } from "../lib/types";
 
@@ -45,9 +43,6 @@ export function useNotifications(userId: string | undefined) {
   useEffect(() => {
     load();
     if (!userId) return;
-    if (isNotificationPromptSupported()) {
-      subscribeToPush(userId).catch(() => {});
-    }
 
     let realtimeOk = false;
 

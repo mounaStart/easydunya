@@ -31,10 +31,8 @@ export default function NotificationPrompt() {
 
   const refresh = useCallback(async () => {
     if (!user || !isNotificationPromptSupported()) return;
-    const st = await getPushState(user.id);
-    if (st === "off") await subscribeToPush(user.id);
     setState(await getPushState(user.id));
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();

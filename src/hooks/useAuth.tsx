@@ -87,13 +87,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initialAuthDoneRef = useRef(false);
   /** iOS WKWebView envoie parfois SIGNED_OUT tout seul après le login. */
   const explicitSignOutRef = useRef(false);
-  const restoringSessionRef = useRef(false);
-  const iosRestoreDisabledRef = useRef(false);
-  const lastIosRestoreAtRef = useRef(0);
+  const iosSignedOutLoggedRef = useRef(false);
+  const lastProfileFetchRef = useRef<{ userId: string; token: string; at: number } | null>(
+    null
+  );
 
   const loadProfile = useCallback(
     async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
-      const requestId = ++loadGenRef.current;
       const switched = loadProfileForRef.current !== u.id;
       loadProfileForRef.current = u.id;
       if (switched) setProfileHydrated(false);
@@ -107,6 +107,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileHydrated(true);
         return;
       }
+      const prevFetch = lastProfileFetchRef.current;
+      if (
+        prevFetch &&
+        prevFetch.userId === u.id &&
+        prevFetch.token === token &&
+        Date.now() - prevFetch.at < 20_000
+      ) {
+        setProfileHydrated(true);
+        return;
+      }
+      lastProfileFetchRef.current = { userId: u.id, token, at: Date.now() };
+      const requestId = ++loadGenRef.current;
       void fetchProfileWithAccessToken(u.id, token)
         .then((data) => {
           if (requestId !== loadGenRef.current || loadProfileForRef.current !== u.id) {
@@ -116,7 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (data.terms_accepted_version === TERMS_VERSION) {
               rememberAcceptedTerms(u.id);
             }
-            setProfile(data);
+            setProfile((prev) =>
+              prev?.id === data.id && prev.updated_at === data.updated_at ? prev : data
+            );
           }
         })
         .finally(() => {
@@ -129,6 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applySession = useCallback(
     async (s: Session, event?: string) => {
       explicitSignOutRef.current = false;
+      if (
+        sessionRef.current?.access_token === s.access_token &&
+        sessionRef.current.user.id === s.user.id
+      ) {
+        return;
+      }
       sessionRef.current = s;
       setSession(s);
       setProfile((prev) => (prev?.id === s.user.id ? prev : profileFromUser(s.user)));
@@ -205,48 +225,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               explicitSignOut: explicitSignOutRef.current,
               accessToken: kept?.access_token,
               refreshToken: kept?.refresh_token,
-              restoring: restoringSessionRef.current,
-              restoreDisabled: iosRestoreDisabledRef.current,
-              lastRestoreAt: lastIosRestoreAtRef.current,
-              now: Date.now(),
             });
             if (action === "clear") {
               clearSession();
               return;
             }
-            if (action === "keep") {
-              return;
+            if (!iosSignedOutLoggedRef.current) {
+              iosSignedOutLoggedRef.current = true;
+              console.warn("[auth] SIGNED_OUT ignoré (iOS) — session conservée");
             }
-            const accessToken = kept?.access_token;
-            const refreshToken = kept?.refresh_token;
-            if (!accessToken || !refreshToken) {
-              clearSession();
-              return;
-            }
-            restoringSessionRef.current = true;
-            lastIosRestoreAtRef.current = Date.now();
-            console.warn("[auth] SIGNED_OUT ignoré — restauration session iOS (1×)");
-            void supabase.auth
-              .setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              })
-              .then((result) => {
-                if (result.error) {
-                  iosRestoreDisabledRef.current = true;
-                  console.warn(
-                    "[auth] restauration iOS stoppée — session mémoire conservée:",
-                    result.error.message
-                  );
-                }
-              })
-              .catch((err) => {
-                iosRestoreDisabledRef.current = true;
-                console.warn("[auth] restauration session iOS:", err);
-              })
-              .finally(() => {
-                restoringSessionRef.current = false;
-              });
             return;
           }
           clearSession();
@@ -283,8 +270,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
-    iosRestoreDisabledRef.current = false;
-    lastIosRestoreAtRef.current = 0;
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
     if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
@@ -295,8 +282,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     if (error) return { error: error.message, code: error.code };
-    iosRestoreDisabledRef.current = false;
-    lastIosRestoreAtRef.current = 0;
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
     if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
   }, [applySession]);
@@ -504,8 +491,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     explicitSignOutRef.current = true;
-    iosRestoreDisabledRef.current = false;
-    lastIosRestoreAtRef.current = 0;
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
     void unsubscribeFromPush();
     clearSession();
     try {
@@ -517,6 +504,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user) return;
+    lastProfileFetchRef.current = null;
     await loadProfile(session.user, {
       silent: !!profile && profile.id === session.user.id,
       accessToken: session.access_token,

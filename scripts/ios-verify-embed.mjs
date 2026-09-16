@@ -5,7 +5,7 @@ import path from "node:path";
 const root = process.cwd();
 const publicDir = path.join(root, "ios/App/App/public");
 const cfgPath = path.join(root, "ios/App/App/capacitor.config.json");
-const stamp = "iOS build 17";
+const stamp = "iOS build 18";
 
 if (!fs.existsSync(publicDir)) {
   console.error("ios/App/App/public absent. Relancez : npm run cap:ios");
