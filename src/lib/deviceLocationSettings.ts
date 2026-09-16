@@ -10,10 +10,12 @@ interface EasyDunyaLocationPlugin {
     timeout?: number;
     enableHighAccuracy?: boolean;
   }): Promise<{
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-    timestamp: number;
+    ok?: boolean;
+    error?: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    timestamp?: number;
   }>;
 }
 

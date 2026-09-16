@@ -3,7 +3,7 @@ import CoreLocation
 import UIKit
 import Capacitor
 
-/// Localisation iOS sans @capacitor/geolocation (retiré pour Xcode 15.2).
+/// Localisation iOS sans @capacitor/geolocation (Xcode 15.2 : pas de CAPPluginCall.reject).
 @objc(EasyDunyaLocationPlugin)
 public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
     public let identifier = "EasyDunyaLocationPlugin"
@@ -28,10 +28,7 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
     }
 
     private func authStatus() -> CLAuthorizationStatus {
-        if #available(iOS 14.0, *) {
-            return manager.authorizationStatus
-        }
-        return CLLocationManager.authorizationStatus()
+        return manager.authorizationStatus
     }
 
     private func statusString(_ status: CLAuthorizationStatus) -> String {
@@ -43,6 +40,10 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
         default:
             return "prompt"
         }
+    }
+
+    private func failPosition(_ call: CAPPluginCall, _ message: String) {
+        call.resolve(["ok": false, "error": message])
     }
 
     @objc func isEnabled(_ call: CAPPluginCall) {
@@ -92,23 +93,23 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
 
     @objc func getCurrentPosition(_ call: CAPPluginCall) {
         if !CLLocationManager.locationServicesEnabled() {
-            call.reject("Location services disabled")
+            failPosition(call, "Location services disabled")
             return
         }
         let status = authStatus()
         if status == .denied || status == .restricted {
-            call.reject("Geolocation permission denied")
+            failPosition(call, "Geolocation permission denied")
             return
         }
 
-        let highAccuracy = call.getBool("enableHighAccuracy") ?? false
+        let highAccuracy = call.getBool("enableHighAccuracy", false)
         manager.desiredAccuracy = highAccuracy
             ? kCLLocationAccuracyBest
             : kCLLocationAccuracyHundredMeters
 
         positionCall = call
-        let timeoutMs = call.getDouble("timeout") ?? 20_000
-        startPositionTimeout(timeoutMs / 1000.0)
+        let timeoutSec = (call.getDouble("timeout", 20000) ?? 20000) / 1000.0
+        startPositionTimeout(timeoutSec)
 
         if status == .notDetermined {
             permissionCall = nil
@@ -125,9 +126,9 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
     private func startPositionTimeout(_ seconds: TimeInterval) {
         positionTimer?.invalidate()
         positionTimer = Timer.scheduledTimer(withTimeInterval: max(5, seconds), repeats: false) { [weak self] _ in
-            guard let self, let call = self.positionCall else { return }
-            self.positionCall = nil
-            call.reject("Location timeout")
+            guard let strong = self, let call = strong.positionCall else { return }
+            strong.positionCall = nil
+            strong.failPosition(call, "Location timeout")
         }
     }
 
@@ -162,7 +163,7 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
             } else if status == .denied || status == .restricted {
                 positionCall = nil
                 clearPositionWait()
-                call.reject("Geolocation permission denied")
+                failPosition(call, "Geolocation permission denied")
             }
         }
     }
@@ -171,15 +172,12 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
         handleAuthChange()
     }
 
-    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        handleAuthChange()
-    }
-
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let loc = locations.last, let call = positionCall else { return }
         positionCall = nil
         clearPositionWait()
         call.resolve([
+            "ok": true,
             "latitude": loc.coordinate.latitude,
             "longitude": loc.coordinate.longitude,
             "accuracy": loc.horizontalAccuracy,
@@ -193,9 +191,9 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
         clearPositionWait()
         let ns = error as NSError
         if ns.domain == kCLErrorDomain, ns.code == CLError.denied.rawValue {
-            call.reject("Geolocation permission denied")
+            failPosition(call, "Geolocation permission denied")
             return
         }
-        call.reject(error.localizedDescription)
+        failPosition(call, error.localizedDescription)
     }
 }

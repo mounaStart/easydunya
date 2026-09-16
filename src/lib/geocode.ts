@@ -535,11 +535,19 @@ async function getIosCoreLocationPosition(
       enableHighAccuracy: options.enableHighAccuracy ?? false,
       timeout: options.timeout ?? POSITION_OPTIONS.timeout,
     });
+    if (pos.ok === false || pos.error) {
+      const msg = pos.error || "unavailable";
+      const err = new Error(msg) as Error & { code?: number };
+      if (msg.toLowerCase().includes("denied")) err.code = 1;
+      else if (msg.toLowerCase().includes("timeout")) err.code = 3;
+      else if (msg.toLowerCase().includes("disabled")) err.code = 2;
+      throw err;
+    }
     if (!Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)) return null;
     return toGeolocationPosition({
       coords: {
-        latitude: pos.latitude,
-        longitude: pos.longitude,
+        latitude: pos.latitude as number,
+        longitude: pos.longitude as number,
         accuracy: pos.accuracy || 0,
       },
       timestamp: pos.timestamp || Date.now(),
