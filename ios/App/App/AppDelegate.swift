@@ -10,6 +10,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Force le linker à garder EasyDunyaLocation (chargé via packageClassList).
         // Xcode 15.2 : CAPBridgeViewController.bridge n'est pas visible (pas de sous-classe).
         _ = EasyDunyaLocationPlugin.self
+        _ = EasyDunyaNotifyPlugin.self
         window?.backgroundColor = UIColor.systemBackground
         return true
     }

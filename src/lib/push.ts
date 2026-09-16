@@ -1,10 +1,15 @@
 import { supabase } from "./supabase";
 import {
+  isIosApp,
   isNativePushSupported,
   registerNativePush,
   getNativePushState,
   unregisterNativePush,
 } from "./nativePush";
+import {
+  getIosLocalNotifyState,
+  requestIosLocalNotify,
+} from "./iosLocalNotify";
 
 function isPushSupported(): boolean {
   return (
@@ -27,21 +32,30 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
   if (isNativePushSupported()) {
     return registerNativePush(userId);
   }
+  if (isIosApp()) {
+    return requestIosLocalNotify();
+  }
   return false;
 }
 
 export type PushState = "unsupported" | "denied" | "off" | "on";
 
-/** État du push natif (APK Android). Web et iOS : unsupported. */
+/** État : FCM Android, notifications locales iOS, sinon unsupported. */
 export async function getPushState(userId?: string): Promise<PushState> {
-  if (!isNativePushSupported()) return "unsupported";
-  return getNativePushState(userId);
+  if (isNativePushSupported()) return getNativePushState(userId);
+  if (isIosApp()) return getIosLocalNotifyState();
+  return "unsupported";
 }
 
 /** Réassocie le push natif au compte courant (après connexion). */
 export async function rebindPushToUser(userId: string): Promise<boolean> {
-  if (!isNativePushSupported()) return false;
-  return registerNativePush(userId);
+  if (isNativePushSupported()) {
+    return registerNativePush(userId);
+  }
+  if (isIosApp()) {
+    return requestIosLocalNotify();
+  }
+  return false;
 }
 
 /** Désabonne l'appareil (déconnexion). Nettoie aussi d'éventuels restes Web Push. */

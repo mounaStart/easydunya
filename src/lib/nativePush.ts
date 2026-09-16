@@ -39,7 +39,7 @@ export function isIosApp(): boolean {
 }
 
 /**
- * Push natif = FCM Android uniquement.
+ * Push natif FCM = Android uniquement.
  * iOS Personal Team + Xcode 15.2 : plugin Push retiré, pas de capacité Push.
  */
 export function isNativePushSupported(): boolean {
@@ -48,6 +48,11 @@ export function isNativePushSupported(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Bannière « Autoriser » : FCM Android ou notifications locales iOS. */
+export function isNotificationPromptSupported(): boolean {
+  return isNativePushSupported() || isIosApp();
 }
 
 /** Désactive le service worker Web Push dans l'APK (FCM natif uniquement). */

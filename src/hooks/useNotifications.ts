@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
-import { isNativePushSupported } from "../lib/nativePush";
+import { isNotificationPromptSupported } from "../lib/nativePush";
+import { showIosLocalNotification } from "../lib/iosLocalNotify";
 import type { AppNotification } from "../lib/types";
 
 /** Types affichés dans la cloche in-app uniquement (push téléphone séparé). */
@@ -15,6 +16,7 @@ export function isInAppNotification(n: Pick<AppNotification, "type">): boolean {
 export function useNotifications(userId: string | undefined) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const seenIdsRef = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -24,14 +26,26 @@ export function useNotifications(userId: string | undefined) {
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
-    setItems((data as AppNotification[] | null)?.filter(isInAppNotification) ?? []);
+    const list =
+      (data as AppNotification[] | null)?.filter(isInAppNotification) ?? [];
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(list.map((n) => n.id));
+    } else {
+      for (const n of list) {
+        if (!seenIdsRef.current.has(n.id) && !n.read) {
+          void showIosLocalNotification(n.title, n.body);
+        }
+        seenIdsRef.current.add(n.id);
+      }
+    }
+    setItems(list);
     setLoading(false);
   }, [userId]);
 
   useEffect(() => {
     load();
     if (!userId) return;
-    if (isNativePushSupported()) {
+    if (isNotificationPromptSupported()) {
       subscribeToPush(userId).catch(() => {});
     }
 
@@ -40,9 +54,13 @@ export function useNotifications(userId: string | undefined) {
     // Ajoute une notif reçue en direct sans attendre un rechargement complet
     function addIncoming(n: AppNotification) {
       if (!isInAppNotification(n)) return;
+      if (!seenIdsRef.current) seenIdsRef.current = new Set();
+      const isNew = !seenIdsRef.current.has(n.id);
+      seenIdsRef.current.add(n.id);
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [n, ...prev].slice(0, 50)
       );
+      if (isNew) void showIosLocalNotification(n.title, n.body);
     }
 
     const ch = supabase

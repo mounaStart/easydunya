@@ -14,7 +14,7 @@ import Spinner from "./Spinner";
 import { dispatchAppRefresh } from "../lib/appRefresh";
 import { resolveTermsAccepted } from "../lib/termsAcceptance";
 import { useAuth } from "../hooks/useAuth";
-import { isNativePushSupported } from "../lib/nativePush";
+import { isNotificationPromptSupported } from "../lib/nativePush";
 import { useAndroidBackButton } from "../hooks/useAndroidBackButton";
 import { cn } from "../lib/utils";
 
@@ -137,7 +137,7 @@ export default function Layout() {
       <footer className="hidden md:block bg-white border-t border-slate-100 py-6 text-center text-sm text-slate-500">
         © {new Date().getFullYear()} Easy Dunya — Adam Ba &amp; Maimouna Dia
       </footer>
-      {isNativePushSupported() ? <NotificationPrompt /> : null}
+      {isNotificationPromptSupported() ? <NotificationPrompt /> : null}
       <BottomNav />
     </div>
   );
