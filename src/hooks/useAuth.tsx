@@ -18,6 +18,8 @@ import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/native
 import { rememberAcceptedTerms, TERMS_VERSION } from "../lib/termsAcceptance";
 import { decideIosSignedOut } from "../lib/iosAuthSession";
 import { rememberAccessToken } from "../lib/accessToken";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
+import { restInsert, restUpdate } from "../lib/supabaseRest";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -302,9 +304,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string;
     }) => {
       const trimmedPhone = phone.trim();
-      const { data: taken } = await supabase.rpc("is_phone_taken", {
-        p_phone: trimmedPhone,
-      });
+      const { data: taken } = await invokeRpcWithAccessToken(
+        "is_phone_taken",
+        { p_phone: trimmedPhone },
+        undefined,
+        { allowAnon: true }
+      );
       if (taken === true) {
         return { error: "Ce numéro de téléphone est déjà utilisé." };
       }
@@ -358,12 +363,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (data.user) {
-          await supabase.from("profiles").insert({
-            id: data.user.id,
-            role: "passenger",
-            full_name: fullName,
-            phone: trimmedPhone,
-          });
+          await restInsert(
+            "profiles",
+            {
+              id: data.user.id,
+              role: "passenger",
+              full_name: fullName,
+              phone: trimmedPhone,
+            },
+            data.session?.access_token
+          );
           if (data.session?.user) {
             await loadProfile(data.session.user, {
               accessToken: data.session.access_token,
@@ -407,9 +416,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       vehicleFeatures?: string;
     }) => {
       const trimmedPhone = phone.trim();
-      const { data: taken } = await supabase.rpc("is_phone_taken", {
-        p_phone: trimmedPhone,
-      });
+      const { data: taken } = await invokeRpcWithAccessToken(
+        "is_phone_taken",
+        { p_phone: trimmedPhone },
+        undefined,
+        { allowAnon: true }
+      );
       if (taken === true) {
         return { error: "Ce numéro de téléphone est déjà utilisé." };
       }
@@ -462,18 +474,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) return { error: error.message };
       if (session?.user) {
-        await supabase
-          .from("profiles")
-          .update({ must_change_password: false })
-          .eq("id", session.user.id);
+        await restUpdate(
+          "profiles",
+          { eq: { id: session.user.id } },
+          { must_change_password: false },
+          session.access_token
+        );
         await loadProfile(session.user, { accessToken: session.access_token });
-        await supabase.rpc("notify_user", {
-          p_user: session.user.id,
-          p_title: "Mot de passe réinitialisé ✓",
-          p_body: "Votre mot de passe a été modifié avec succès.",
-          p_type: "password_reset_success",
-          p_data: null,
-        });
+        await invokeRpcWithAccessToken(
+          "notify_user",
+          {
+            p_user: session.user.id,
+            p_title: "Mot de passe réinitialisé ✓",
+            p_body: "Votre mot de passe a été modifié avec succès.",
+            p_type: "password_reset_success",
+            p_data: null,
+          },
+          session.access_token
+        );
       }
       return {};
     },

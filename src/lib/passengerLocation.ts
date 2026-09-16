@@ -7,7 +7,8 @@ import {
   normalizeProfileQuartier,
   reverseLocation,
 } from "./geocode";
-import { supabase } from "./supabase";
+import { restUpdate } from "./supabaseRest";
+import { currentAccessToken } from "./accessToken";
 import type { Booking, Profile } from "./types";
 
 export interface PassengerLocation {
@@ -104,7 +105,12 @@ export async function repairPassengerProfileLocation(
   const invalidQuartier = storedQuartier && !normalizeProfileQuartier(storedQuartier, city);
 
   if (invalidQuartier) {
-    await supabase.from("profiles").update({ quartier: null }).eq("id", userId);
+    await restUpdate(
+      "profiles",
+      { eq: { id: userId } },
+      { quartier: null },
+      currentAccessToken()
+    );
     profile = { ...profile, quartier: null };
   }
 
@@ -120,17 +126,19 @@ export async function savePassengerLocation(
   userId: string,
   loc: PassengerLocation
 ): Promise<{ error?: string }> {
-  const { error } = await supabase
-    .from("profiles")
-    .update({
+  const { error } = await restUpdate(
+    "profiles",
+    { eq: { id: userId } },
+    {
       quartier: loc.quartier,
       city_label: loc.cityLabel,
       location_lat: loc.lat,
       location_lng: loc.lng,
       location_updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-  return error ? { error: error.message } : {};
+    },
+    currentAccessToken()
+  );
+  return error ? { error } : {};
 }
 
 /** Complète le quartier à partir des coordonnées déjà enregistrées (sans redemander le GPS). */

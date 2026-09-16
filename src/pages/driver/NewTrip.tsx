@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
 import { insertDriverTrip } from "../../lib/tripApi";
+import { restSelect } from "../../lib/supabaseRest";
 import { useCities } from "../../hooks/useCities";
 import { useCityPrices } from "../../hooks/useCityPrices";
 import { reverseQuartier } from "../../lib/geocode";
@@ -117,14 +117,13 @@ export default function NewTrip() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("trips_public")
-      .select("*")
-      .eq("driver_id", user.id)
-      .in("status", ["scheduled", "in_progress"])
-      .order("depart_at", { ascending: true })
-      .then(({ data }) => {
-        const active = pickPrimaryActiveTrip((data as TripPublic[] | null) ?? []);
+    restSelect<TripPublic>("trips_public", {
+      select: "*",
+      eq: { driver_id: user.id },
+      in: { status: ["scheduled", "in_progress"] },
+      order: "depart_at.asc",
+    }).then(({ data }) => {
+        const active = pickPrimaryActiveTrip(data);
         setLockedTrip(active);
         setLocked(Boolean(active));
       });
@@ -132,12 +131,11 @@ export default function NewTrip() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("vehicles")
-      .select("*")
-      .eq("driver_id", user.id)
-      .then(({ data }) => {
-        const list = (data as Vehicle[] | null) ?? [];
+    restSelect<Vehicle>("vehicles", {
+      select: "*",
+      eq: { driver_id: user.id },
+    }).then(({ data }) => {
+        const list = data;
         setVehicles(list);
         if (list[0]) {
           setVehicleId(list[0].id);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "../../lib/supabase";
+import { invokeRpcWithAccessToken } from "../../lib/supabaseRpc";
+import { restSelect } from "../../lib/supabaseRest";
 import { cancelTripWithBroadcast } from "../../hooks/useBookings";
 import type { TripPublic, TripStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
@@ -21,14 +22,13 @@ export default function AdminTrips() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from("trips_public")
-      .select("*")
-      .order("depart_at", { ascending: false })
-      .limit(200);
-    if (filter !== "all") q = q.eq("status", filter);
-    const { data } = await q;
-    setTrips((data as TripPublic[] | null) ?? []);
+    const { data } = await restSelect<TripPublic>("trips_public", {
+      select: "*",
+      eq: filter !== "all" ? { status: filter } : undefined,
+      order: "depart_at.desc",
+      limit: 200,
+    });
+    setTrips(data);
     setLoading(false);
   }, [filter]);
 
@@ -55,9 +55,11 @@ export default function AdminTrips() {
 
   async function endTrip(id: string) {
     if (!confirm("Terminer ce voyage maintenant ? (action administrateur)")) return;
-    const { error } = await supabase.rpc("driver_end_trip", { p_trip_id: id });
+    const { error } = await invokeRpcWithAccessToken("driver_end_trip", {
+      p_trip_id: id,
+    });
     if (error) {
-      alert(error.message);
+      alert(error);
       return;
     }
     load();

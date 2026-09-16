@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
 import { invokeRpcWithAccessToken, patchRowWithAccessToken } from "../../lib/supabaseRpc";
+import { restSelectOne } from "../../lib/supabaseRest";
+import { fetchProfilesByIds } from "../../lib/profileApi";
 import { cancelTripWithBroadcast, updateBookingStatus, useTripBookings } from "../../hooks/useBookings";
 import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import TrackingMap from "../../components/TrackingMap";
@@ -118,12 +120,11 @@ export default function TripBookings() {
 
   const reloadTrip = useCallback(async () => {
     if (!tripId) return;
-    const { data } = await supabase
-      .from("trips_public")
-      .select("*")
-      .eq("id", tripId)
-      .maybeSingle();
-    setTrip((data as TripPublic | null) ?? null);
+    const { data } = await restSelectOne<TripPublic>("trips_public", {
+      select: "*",
+      eq: { id: tripId },
+    });
+    setTrip(data);
   }, [tripId]);
 
   useEffect(() => {
@@ -163,16 +164,12 @@ export default function TripBookings() {
       .map((b) => b.passenger_id)
       .filter((x): x is string => !!x);
     if (ids.length === 0) return;
-    supabase
-      .from("profiles")
-      .select("*")
-      .in("id", ids)
-      .then(({ data }) => {
+    fetchProfilesByIds(ids, "*", session?.access_token).then((data) => {
         const map: Record<string, Profile> = {};
-        (data as Profile[] | null)?.forEach((p) => (map[p.id] = p));
+        data.forEach((p) => (map[p.id] = p));
         setProfiles(map);
       });
-  }, [bookings]);
+  }, [bookings, session?.access_token]);
 
   async function setStatus(b: Booking, status: Booking["status"]) {
     setBusy(true);

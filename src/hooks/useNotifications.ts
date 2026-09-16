@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
+import { currentAccessToken } from "../lib/accessToken";
+import { restSelect, restUpdate } from "../lib/supabaseRest";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
 import { showIosLocalNotification } from "../lib/iosLocalNotify";
 import type { AppNotification } from "../lib/types";
 
@@ -18,12 +21,16 @@ export function useNotifications(userId: string | undefined) {
 
   const load = useCallback(async () => {
     if (!userId) return;
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const { data } = await restSelect<AppNotification>(
+      "notifications",
+      {
+        select: "*",
+        eq: { user_id: userId },
+        order: "created_at.desc",
+        limit: 50,
+      },
+      currentAccessToken()
+    );
     const list =
       (data as AppNotification[] | null)?.filter(isInAppNotification) ?? [];
     if (seenIdsRef.current === null) {
@@ -108,13 +115,23 @@ export function useNotifications(userId: string | undefined) {
   const unread = items.filter((n) => !n.read).length;
 
   async function markRead(id: string) {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    await restUpdate(
+      "notifications",
+      { eq: { id } },
+      { read: true },
+      currentAccessToken()
+    );
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }
 
   async function markAllRead() {
     if (!userId) return;
-    await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+    await restUpdate(
+      "notifications",
+      { eq: { user_id: userId, read: false } },
+      { read: true },
+      currentAccessToken()
+    );
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
@@ -129,11 +146,16 @@ export async function sendNotification(
   type?: string,
   data?: Record<string, unknown>
 ) {
-  await supabase.rpc("notify_user", {
-    p_user: userId,
-    p_title: title,
-    p_body: body ?? null,
-    p_type: type ?? null,
-    p_data: data ?? null,
-  });
+  await invokeRpcWithAccessToken(
+    "notify_user",
+    {
+      p_user: userId,
+      p_title: title,
+      p_body: body ?? null,
+      p_type: type ?? null,
+      p_data: data ?? null,
+    },
+    currentAccessToken(),
+    { allowAnon: true }
+  );
 }

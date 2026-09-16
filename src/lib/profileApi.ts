@@ -1,5 +1,7 @@
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import type { User } from "@supabase/supabase-js";
+import { currentAccessToken } from "./accessToken";
+import { restSelect } from "./supabaseRest";
 import { supabaseAnonKey, supabaseUrl } from "./supabase";
 import type { Profile, UserRole } from "./types";
 
@@ -131,4 +133,18 @@ export async function fetchProfileWithAccessToken(
     console.warn("[auth] profil fetch:", err);
     return null;
   }
+}
+
+export async function fetchProfilesByIds(
+  ids: string[],
+  select = "*",
+  accessToken = currentAccessToken()
+): Promise<Profile[]> {
+  if (ids.length === 0) return [];
+  const { data } = await restSelect<Profile>(
+    "profiles",
+    { select, in: { id: ids } },
+    accessToken
+  );
+  return data;
 }

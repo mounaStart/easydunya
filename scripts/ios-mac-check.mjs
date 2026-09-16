@@ -53,5 +53,5 @@ if (!fs.existsSync(pub)) {
   walk(pub);
   const blob = files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
   console.log("Profil introuvable dans public :", blob.includes("Profil introuvable") ? "OUI = ANCIEN JS" : "non");
-  console.log("iOS build 20 dans public :", blob.includes("iOS build 20") ? "OUI = BON JS" : "NON");
+  console.log("iOS build 21 dans public :", blob.includes("iOS build 21") ? "OUI = BON JS" : "NON");
 }

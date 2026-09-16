@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { restSelect, restUpdate } from "../../lib/supabaseRest";
 import type { UserAdmin, UserRole } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import { labelDriverStatus, labelUserRole } from "../../lib/statusLabels";
@@ -18,25 +19,22 @@ export default function AdminUsers() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let q = supabase
-      .from("users_admin")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (filter !== "all") q = q.eq("role", filter);
+    const { data, error } = await restSelect<UserAdmin>("users_admin", {
+      select: "*",
+      eq: filter !== "all" ? { role: filter } : undefined,
+      order: "created_at.desc",
+      limit: 200,
+    });
 
-    const { data, error } = await q;
     if (error) {
-      // Fallback profiles
-      let pq = supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (filter !== "all") pq = pq.eq("role", filter);
-      const { data: p } = await pq;
+      const { data: p } = await restSelect<Record<string, unknown>>("profiles", {
+        select: "*",
+        eq: filter !== "all" ? { role: filter } : undefined,
+        order: "created_at.desc",
+        limit: 200,
+      });
       setUsers(
-        ((p ?? []) as Record<string, unknown>[]).map((row) => ({
+        p.map((row) => ({
           ...(row as object),
           email: "",
           last_sign_in_at: null,
@@ -44,7 +42,7 @@ export default function AdminUsers() {
         })) as unknown as UserAdmin[]
       );
     } else {
-      setUsers((data as UserAdmin[]) ?? []);
+      setUsers(data);
     }
     setLoading(false);
   }, [filter]);
@@ -98,13 +96,14 @@ export default function AdminUsers() {
 
   async function changeRole(u: UserAdmin, role: UserRole) {
     if (!confirm(`Changer le rôle de ${u.full_name ?? u.email} en "${role}" ?`)) return;
-    await supabase
-      .from("profiles")
-      .update({
+    await restUpdate(
+      "profiles",
+      { eq: { id: u.id } },
+      {
         role,
         driver_status: role === "driver" ? "approved" : null,
-      })
-      .eq("id", u.id);
+      }
+    );
     load();
   }
 

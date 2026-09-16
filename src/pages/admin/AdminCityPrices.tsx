@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "../../lib/supabase";
+import { restDelete, restInsert, restUpdate } from "../../lib/supabaseRest";
 import { useCities } from "../../hooks/useCities";
 import { useCityPrices, computeCommission } from "../../hooks/useCityPrices";
 import { formatPrice } from "../../lib/utils";
@@ -53,13 +53,13 @@ export default function AdminCityPrices() {
       distance_km: distance,
     };
     const { error } = editId
-      ? await supabase.from("city_prices").update(payload).eq("id", editId)
-      : await supabase.from("city_prices").upsert(payload, {
+      ? await restUpdate("city_prices", { eq: { id: editId } }, payload)
+      : await restInsert("city_prices", payload, undefined, {
           onConflict: "from_city_id,to_city_id",
         });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      setError(error);
       return;
     }
     reset();
@@ -68,7 +68,7 @@ export default function AdminCityPrices() {
 
   async function remove(id: string) {
     if (!confirm("Supprimer ce tarif ?")) return;
-    await supabase.from("city_prices").delete().eq("id", id);
+    await restDelete("city_prices", { eq: { id } });
     refresh();
   }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../lib/supabase";
+import { restUpdate } from "../lib/supabaseRest";
 import {
   queryLocationPermission,
   requestAppLocation,
@@ -59,12 +59,13 @@ export default function DriverLocationGate() {
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ gps_consent: true })
-        .eq("id", user.id);
+      const { error: updateError } = await restUpdate(
+        "profiles",
+        { eq: { id: user.id } },
+        { gps_consent: true }
+      );
       if (updateError) {
-        setError(updateError.message);
+        setError(updateError);
         return;
       }
       await refreshProfile();
@@ -81,12 +82,13 @@ export default function DriverLocationGate() {
     setBusy(true);
     setError(null);
     try {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ gps_consent: false })
-        .eq("id", user.id);
+      const { error: updateError } = await restUpdate(
+        "profiles",
+        { eq: { id: user.id } },
+        { gps_consent: false }
+      );
       if (updateError) {
-        setError(updateError.message);
+        setError(updateError);
         return;
       }
       await refreshProfile();

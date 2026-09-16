@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
 import { fetchBookingsWithAccessToken } from "../../lib/bookingApi";
+import { restSelect } from "../../lib/supabaseRest";
 import type { TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
@@ -42,13 +43,11 @@ export default function DriverDashboard() {
     async function load() {
       if (!user) return;
 
-      const { data: tripsData } = await supabase
-        .from("trips_public")
-        .select("*")
-        .eq("driver_id", user.id)
-        .order("depart_at", { ascending: true });
-
-      const allTrips = (tripsData as TripPublic[] | null) ?? [];
+      const { data: allTrips } = await restSelect<TripPublic>("trips_public", {
+        select: "*",
+        eq: { driver_id: user.id },
+        order: "depart_at.asc",
+      });
 
       const bookingsData = await fetchBookingsWithAccessToken(session?.access_token, {
         tripIds:
@@ -59,12 +58,14 @@ export default function DriverDashboard() {
       });
 
       // Revenus = NET réel encaissé (après commission Easy Dunya), via la table payments
-      const { data: payData } = await supabase
-        .from("payments")
-        .select("driver_earning")
-        .eq("driver_id", user.id)
-        .eq("status", "paid");
-      const earnings = (payData as { driver_earning: number }[] | null ?? []).reduce(
+      const { data: payData } = await restSelect<{ driver_earning: number }>(
+        "payments",
+        {
+          select: "driver_earning",
+          eq: { driver_id: user.id, status: "paid" },
+        }
+      );
+      const earnings = payData.reduce(
         (sum, p) => sum + (p.driver_earning ?? 0),
         0
       );

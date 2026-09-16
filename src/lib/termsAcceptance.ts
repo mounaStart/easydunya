@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { restUpdate } from "./supabaseRest";
 import type { Profile } from "./types";
 
 /** Version des CGU — incrémenter pour redemander l'acceptation. */
@@ -82,13 +82,14 @@ export function resolveTermsAccepted(opts: {
 
 export async function acceptTerms(userId: string): Promise<{ error?: string }> {
   rememberAcceptedTerms(userId);
-  const { error } = await supabase
-    .from("profiles")
-    .update({
+  const { error } = await restUpdate(
+    "profiles",
+    { eq: { id: userId } },
+    {
       terms_accepted_version: TERMS_VERSION,
       terms_accepted_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-  if (error) console.warn("terms acceptance db update failed:", error.message);
+    }
+  );
+  if (error) console.warn("terms acceptance db update failed:", error);
   return {};
 }

@@ -7,6 +7,8 @@ import { updateBookingStatus } from "../../hooks/useBookings";
 import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import { supabase } from "../../lib/supabase";
 import { fetchBookingsWithAccessToken } from "../../lib/bookingApi";
+import { restSelect, restSelectOne } from "../../lib/supabaseRest";
+import { fetchProfilesByIds } from "../../lib/profileApi";
 import type { Booking, Payment, Profile, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import TrackingMap from "../../components/TrackingMap";
@@ -112,12 +114,11 @@ export default function DriverHome() {
     async function load() {
       if (!user) return;
 
-      const { data: tripsData } = await supabase
-        .from("trips_public")
-        .select("*")
-        .eq("driver_id", user.id)
-        .order("depart_at", { ascending: true });
-      const allTrips = (tripsData as TripPublic[] | null) ?? [];
+      const { data: allTrips } = await restSelect<TripPublic>("trips_public", {
+        select: "*",
+        eq: { driver_id: user.id },
+        order: "depart_at.asc",
+      });
 
       const activeTripIds = allTrips
         .filter((tr) => tr.status === "scheduled" || tr.status === "in_progress")
@@ -140,12 +141,11 @@ export default function DriverHome() {
         }
       }
 
-      const { data: payData } = await supabase
-        .from("payments")
-        .select("driver_earning, paid_at")
-        .eq("driver_id", user.id)
-        .eq("status", "paid");
-      const today = (payData as Payment[] | null ?? []).reduce(
+      const { data: payData } = await restSelect<Payment>("payments", {
+        select: "driver_earning,paid_at",
+        eq: { driver_id: user.id, status: "paid" },
+      });
+      const today = payData.reduce(
         (sum, p) => (isToday(p.paid_at) ? sum + p.driver_earning : sum),
         0
       );
@@ -197,11 +197,12 @@ export default function DriverHome() {
 
       let profMap: Record<string, Profile> = {};
       if (passengerIds.length > 0) {
-        const { data: profData } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("id", passengerIds);
-        (profData as Profile[] | null)?.forEach((p) => (profMap[p.id] = p));
+        const profData = await fetchProfilesByIds(
+          passengerIds,
+          "*",
+          session?.access_token
+        );
+        profData.forEach((p) => (profMap[p.id] = p));
       }
 
       if (!cancelled) {
@@ -249,14 +250,13 @@ export default function DriverHome() {
         setPendingCount((c) => Math.max(0, c - 1));
       }
       if (status === "confirmed" || status === "rejected" || status === "cancelled") {
-        const { data: tripRow } = await supabase
-          .from("trips_public")
-          .select("*")
-          .eq("id", booking.trip_id)
-          .maybeSingle();
+        const { data: tripRow } = await restSelectOne<TripPublic>("trips_public", {
+          select: "*",
+          eq: { id: booking.trip_id },
+        });
         if (tripRow) {
           setTrips((prev) =>
-            prev.map((tr) => (tr.id === booking.trip_id ? (tripRow as TripPublic) : tr))
+            prev.map((tr) => (tr.id === booking.trip_id ? tripRow : tr))
           );
         }
       }

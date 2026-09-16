@@ -1,4 +1,6 @@
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { currentAccessToken } from "./accessToken";
+import { restInsert } from "./supabaseRest";
 import { supabase, supabaseAnonKey, supabaseUrl } from "./supabase";
 import type { Booking } from "./types";
 
@@ -125,6 +127,21 @@ export async function fetchBookingsWithAccessToken(
   req = req.order("created_at", { ascending: false });
   const { data } = await req;
   return asList(data);
+}
+
+export async function insertBookingWithAccessToken(
+  payload: Record<string, unknown>,
+  accessToken = currentAccessToken()
+): Promise<{ booking?: Booking; error?: string }> {
+  const { data, error } = await restInsert<Booking>(
+    "bookings",
+    payload,
+    accessToken,
+    { returning: true }
+  );
+  if (error) return { error };
+  if (!data) return { error: "Réservation introuvable après insertion." };
+  return { booking: data };
 }
 
 export async function patchBookingWithAccessToken(

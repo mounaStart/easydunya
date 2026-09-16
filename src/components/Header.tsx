@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../lib/supabase";
+import { restSelect } from "../lib/supabaseRest";
 import LangSwitcher from "./LangSwitcher";
 import NotificationBell from "./NotificationBell";
 import BrandLogo from "./BrandLogo";
@@ -140,12 +140,11 @@ export default function Header({ className }: { className?: string }) {
     if (!isAdmin) return;
     let cancelled = false;
     async function load() {
-      const { count } = await supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "driver")
-        .eq("driver_status", "pending");
-      if (!cancelled) setPendingDriversCount(count ?? 0);
+      const { data } = await restSelect<{ id: string }>("profiles", {
+        select: "id",
+        eq: { role: "driver", driver_status: "pending" },
+      });
+      if (!cancelled) setPendingDriversCount(data.length);
     }
     load();
     const interval = setInterval(load, 60_000);

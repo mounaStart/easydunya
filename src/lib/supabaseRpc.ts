@@ -37,12 +37,17 @@ function rpcHeaders(accessToken: string): Record<string, string> {
 
 /**
  * RPC PostgREST avec JWT explicite (iOS : supabase.rpc omet le jeton → « not authenticated »).
+ * `allowAnon` : RPCs publiques (is_phone_taken, get_booking_by_code) avant connexion.
  */
 export async function invokeRpcWithAccessToken(
   fn: string,
   params: Record<string, unknown>,
-  accessToken = currentAccessToken()
+  accessToken = currentAccessToken(),
+  opts?: { allowAnon?: boolean }
 ): Promise<{ data?: unknown; error?: string }> {
+  if (!accessToken && opts?.allowAnon) {
+    accessToken = supabaseAnonKey;
+  }
   if (!accessToken) {
     return { error: "Session expirée. Déconnectez-vous puis reconnectez-vous." };
   }

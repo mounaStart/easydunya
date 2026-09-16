@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { fetchRemainingToDestinationM, type RoutePoint } from "../lib/routing";
 import { ensureLocationPermission, getCurrentPosition } from "../lib/geocode";
 import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
+import { restSelectOne } from "../lib/supabaseRest";
 
 export interface TripRouteEndpoints {
   from: RoutePoint;
@@ -200,16 +201,19 @@ export function useTripDriverPosition(
       setPos(null);
       return;
     }
+    const id = tripId;
     let cancelled = false;
 
     async function loadLatest() {
-      const { data } = await supabase
-        .from("driver_positions")
-        .select("latitude, longitude, recorded_at")
-        .eq("trip_id", tripId)
-        .order("recorded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data } = await restSelectOne<{
+        latitude: number;
+        longitude: number;
+        recorded_at: string;
+      }>("driver_positions", {
+        select: "latitude,longitude,recorded_at",
+        eq: { trip_id: id },
+        order: "recorded_at.desc",
+      });
       if (cancelled || !data) return;
       setPos({
         lat: data.latitude as number,

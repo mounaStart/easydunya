@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
+import { restSelect } from "../../lib/supabaseRest";
 import type { Payment } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import { formatPrice } from "../../lib/utils";
@@ -19,14 +19,12 @@ export default function DriverEarnings() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    supabase
-      .from("payments")
-      .select("*")
-      .eq("driver_id", user.id)
-      .eq("status", "paid")
-      .order("paid_at", { ascending: false })
-      .then(({ data }) => {
-        setPayments((data as Payment[] | null) ?? []);
+    restSelect<Payment>("payments", {
+      select: "*",
+      eq: { driver_id: user.id, status: "paid" },
+      order: "paid_at.desc",
+    }).then(({ data }) => {
+        setPayments(data);
         setLoading(false);
       });
   }, [user]);

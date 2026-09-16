@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { restSelect } from "../lib/supabaseRest";
 import type { City } from "../lib/types";
 
 export function useCities() {
@@ -9,12 +9,12 @@ export function useCities() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const { data } = await supabase
-        .from("cities")
-        .select("*")
-        .order("name_fr");
+      const { data } = await restSelect<City>("cities", {
+        select: "*",
+        order: "name_fr.asc",
+      });
       if (!cancelled) {
-        setCities((data as City[] | null) ?? []);
+        setCities(data);
         setLoading(false);
       }
     }
