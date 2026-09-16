@@ -29,7 +29,19 @@ function writeStorage(key: string): void {
     version: TERMS_VERSION,
     acceptedAt: new Date().toISOString(),
   };
-  localStorage.setItem(key, JSON.stringify(payload));
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    /* iOS / mode privé */
+  }
+}
+
+export function rememberAcceptedTerms(userId: string): void {
+  writeStorage(userStorageKey(userId));
+}
+
+export function deviceHasAcceptedTerms(userId: string): boolean {
+  return readStorage(userStorageKey(userId)) !== null;
 }
 
 /** Compte connecté : CGU acceptées pour cette version ? */
@@ -37,8 +49,11 @@ export function profileHasAcceptedTerms(
   profile: Profile | null | undefined
 ): boolean {
   if (!profile) return false;
-  if (profile.terms_accepted_version === TERMS_VERSION) return true;
-  return readStorage(userStorageKey(profile.id)) !== null;
+  if (profile.terms_accepted_version === TERMS_VERSION) {
+    rememberAcceptedTerms(profile.id);
+    return true;
+  }
+  return deviceHasAcceptedTerms(profile.id);
 }
 
 /**
@@ -50,18 +65,23 @@ export function resolveTermsAccepted(opts: {
   userId: string | null | undefined;
   profile: Profile | null | undefined;
   authPending: boolean;
+  profileHydrated?: boolean;
 }): boolean | null {
-  // Visiteur : pas de CGU. Ne pas rester sur « authPending » si on a déjà un user
-  // (getSession iOS peut rester bloqué → écran blanc infini).
   if (!opts.userId) {
     return opts.authPending ? null : true;
   }
-  if (!opts.profile || opts.profile.id !== opts.userId) return false;
-  return profileHasAcceptedTerms(opts.profile);
+  if (deviceHasAcceptedTerms(opts.userId)) return true;
+  if (opts.profile?.id === opts.userId && opts.profile.terms_accepted_version === TERMS_VERSION) {
+    rememberAcceptedTerms(opts.userId);
+    return true;
+  }
+  // Profil stub / fetch iOS en cours : ne pas afficher les CGU (déjà acceptées en base).
+  if (!opts.profileHydrated) return null;
+  return false;
 }
 
 export async function acceptTerms(userId: string): Promise<{ error?: string }> {
-  writeStorage(userStorageKey(userId));
+  rememberAcceptedTerms(userId);
   const { error } = await supabase
     .from("profiles")
     .update({

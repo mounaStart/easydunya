@@ -41,6 +41,7 @@ export default function Layout() {
     profile,
     loading,
     profileLoading,
+    profileHydrated,
   } = useAuth();
   useAndroidBackButton();
 
@@ -53,8 +54,9 @@ export default function Layout() {
         userId: user?.id,
         profile,
         authPending,
+        profileHydrated,
       }),
-    [user?.id, profile, authPending]
+    [user?.id, profile, authPending, profileHydrated]
   );
 
   const [termsAccepted, setTermsAccepted] = useState<boolean | null>(termsResolved);
@@ -81,12 +83,13 @@ export default function Layout() {
           userId: user?.id,
           profile,
           authPending: loading || profileLoading,
+          profileHydrated,
         })
       );
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [user?.id, profile, loading, profileLoading]);
+  }, [user?.id, profile, loading, profileLoading, profileHydrated]);
 
   const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
 
@@ -108,7 +111,7 @@ export default function Layout() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  if (termsAccepted === null && !pendingTooLong) {
+  if (termsAccepted === null && (!pendingTooLong || !profileHydrated)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Spinner label="Connexion…" />
@@ -116,7 +119,7 @@ export default function Layout() {
     );
   }
 
-  if (user && !termsAccepted) {
+  if (user && termsAccepted === false) {
     return <TermsGate onAccepted={() => setTermsAccepted(true)} />;
   }
 

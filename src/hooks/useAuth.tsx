@@ -15,6 +15,7 @@ import { phoneToEmail } from "../lib/phone";
 import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
 import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/nativePush";
+import { rememberAcceptedTerms, TERMS_VERSION } from "../lib/termsAcceptance";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -67,6 +68,8 @@ interface AuthContextValue {
   ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** true une fois le profil REST lu (ou échec). Évite le flash CGU. */
+  profileHydrated: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -76,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileHydrated, setProfileHydrated] = useState(false);
   const loadProfileForRef = useRef<string | null>(null);
   const loadGenRef = useRef(0);
   const sessionRef = useRef<Session | null>(null);
@@ -87,20 +91,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(
     async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
       const requestId = ++loadGenRef.current;
+      const switched = loadProfileForRef.current !== u.id;
       loadProfileForRef.current = u.id;
+      if (switched) setProfileHydrated(false);
       // Ne jamais vider le profil : l'écran « introuvable » bloquait iOS
       // (select timeout + upsert admin/chauffeur refusé par le RLS).
       setProfile((prev) => (prev?.id === u.id ? prev : profileFromUser(u)));
       if (!opts?.silent) setProfileLoading(false);
 
       const token = opts?.accessToken;
-      if (!token) return;
-      void fetchProfileWithAccessToken(u.id, token).then((data) => {
-        if (requestId !== loadGenRef.current || loadProfileForRef.current !== u.id) {
-          return;
-        }
-        if (data) setProfile(data);
-      });
+      if (!token) {
+        setProfileHydrated(true);
+        return;
+      }
+      void fetchProfileWithAccessToken(u.id, token)
+        .then((data) => {
+          if (requestId !== loadGenRef.current || loadProfileForRef.current !== u.id) {
+            return;
+          }
+          if (data) {
+            if (data.terms_accepted_version === TERMS_VERSION) {
+              rememberAcceptedTerms(u.id);
+            }
+            setProfile(data);
+          }
+        })
+        .finally(() => {
+          if (requestId === loadGenRef.current) setProfileHydrated(true);
+        });
     },
     []
   );
@@ -131,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setProfileLoading(false);
+    setProfileHydrated(false);
   }, []);
 
   const refreshSessionFromStorage = useCallback(async () => {
@@ -499,6 +518,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPasswordByPhone,
       signOut,
       refreshProfile,
+      profileHydrated,
     };
   }, [
     loading,
@@ -513,6 +533,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPasswordByPhone,
     signOut,
     refreshProfile,
+    profileHydrated,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
