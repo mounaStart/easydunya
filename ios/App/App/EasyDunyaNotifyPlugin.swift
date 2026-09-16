@@ -49,8 +49,8 @@ public class EasyDunyaNotifyPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotificat
     }
 
     @objc func show(_ call: CAPPluginCall) {
-        let title = call.getString("title") ?? "Easy Dunya"
-        let body = call.getString("body") ?? ""
+        let title = call.getString("title", "Easy Dunya")
+        let body = call.getString("body", "")
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
