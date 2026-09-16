@@ -5,6 +5,7 @@ import {
   fetchBookingsWithAccessToken,
   patchBookingWithAccessToken,
 } from "../lib/bookingApi";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
 import { useAuth } from "./useAuth";
 import type { Booking } from "../lib/types";
 
@@ -257,11 +258,16 @@ export async function cancelBooking(
   return {};
 }
 
-export async function cancelTripWithBroadcast(tripId: string, reason?: string) {
-  const { data, error } = await supabase.rpc("cancel_trip_with_broadcast", {
-    p_trip_id: tripId,
-    p_reason: reason ?? null,
-  });
-  if (error) return { error: error.message };
+export async function cancelTripWithBroadcast(
+  tripId: string,
+  reason?: string,
+  accessToken?: string
+) {
+  const { data, error } = await invokeRpcWithAccessToken(
+    "cancel_trip_with_broadcast",
+    { p_trip_id: tripId, p_reason: reason ?? null },
+    accessToken
+  );
+  if (error) return { error };
   return { notified: data as number };
 }

@@ -4,6 +4,7 @@ import { App } from "@capacitor/app";
 import { supabase } from "../lib/supabase";
 import { fetchRemainingToDestinationM, type RoutePoint } from "../lib/routing";
 import { ensureLocationPermission, getCurrentPosition } from "../lib/geocode";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
 
 export interface TripRouteEndpoints {
   from: RoutePoint;
@@ -32,14 +33,14 @@ async function pushDriverGps(
   lng: number,
   routeRemainingM?: number | null
 ): Promise<DriverGpsPushResult | null> {
-  const { data, error } = await supabase.rpc("driver_update_gps", {
+  const { data, error } = await invokeRpcWithAccessToken("driver_update_gps", {
     p_trip_id: tripId,
     p_lat: lat,
     p_lng: lng,
     p_route_remaining_m: routeRemainingM ?? null,
   });
   if (error) {
-    console.warn("[gps] driver_update_gps:", error.message);
+    console.warn("[gps] driver_update_gps:", error);
     return null;
   }
   return (data as DriverGpsPushResult | null) ?? null;

@@ -17,6 +17,7 @@ import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
 import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/nativePush";
 import { rememberAcceptedTerms, TERMS_VERSION } from "../lib/termsAcceptance";
 import { decideIosSignedOut } from "../lib/iosAuthSession";
+import { rememberAccessToken } from "../lib/accessToken";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applySession = useCallback(
     async (s: Session, event?: string) => {
       explicitSignOutRef.current = false;
+      rememberAccessToken(s.access_token);
       if (
         sessionRef.current?.access_token === s.access_token &&
         sessionRef.current.user.id === s.user.id
@@ -167,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const clearSession = useCallback(() => {
+    rememberAccessToken(undefined);
     sessionRef.current = null;
     loadProfileForRef.current = null;
     setSession(null);
