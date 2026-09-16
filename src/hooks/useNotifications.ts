@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
 import { subscribeToPush } from "../lib/push";
-import { isNativePlatform } from "../lib/nativePush";
+import { isNativePushSupported } from "../lib/nativePush";
 import type { AppNotification } from "../lib/types";
 
 /** Types affichés dans la cloche in-app uniquement (push téléphone séparé). */
@@ -31,7 +31,7 @@ export function useNotifications(userId: string | undefined) {
   useEffect(() => {
     load();
     if (!userId) return;
-    if (isNativePlatform()) {
+    if (isNativePushSupported()) {
       subscribeToPush(userId).catch(() => {});
     }
 

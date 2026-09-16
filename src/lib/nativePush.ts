@@ -20,10 +20,31 @@ async function clearWebPushForUser(userId: string): Promise<void> {
   }
 }
 
-/** Vrai dans l'APK Capacitor (pas dans le navigateur). */
+/** Vrai dans l'APK / l'app iOS Capacitor (pas dans le navigateur). */
 export function isNativePlatform(): boolean {
   try {
     return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
+/** App iOS native (WKWebView). */
+export function isIosApp(): boolean {
+  try {
+    return Capacitor.getPlatform() === "ios";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Push natif = FCM Android uniquement.
+ * iOS Personal Team + Xcode 15.2 : plugin Push retiré, pas de capacité Push.
+ */
+export function isNativePushSupported(): boolean {
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   } catch {
     return false;
   }
@@ -116,14 +137,14 @@ function bindListeners(): void {
 
 /** À appeler au démarrage de l'app (avant la connexion). */
 export function initNativePush(): void {
-  if (!isNativePlatform()) return;
+  if (!isNativePushSupported()) return;
   disableWebPushOnNative();
   bindListeners();
 }
 
 /** Enregistre l'appareil natif au FCM et sauvegarde le token pour cet utilisateur. */
 export async function registerNativePush(userId: string): Promise<boolean> {
-  if (!isNativePlatform()) return false;
+  if (!isNativePushSupported()) return false;
   currentUserId = userId;
   initNativePush();
 
@@ -170,7 +191,7 @@ export async function registerNativePush(userId: string): Promise<boolean> {
 
 /** État du push natif pour cet utilisateur. */
 export async function getNativePushState(userId?: string): Promise<PushState> {
-  if (!isNativePlatform()) return "unsupported";
+  if (!isNativePushSupported()) return "unsupported";
   try {
     const perm = await PushNotifications.checkPermissions();
     if (perm.receive === "denied") return "denied";
@@ -190,7 +211,7 @@ export async function getNativePushState(userId?: string): Promise<PushState> {
 
 /** Supprime le token natif courant (déconnexion). */
 export async function unregisterNativePush(): Promise<void> {
-  if (!isNativePlatform()) return;
+  if (!isNativePushSupported()) return;
   try {
     if (currentUserId) {
       await supabase.from("device_tokens").delete().eq("user_id", currentUserId);

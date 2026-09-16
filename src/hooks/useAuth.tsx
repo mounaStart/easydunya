@@ -14,7 +14,7 @@ import { fetchProfileWithAccessToken, profileFromUser } from "../lib/profileApi"
 import { phoneToEmail } from "../lib/phone";
 import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
-import { isNativePlatform } from "../lib/nativePush";
+import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/nativePush";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -80,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadGenRef = useRef(0);
   const sessionRef = useRef<Session | null>(null);
   const initialAuthDoneRef = useRef(false);
+  /** iOS WKWebView envoie parfois SIGNED_OUT tout seul après le login. */
+  const explicitSignOutRef = useRef(false);
+  const restoringSessionRef = useRef(false);
 
   const loadProfile = useCallback(
     async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
@@ -104,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applySession = useCallback(
     async (s: Session, event?: string) => {
+      explicitSignOutRef.current = false;
       sessionRef.current = s;
       setSession(s);
       setProfile((prev) => (prev?.id === s.user.id ? prev : profileFromUser(s.user)));
@@ -111,7 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const silent =
         event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
       await loadProfile(s.user, { silent, accessToken: s.access_token });
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") &&
+        isNativePushSupported()
+      ) {
         rebindPushToUser(s.user.id).catch(() => {});
       }
     },
@@ -170,6 +177,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => {
         if (cancelled) return;
         if (evt === "SIGNED_OUT") {
+          if (!explicitSignOutRef.current && isIosApp()) {
+            const kept = sessionRef.current;
+            if (
+              kept?.access_token &&
+              kept.refresh_token &&
+              !restoringSessionRef.current
+            ) {
+              restoringSessionRef.current = true;
+              console.warn("[auth] SIGNED_OUT ignoré — restauration session iOS");
+              void supabase.auth
+                .setSession({
+                  access_token: kept.access_token,
+                  refresh_token: kept.refresh_token,
+                })
+                .catch((err) => {
+                  console.warn("[auth] restauration session iOS:", err);
+                })
+                .finally(() => {
+                  restoringSessionRef.current = false;
+                });
+            } else {
+              console.warn("[auth] SIGNED_OUT ignoré (iOS, déconnexion non demandée)");
+            }
+            return;
+          }
           clearSession();
           return;
         }
@@ -420,9 +452,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    explicitSignOutRef.current = true;
     void unsubscribeFromPush();
     clearSession();
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* session déjà vidée côté UI */
+    }
   }, [clearSession]);
 
   const refreshProfile = useCallback(async () => {

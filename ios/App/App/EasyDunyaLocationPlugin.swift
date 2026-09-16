@@ -108,8 +108,7 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
             : kCLLocationAccuracyHundredMeters
 
         positionCall = call
-        let timeoutSec = (call.getDouble("timeout", 20000) ?? 20000) / 1000.0
-        startPositionTimeout(timeoutSec)
+        startPositionTimeout(20)
 
         if status == .notDetermined {
             permissionCall = nil

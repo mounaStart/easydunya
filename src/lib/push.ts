@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import {
-  isNativePlatform,
+  isNativePushSupported,
   registerNativePush,
   getNativePushState,
   unregisterNativePush,
@@ -24,7 +24,7 @@ async function getPushRegistration(): Promise<ServiceWorkerRegistration | null> 
  * Web Push (navigateur) désactivé — barre téléphone via APK FCM uniquement.
  */
 export async function subscribeToPush(userId: string): Promise<boolean> {
-  if (isNativePlatform()) {
+  if (isNativePushSupported()) {
     return registerNativePush(userId);
   }
   return false;
@@ -32,21 +32,21 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
 
 export type PushState = "unsupported" | "denied" | "off" | "on";
 
-/** État du push natif (APK). Sur le web : toujours unsupported. */
+/** État du push natif (APK Android). Web et iOS : unsupported. */
 export async function getPushState(userId?: string): Promise<PushState> {
-  if (!isNativePlatform()) return "unsupported";
+  if (!isNativePushSupported()) return "unsupported";
   return getNativePushState(userId);
 }
 
 /** Réassocie le push natif au compte courant (après connexion). */
 export async function rebindPushToUser(userId: string): Promise<boolean> {
-  if (!isNativePlatform()) return false;
+  if (!isNativePushSupported()) return false;
   return registerNativePush(userId);
 }
 
 /** Désabonne l'appareil (déconnexion). Nettoie aussi d'éventuels restes Web Push. */
 export async function unsubscribeFromPush(): Promise<void> {
-  if (isNativePlatform()) {
+  if (isNativePushSupported()) {
     await unregisterNativePush();
     return;
   }
