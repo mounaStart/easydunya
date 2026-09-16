@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
 import { getPushState, subscribeToPush } from "../lib/push";
 import { isIosApp, isNotificationPromptSupported } from "../lib/nativePush";
+import { driverBookingsPath } from "../lib/driverActiveTrip";
 import { cn } from "../lib/utils";
 
 type NotificationBellProps = {
@@ -11,7 +13,8 @@ type NotificationBellProps = {
 };
 
 export default function NotificationBell({ alwaysVisible = false }: NotificationBellProps) {
-  const { user } = useAuth();
+  const { user, isDriver } = useAuth();
+  const navigate = useNavigate();
   const { items, unread, markRead, markAllRead } = useNotifications(user?.id);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -103,7 +106,15 @@ export default function NotificationBell({ alwaysVisible = false }: Notification
                 <li key={n.id}>
                   <button
                     type="button"
-                    onClick={() => { if (!n.read) markRead(n.id); }}
+                    onClick={() => {
+                      if (!n.read) void markRead(n.id);
+                      const tripId =
+                        typeof n.data?.trip_id === "string" ? n.data.trip_id : null;
+                      if (isDriver && tripId && n.type === "booking_new") {
+                        setOpen(false);
+                        navigate(driverBookingsPath(tripId));
+                      }
+                    }}
                     className={cn(
                       "w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition",
                       !n.read && "bg-brand-50/50"

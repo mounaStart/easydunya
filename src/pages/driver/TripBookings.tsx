@@ -27,7 +27,7 @@ const END_TRIP_RADIUS_M = 500;
 export default function TripBookings() {
   const { tripId } = useParams();
   const { t, i18n } = useTranslation();
-  const { refreshProfile, role } = useAuth();
+  const { refreshProfile, role, session } = useAuth();
   const { bookings, loading, refresh } = useTripBookings(tripId);
   const [trip, setTrip] = useState<TripPublic | null>(null);
   const [tripLoading, setTripLoading] = useState(true);
@@ -176,7 +176,7 @@ export default function TripBookings() {
   async function setStatus(b: Booking, status: Booking["status"]) {
     setBusy(true);
     setLockMsg(null);
-    const { error } = await updateBookingStatus(b.id, status);
+    const { error } = await updateBookingStatus(b.id, status, session?.access_token);
     if (error) {
       setLockMsg(error);
       setBusy(false);

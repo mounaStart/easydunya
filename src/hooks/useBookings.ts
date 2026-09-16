@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { generateConfirmationCode } from "../lib/codes";
+import {
+  fetchBookingsWithAccessToken,
+  patchBookingWithAccessToken,
+} from "../lib/bookingApi";
+import { useAuth } from "./useAuth";
 import type { Booking } from "../lib/types";
 
 export interface CreateBookingArgs {
@@ -86,20 +91,20 @@ export function getRememberedCodes(): string[] {
 }
 
 export function useMyBookings(passengerId: string | undefined) {
+  const { session } = useAuth();
+  const accessToken = session?.access_token;
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     if (!passengerId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("passenger_id", passengerId)
-      .order("created_at", { ascending: false });
-    setBookings((data as Booking[] | null) ?? []);
+    const data = await fetchBookingsWithAccessToken(accessToken, {
+      passengerId,
+    });
+    setBookings(data);
     setLoading(false);
-  }, [passengerId]);
+  }, [passengerId, accessToken]);
 
   useEffect(() => {
     fetch();
@@ -126,20 +131,18 @@ export function useMyBookings(passengerId: string | undefined) {
 }
 
 export function useTripBookings(tripId: string | undefined) {
+  const { session } = useAuth();
+  const accessToken = session?.access_token;
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     if (!tripId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("trip_id", tripId)
-      .order("created_at", { ascending: false });
-    setBookings((data as Booking[] | null) ?? []);
+    const data = await fetchBookingsWithAccessToken(accessToken, { tripId });
+    setBookings(data);
     setLoading(false);
-  }, [tripId]);
+  }, [tripId, accessToken]);
 
   useEffect(() => {
     fetch();
@@ -167,16 +170,18 @@ export function useTripBookings(tripId: string | undefined) {
 
 export async function updateBookingStatus(
   bookingId: string,
-  status: Booking["status"]
+  status: Booking["status"],
+  accessToken?: string
 ) {
-  const { error } = await supabase
-    .from("bookings")
-    .update({ status })
-    .eq("id", bookingId);
+  const { error } = await patchBookingWithAccessToken(
+    bookingId,
+    { status },
+    accessToken
+  );
 
   // Notifications passager : trigger SQL trg_booking_notify_status (migration 0020)
 
-  return { error: error?.message };
+  return { error };
 }
 
 /**
