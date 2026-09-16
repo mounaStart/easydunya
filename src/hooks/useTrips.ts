@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppRefresh } from "../lib/appRefresh";
 import { supabase } from "../lib/supabase";
+import { restSelect, restSelectOne } from "../lib/supabaseRest";
 import type { CityTripCount, TripPublic } from "../lib/types";
 
 interface UseUpcomingTripsArgs {
@@ -21,19 +22,19 @@ export function useUpcomingTrips({ cityId, days = 7 }: UseUpcomingTripsArgs = {}
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const end = new Date(Date.now() + days * 86400000).toISOString();
-    let q = supabase
-      .from("trips_public")
-      .select("*")
-      .eq("status", "scheduled")
-      .gt("seats_available", 0)
-      .gte("depart_at", startOfToday.toISOString())
-      .lte("depart_at", end)
-      .order("depart_at", { ascending: true });
-    if (cityId) q = q.eq("from_city_id", cityId);
-
-    const { data, error } = await q;
-    if (error) setError(error.message);
-    setTrips((data as TripPublic[] | null) ?? []);
+    const { data, error } = await restSelect<TripPublic>("trips_public", {
+      select: "*",
+      eq: {
+        status: "scheduled",
+        ...(cityId ? { from_city_id: cityId } : {}),
+      },
+      gt: { seats_available: 0 },
+      gte: { depart_at: startOfToday.toISOString() },
+      lte: { depart_at: end },
+      order: "depart_at.asc",
+    });
+    if (error) setError(error);
+    setTrips(data);
     hasLoadedRef.current = true;
     setLoading(false);
   }, [cityId, days]);
@@ -64,11 +65,11 @@ export function useCityCounts() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("city_trip_counts")
-      .select("*")
-      .order("name_fr");
-    setCities((data as CityTripCount[] | null) ?? []);
+    const { data } = await restSelect<CityTripCount>("city_trip_counts", {
+      select: "*",
+      order: "name_fr.asc",
+    });
+    setCities(data);
     setLoading(false);
   }, []);
 
@@ -102,16 +103,16 @@ export function useTrip(tripId: string | undefined) {
 
   useEffect(() => {
     if (!tripId) return;
+    const id = tripId;
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const { data } = await supabase
-        .from("trips_public")
-        .select("*")
-        .eq("id", tripId)
-        .maybeSingle();
+      const { data } = await restSelectOne<TripPublic>("trips_public", {
+        select: "*",
+        eq: { id },
+      });
       if (!cancelled) {
-        setTrip((data as TripPublic | null) ?? null);
+        setTrip(data);
         setLoading(false);
       }
     }

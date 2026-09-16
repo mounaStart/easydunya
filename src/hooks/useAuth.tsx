@@ -9,12 +9,17 @@ import {
   type ReactNode,
 } from "react";
 import { type Session, type User } from "@supabase/supabase-js";
-import { App } from "@capacitor/app";
 import { supabase } from "../lib/supabase";
+import { fetchProfileWithAccessToken, profileFromUser } from "../lib/profileApi";
 import { phoneToEmail } from "../lib/phone";
 import { mapAuthError } from "../lib/authErrors";
 import { rebindPushToUser, unsubscribeFromPush } from "../lib/push";
-import { isNativePlatform } from "../lib/nativePush";
+import { isIosApp, isNativePlatform, isNativePushSupported } from "../lib/nativePush";
+import { rememberAcceptedTerms, TERMS_VERSION } from "../lib/termsAcceptance";
+import { decideIosSignedOut } from "../lib/iosAuthSession";
+import { rememberAccessToken } from "../lib/accessToken";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
+import { restInsert, restUpdate } from "../lib/supabaseRest";
 import type { Profile, UserRole } from "../lib/types";
 
 interface AuthContextValue {
@@ -67,6 +72,8 @@ interface AuthContextValue {
   ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** true une fois le profil REST lu (ou échec). Évite le flash CGU. */
+  profileHydrated: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -76,95 +83,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileHydrated, setProfileHydrated] = useState(false);
   const loadProfileForRef = useRef<string | null>(null);
+  const loadGenRef = useRef(0);
+  const sessionRef = useRef<Session | null>(null);
   const initialAuthDoneRef = useRef(false);
+  /** iOS WKWebView envoie parfois SIGNED_OUT tout seul après le login. */
+  const explicitSignOutRef = useRef(false);
+  const iosSignedOutLoggedRef = useRef(false);
+  const lastProfileFetchRef = useRef<{ userId: string; token: string; at: number } | null>(
+    null
+  );
 
-  const loadProfile = useCallback(async (u: User, opts?: { silent?: boolean }) => {
-    loadProfileForRef.current = u.id;
-    if (!opts?.silent) {
-      setProfileLoading(true);
-      setProfile((prev) => (prev?.id === u.id ? prev : null));
-    }
+  const loadProfile = useCallback(
+    async (u: User, opts?: { silent?: boolean; accessToken?: string }) => {
+      const switched = loadProfileForRef.current !== u.id;
+      loadProfileForRef.current = u.id;
+      if (switched) setProfileHydrated(false);
+      // Ne jamais vider le profil : l'écran « introuvable » bloquait iOS
+      // (select timeout + upsert admin/chauffeur refusé par le RLS).
+      setProfile((prev) => (prev?.id === u.id ? prev : profileFromUser(u)));
+      if (!opts?.silent) setProfileLoading(false);
 
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", u.id)
-        .maybeSingle();
-
-      if (loadProfileForRef.current !== u.id) return;
-
-      if (error) {
-        setProfile(null);
+      const token = opts?.accessToken;
+      if (!token) {
+        setProfileHydrated(true);
         return;
       }
-
-      if (data) {
-        setProfile(data as Profile);
+      const prevFetch = lastProfileFetchRef.current;
+      if (
+        prevFetch &&
+        prevFetch.userId === u.id &&
+        prevFetch.token === token &&
+        Date.now() - prevFetch.at < 20_000
+      ) {
+        setProfileHydrated(true);
         return;
       }
-
-      // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
-      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-      const roleMeta = meta.role;
-      const role: UserRole =
-        roleMeta === "driver" || roleMeta === "admin" ? roleMeta : "passenger";
-      const payload = {
-        id: u.id,
-        role,
-        full_name: (meta.full_name as string) ?? null,
-        phone: (meta.phone as string) ?? null,
-        driver_status: role === "driver" ? "pending" : null,
-      };
-      const { data: created } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" })
-        .select()
-        .maybeSingle();
-
-      if (loadProfileForRef.current !== u.id) return;
-      setProfile((created as Profile | null) ?? (payload as unknown as Profile));
-    } finally {
-      if (loadProfileForRef.current === u.id && !opts?.silent) {
-        setProfileLoading(false);
-      }
-    }
-  }, []);
+      lastProfileFetchRef.current = { userId: u.id, token, at: Date.now() };
+      const requestId = ++loadGenRef.current;
+      void fetchProfileWithAccessToken(u.id, token)
+        .then((data) => {
+          if (requestId !== loadGenRef.current || loadProfileForRef.current !== u.id) {
+            return;
+          }
+          if (data) {
+            if (data.terms_accepted_version === TERMS_VERSION) {
+              rememberAcceptedTerms(u.id);
+            }
+            setProfile((prev) =>
+              prev?.id === data.id && prev.updated_at === data.updated_at ? prev : data
+            );
+          }
+        })
+        .finally(() => {
+          if (requestId === loadGenRef.current) setProfileHydrated(true);
+        });
+    },
+    []
+  );
 
   const applySession = useCallback(
-    async (s: Session | null, event?: string) => {
+    async (s: Session, event?: string) => {
+      explicitSignOutRef.current = false;
+      rememberAccessToken(s.access_token);
+      if (
+        sessionRef.current?.access_token === s.access_token &&
+        sessionRef.current.user.id === s.user.id
+      ) {
+        return;
+      }
+      sessionRef.current = s;
       setSession(s);
-      if (s?.user) {
-        const silent =
-          event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
-        await loadProfile(s.user, { silent });
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          rebindPushToUser(s.user.id).catch(() => {});
-        }
-      } else {
-        loadProfileForRef.current = null;
-        setProfile(null);
-        setProfileLoading(false);
+      setProfile((prev) => (prev?.id === s.user.id ? prev : profileFromUser(s.user)));
+      setProfileLoading(false);
+      const silent =
+        event !== "SIGNED_IN" && loadProfileForRef.current === s.user.id;
+      await loadProfile(s.user, { silent, accessToken: s.access_token });
+      if (
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") &&
+        isNativePushSupported()
+      ) {
+        rebindPushToUser(s.user.id).catch(() => {});
       }
     },
     [loadProfile]
   );
 
+  const clearSession = useCallback(() => {
+    rememberAccessToken(undefined);
+    sessionRef.current = null;
+    loadProfileForRef.current = null;
+    setSession(null);
+    setProfile(null);
+    setProfileLoading(false);
+    setProfileHydrated(false);
+  }, []);
+
   const refreshSessionFromStorage = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const s = data.session;
-    setSession(s);
     if (s?.user) {
-      await loadProfile(s.user, {
-        silent: loadProfileForRef.current === s.user.id,
-      });
-    } else {
-      loadProfileForRef.current = null;
-      setProfile(null);
-      setProfileLoading(false);
+      await applySession(s);
+      return;
     }
-  }, [loadProfile]);
+    // iOS : getSession() peut renvoyer null juste après un login réussi.
+    // Ne pas effacer la session mémoire (sinon « Profil introuvable »).
+    if (sessionRef.current) return;
+    clearSession();
+  }, [applySession, clearSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,16 +206,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      void applySession(data.session).finally(finishInitialLoad);
+      if (data.session?.user) {
+        void applySession(data.session).finally(finishInitialLoad);
+      } else {
+        finishInitialLoad();
+      }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (evt, s) => {
+    // Ne pas await dans ce callback (verrou auth iOS). Ignorer les sessions
+    // vides : getSession / TOKEN_REFRESHED peuvent arriver à vide sur WKWebView.
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (cancelled) return;
       if (evt === "INITIAL_SESSION") {
         finishInitialLoad();
         return;
       }
-      await applySession(s, evt);
+      window.setTimeout(() => {
+        if (cancelled) return;
+        if (evt === "SIGNED_OUT") {
+          if (isIosApp()) {
+            const kept = sessionRef.current;
+            const action = decideIosSignedOut({
+              explicitSignOut: explicitSignOutRef.current,
+              accessToken: kept?.access_token,
+              refreshToken: kept?.refresh_token,
+            });
+            if (action === "clear") {
+              clearSession();
+              return;
+            }
+            if (!iosSignedOutLoggedRef.current) {
+              iosSignedOutLoggedRef.current = true;
+              console.warn("[auth] SIGNED_OUT ignoré (iOS) — session conservée");
+            }
+            return;
+          }
+          clearSession();
+          return;
+        }
+        if (s?.user) void applySession(s, evt);
+      }, 0);
     });
 
     return () => {
@@ -196,16 +253,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(bootstrapTimeout);
       sub.subscription.unsubscribe();
     };
-  }, [applySession]);
+  }, [applySession, clearSession]);
 
   useEffect(() => {
     if (isNativePlatform()) {
-      const sub = App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void refreshSessionFromStorage();
-      });
-      return () => {
-        void sub.then((handle) => handle.remove());
-      };
+      return undefined;
     }
 
     const onVisible = () => {
@@ -218,22 +270,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshSessionFromStorage]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
+    if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
-  }, []);
+  }, [applySession]);
 
   const signInWithPhone = useCallback(async (phone: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: phoneToEmail(phone),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
+    if (data.session?.user) await applySession(data.session, "SIGNED_IN");
     return {};
-  }, []);
+  }, [applySession]);
 
   const signUpPassenger = useCallback(
     async ({
@@ -246,9 +304,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string;
     }) => {
       const trimmedPhone = phone.trim();
-      const { data: taken } = await supabase.rpc("is_phone_taken", {
-        p_phone: trimmedPhone,
-      });
+      const { data: taken } = await invokeRpcWithAccessToken(
+        "is_phone_taken",
+        { p_phone: trimmedPhone },
+        undefined,
+        { allowAnon: true }
+      );
       if (taken === true) {
         return { error: "Ce numéro de téléphone est déjà utilisé." };
       }
@@ -258,7 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           trimmedPhone,
           password
         );
-        if (signInError) return { error: mapAuthError(signInError, code) };
+        if (signInError) return { error: mapAuthError(signInError, code, "signin") };
         return {};
       };
 
@@ -277,10 +338,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             raw.includes("not found") ||
             raw.includes("404");
           if (missing) return { unavailable: true };
-          return { error: mapAuthError(fnError.message) };
+          return { error: mapAuthError(fnError.message, undefined, "signup") };
         }
         const payload = fnData as { error?: string } | null;
-        if (payload?.error) return { error: mapAuthError(payload.error) };
+        if (payload?.error) return { error: mapAuthError(payload.error, undefined, "signup") };
         return {};
       };
 
@@ -294,7 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
-          return { error: mapAuthError(error.message, error.code) };
+          return { error: mapAuthError(error.message, error.code, "signup") };
         }
 
         if (data.user && (data.user.identities?.length ?? 0) === 0) {
@@ -302,14 +363,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (data.user) {
-          await supabase.from("profiles").insert({
-            id: data.user.id,
-            role: "passenger",
-            full_name: fullName,
-            phone: trimmedPhone,
-          });
+          await restInsert(
+            "profiles",
+            {
+              id: data.user.id,
+              role: "passenger",
+              full_name: fullName,
+              phone: trimmedPhone,
+            },
+            data.session?.access_token
+          );
           if (data.session?.user) {
-            await loadProfile(data.session.user);
+            await loadProfile(data.session.user, {
+              accessToken: data.session.access_token,
+            });
             return {};
           }
         }
@@ -349,9 +416,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       vehicleFeatures?: string;
     }) => {
       const trimmedPhone = phone.trim();
-      const { data: taken } = await supabase.rpc("is_phone_taken", {
-        p_phone: trimmedPhone,
-      });
+      const { data: taken } = await invokeRpcWithAccessToken(
+        "is_phone_taken",
+        { p_phone: trimmedPhone },
+        undefined,
+        { allowAnon: true }
+      );
       if (taken === true) {
         return { error: "Ce numéro de téléphone est déjà utilisé." };
       }
@@ -404,18 +474,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) return { error: error.message };
       if (session?.user) {
-        await supabase
-          .from("profiles")
-          .update({ must_change_password: false })
-          .eq("id", session.user.id);
-        await loadProfile(session.user);
-        await supabase.rpc("notify_user", {
-          p_user: session.user.id,
-          p_title: "Mot de passe réinitialisé ✓",
-          p_body: "Votre mot de passe a été modifié avec succès.",
-          p_type: "password_reset_success",
-          p_data: null,
-        });
+        await restUpdate(
+          "profiles",
+          { eq: { id: session.user.id } },
+          { must_change_password: false },
+          session.access_token
+        );
+        await loadProfile(session.user, { accessToken: session.access_token });
+        await invokeRpcWithAccessToken(
+          "notify_user",
+          {
+            p_user: session.user.id,
+            p_title: "Mot de passe réinitialisé ✓",
+            p_body: "Votre mot de passe a été modifié avec succès.",
+            p_type: "password_reset_success",
+            p_data: null,
+          },
+          session.access_token
+        );
       }
       return {};
     },
@@ -435,39 +511,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    explicitSignOutRef.current = true;
+    iosSignedOutLoggedRef.current = false;
+    lastProfileFetchRef.current = null;
     void unsubscribeFromPush();
-    loadProfileForRef.current = null;
-    setProfile(null);
-    setProfileLoading(false);
-    await supabase.auth.signOut();
-    setSession(null);
-  }, []);
+    clearSession();
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* session déjà vidée côté UI */
+    }
+  }, [clearSession]);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) await loadProfile(session.user, { silent: true });
-  }, [session, loadProfile]);
+    if (!session?.user) return;
+    lastProfileFetchRef.current = null;
+    await loadProfile(session.user, {
+      silent: !!profile && profile.id === session.user.id,
+      accessToken: session.access_token,
+    });
+  }, [session, profile, loadProfile]);
 
   const value = useMemo<AuthContextValue>(() => {
     const user = session?.user ?? null;
-    const profileMatchesUser = !user || profile?.id === user.id;
-    const authReady =
-      !loading &&
-      !profileLoading &&
-      profileMatchesUser &&
-      (!user || profile !== null);
-    const role = profileMatchesUser ? (profile?.role ?? null) : null;
+    const resolvedProfile = user
+      ? profile?.id === user.id
+        ? profile
+        : profileFromUser(user)
+      : null;
+    const authReady = !loading && !profileLoading && (!user || resolvedProfile !== null);
+    const role = resolvedProfile?.role ?? null;
     return {
       loading,
       profileLoading,
       authReady,
       session,
       user,
-      profile: profileMatchesUser ? profile : null,
+      profile: resolvedProfile,
       role,
       isAdmin: role === "admin",
       isDriver: role === "driver",
       isPassenger: role === "passenger",
-      mustChangePassword: !!profile?.must_change_password && profileMatchesUser,
+      mustChangePassword: !!resolvedProfile?.must_change_password,
       signInWithPhone,
       signInWithEmail,
       signUpPassenger,
@@ -476,6 +561,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPasswordByPhone,
       signOut,
       refreshProfile,
+      profileHydrated,
     };
   }, [
     loading,
@@ -490,6 +576,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPasswordByPhone,
     signOut,
     refreshProfile,
+    profileHydrated,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

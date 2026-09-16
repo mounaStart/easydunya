@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { invokeRpcWithAccessToken } from "../../lib/supabaseRpc";
+import { restSelect, restUpdate } from "../../lib/supabaseRest";
 import type { DriverAdmin, DriverStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/useAuth";
@@ -35,28 +36,24 @@ export default function AdminDrivers({ onMutate }: Props) {
     setLoading(true);
     setError(null);
 
-    let q = supabase
-      .from("drivers_admin")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (filter !== "all") q = q.eq("driver_status", filter);
-
-    const { data, error } = await q;
+    const { data, error } = await restSelect<DriverAdmin>("drivers_admin", {
+      select: "*",
+      eq: filter !== "all" ? { driver_status: filter } : undefined,
+      order: "created_at.desc",
+    });
     if (error) {
-      // Fallback : si la vue drivers_admin n'existe pas, on charge depuis profiles seul
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "driver")
-        .order("created_at", { ascending: false });
-      const mapped =
-        (p ?? []).map((row: Record<string, unknown>) => ({
-          ...(row as object),
-          email: "",
-          last_sign_in_at: null,
-          trips_total: 0,
-          vehicles_total: 0,
-        })) as unknown as DriverAdmin[];
+      const { data: p } = await restSelect<Record<string, unknown>>("profiles", {
+        select: "*",
+        eq: { role: "driver" },
+        order: "created_at.desc",
+      });
+      const mapped = p.map((row) => ({
+        ...(row as object),
+        email: "",
+        last_sign_in_at: null,
+        trips_total: 0,
+        vehicles_total: 0,
+      })) as unknown as DriverAdmin[];
       setDrivers(
         filter === "all"
           ? mapped
@@ -66,7 +63,7 @@ export default function AdminDrivers({ onMutate }: Props) {
         "ℹ Vue drivers_admin non disponible. Exécutez supabase/migrations/0003_admin_stats.sql."
       );
     } else {
-      setDrivers((data as DriverAdmin[]) ?? []);
+      setDrivers(data);
     }
     setLoading(false);
   }, [filter]);
@@ -92,39 +89,31 @@ export default function AdminDrivers({ onMutate }: Props) {
     setSuccessMsg(null);
 
     // RPC sécurisée (migration 0005) — contourne les blocages RLS
-    const { error: rpcErr } = await supabase.rpc("admin_set_driver_status", {
-      p_driver_id: d.id,
-      p_status: status,
-    });
+    const { error: rpcErr } = await invokeRpcWithAccessToken(
+      "admin_set_driver_status",
+      { p_driver_id: d.id, p_status: status }
+    );
 
     if (rpcErr) {
       const rpcMissing =
-        rpcErr.code === "PGRST202" ||
-        rpcErr.message.toLowerCase().includes("could not find");
+        /could not find/i.test(rpcErr) || /PGRST202/i.test(rpcErr);
 
       if (rpcMissing) {
-        const { data, error: updErr } = await supabase
-          .from("profiles")
-          .update({ driver_status: status })
-          .eq("id", d.id)
-          .select("id");
+        const updErr = await restUpdate(
+          "profiles",
+          { eq: { id: d.id } },
+          { driver_status: status }
+        );
 
-        if (updErr) {
-          setError(updErr.message);
-          setBusyId(null);
-          return;
-        }
-        if (!data || data.length === 0) {
-          setError(
-            "Mise à jour bloquée (RLS). Exécutez supabase/migrations/0005_fix_admin_rls.sql dans Supabase SQL Editor."
-          );
+        if (updErr.error) {
+          setError(updErr.error);
           setBusyId(null);
           return;
         }
       } else {
-        const msg = rpcErr.message.includes("forbidden")
+        const msg = rpcErr.toLowerCase().includes("forbidden")
           ? "Permission refusée : vérifiez que votre compte a role = admin dans la table profiles."
-          : rpcErr.message;
+          : rpcErr;
         setError(msg);
         setBusyId(null);
         return;

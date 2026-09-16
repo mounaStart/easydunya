@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "../../lib/supabase";
+import { invokeRpcWithAccessToken } from "../../lib/supabaseRpc";
+import { restSelect } from "../../lib/supabaseRest";
 import type { AdminStats } from "../../lib/types";
 import { formatNumber, formatPrice } from "../../lib/utils";
 import AdminTabs from "./AdminTabs";
@@ -14,48 +15,42 @@ export default function AdminDashboard() {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase.rpc("get_admin_stats");
+    const { data, error } = await invokeRpcWithAccessToken("get_admin_stats", {});
     if (error) {
-      // Fallback : si la migration 0003 n'est pas appliquée, on compte côté client (lent mais marche)
       console.warn("get_admin_stats RPC failed, fallback to client counts", error);
       const [u, d, dp, t, b, rev] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("role", "driver"),
-        supabase
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("role", "driver")
-          .eq("driver_status", "pending"),
-        supabase.from("trips").select("id", { count: "exact", head: true }),
-        supabase.from("bookings").select("id", { count: "exact", head: true }),
-        supabase
-          .from("bookings")
-          .select("seats, trips!inner(price_per_seat)")
-          .in("status", ["confirmed", "completed"]),
+        restSelect<{ id: string }>("profiles", { select: "id" }),
+        restSelect<{ id: string }>("profiles", { select: "id", eq: { role: "driver" } }),
+        restSelect<{ id: string }>("profiles", {
+          select: "id",
+          eq: { role: "driver", driver_status: "pending" },
+        }),
+        restSelect<{ id: string }>("trips", { select: "id" }),
+        restSelect<{ id: string }>("bookings", { select: "id" }),
+        restSelect<{
+          seats: number;
+          trips: { price_per_seat: number } | { price_per_seat: number }[] | null;
+        }>("bookings", {
+          select: "seats,trips!inner(price_per_seat)",
+          in: { status: ["confirmed", "completed"] },
+        }),
       ]);
-      const grossRows = (rev.data ?? []) as unknown as Array<{
-        seats: number;
-        trips: { price_per_seat: number } | { price_per_seat: number }[] | null;
-      }>;
-      const gross = grossRows.reduce((a, r) => {
-        const t = Array.isArray(r.trips) ? r.trips[0] : r.trips;
-        return a + (t?.price_per_seat ?? 0) * r.seats;
+      const gross = rev.data.reduce((a, r) => {
+        const trip = Array.isArray(r.trips) ? r.trips[0] : r.trips;
+        return a + (trip?.price_per_seat ?? 0) * r.seats;
       }, 0);
       setStats({
-        users_count: u.count ?? 0,
-        drivers_count: d.count ?? 0,
-        drivers_pending: dp.count ?? 0,
+        users_count: u.data.length,
+        drivers_count: d.data.length,
+        drivers_pending: dp.data.length,
         drivers_approved: 0,
         drivers_suspended: 0,
         passengers_count: 0,
-        trips_count: t.count ?? 0,
+        trips_count: t.data.length,
         trips_scheduled: 0,
         trips_in_progress: 0,
         trips_completed: 0,
-        bookings_count: b.count ?? 0,
+        bookings_count: b.data.length,
         bookings_pending: 0,
         bookings_confirmed: 0,
         gross_revenue: gross,

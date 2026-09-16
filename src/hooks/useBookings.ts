@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { generateConfirmationCode } from "../lib/codes";
+import { currentAccessToken } from "../lib/accessToken";
+import {
+  fetchBookingsWithAccessToken,
+  insertBookingWithAccessToken,
+  patchBookingWithAccessToken,
+} from "../lib/bookingApi";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
+import { restSelectOne, restUpdate } from "../lib/supabaseRest";
+import { useAuth } from "./useAuth";
 import type { Booking } from "../lib/types";
 
 export interface CreateBookingArgs {
@@ -20,48 +29,49 @@ export async function createBooking(args: CreateBookingArgs): Promise<{
   error?: string;
 }> {
   const code = generateConfirmationCode();
-  const { data, error } = await supabase
-    .from("bookings")
-    .insert({
-      trip_id: args.tripId,
-      seats: args.seats,
-      passenger_id: args.passengerId ?? null,
-      guest_name: args.guestName ?? null,
-      guest_phone: args.guestPhone ?? null,
-      confirmation_code: code,
-      status: "pending",
-      pickup_lat: args.pickupLat ?? null,
-      pickup_lng: args.pickupLng ?? null,
-      pickup_quartier: args.pickupQuartier ?? null,
-      is_waiting: args.isWaiting ?? false,
-    })
-    .select()
-    .single();
-  if (error) return { error: error.message };
+  const result = await insertBookingWithAccessToken({
+    trip_id: args.tripId,
+    seats: args.seats,
+    passenger_id: args.passengerId ?? null,
+    guest_name: args.guestName ?? null,
+    guest_phone: args.guestPhone ?? null,
+    confirmation_code: code,
+    status: "pending",
+    pickup_lat: args.pickupLat ?? null,
+    pickup_lng: args.pickupLng ?? null,
+    pickup_quartier: args.pickupQuartier ?? null,
+    is_waiting: args.isWaiting ?? false,
+  });
+  if (result.error) return { error: result.error };
 
   // Le chauffeur est notifié côté base (trigger trg_booking_notify_driver),
   // ce qui fonctionne aussi pour les passagers invités et déclenche le push.
 
-  return { booking: data as Booking };
+  return { booking: result.booking };
 }
 
 export async function findBookingByCode(code: string): Promise<Booking | null> {
   if (!code) return null;
-  // Fonction SECURITY DEFINER : lecture par code (clé d'accès), même invité.
-  const { data, error } = await supabase.rpc("get_booking_by_code", {
-    p_code: code,
-  });
-  if (error) {
-    // Repli : lecture directe (fonctionne si c'est sa propre réservation)
-    const { data: row } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("confirmation_code", code.toUpperCase())
-      .maybeSingle();
-    return (row as Booking | null) ?? null;
+  const token = currentAccessToken();
+  const { data, error } = await invokeRpcWithAccessToken(
+    "get_booking_by_code",
+    { p_code: code },
+    token,
+    { allowAnon: true }
+  );
+  if (!error) {
+    const rows = Array.isArray(data) ? (data as Booking[]) : [];
+    if (rows[0]) return rows[0];
   }
-  const rows = (data as Booking[] | null) ?? [];
-  return rows[0] ?? null;
+  const { data: row } = await restSelectOne<Booking>(
+    "bookings",
+    {
+      select: "*",
+      eq: { confirmation_code: code.toUpperCase() },
+    },
+    token
+  );
+  return row;
 }
 
 const CODES_KEY = "ed_booking_codes";
@@ -86,20 +96,20 @@ export function getRememberedCodes(): string[] {
 }
 
 export function useMyBookings(passengerId: string | undefined) {
+  const { session } = useAuth();
+  const accessToken = session?.access_token;
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     if (!passengerId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("passenger_id", passengerId)
-      .order("created_at", { ascending: false });
-    setBookings((data as Booking[] | null) ?? []);
+    const data = await fetchBookingsWithAccessToken(accessToken, {
+      passengerId,
+    });
+    setBookings(data);
     setLoading(false);
-  }, [passengerId]);
+  }, [passengerId, accessToken]);
 
   useEffect(() => {
     fetch();
@@ -126,20 +136,18 @@ export function useMyBookings(passengerId: string | undefined) {
 }
 
 export function useTripBookings(tripId: string | undefined) {
+  const { session } = useAuth();
+  const accessToken = session?.access_token;
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     if (!tripId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("trip_id", tripId)
-      .order("created_at", { ascending: false });
-    setBookings((data as Booking[] | null) ?? []);
+    const data = await fetchBookingsWithAccessToken(accessToken, { tripId });
+    setBookings(data);
     setLoading(false);
-  }, [tripId]);
+  }, [tripId, accessToken]);
 
   useEffect(() => {
     fetch();
@@ -167,16 +175,18 @@ export function useTripBookings(tripId: string | undefined) {
 
 export async function updateBookingStatus(
   bookingId: string,
-  status: Booking["status"]
+  status: Booking["status"],
+  accessToken?: string
 ) {
-  const { error } = await supabase
-    .from("bookings")
-    .update({ status })
-    .eq("id", bookingId);
+  const { error } = await patchBookingWithAccessToken(
+    bookingId,
+    { status },
+    accessToken
+  );
 
   // Notifications passager : trigger SQL trg_booking_notify_status (migration 0020)
 
-  return { error: error?.message };
+  return { error };
 }
 
 /**
@@ -189,36 +199,40 @@ export async function cancelBooking(
   bookingId: string,
   reason?: string
 ): Promise<{ error?: string }> {
-  const { data: before } = await supabase
-    .from("bookings")
-    .select("trip_id, seats, confirmation_code, status")
-    .eq("id", bookingId)
-    .maybeSingle();
+  const token = currentAccessToken();
+  const { data: before } = await restSelectOne<{
+    trip_id: string;
+    seats: number;
+    confirmation_code: string;
+    status: string;
+  }>(
+    "bookings",
+    {
+      select: "trip_id,seats,confirmation_code,status",
+      eq: { id: bookingId },
+    },
+    token
+  );
 
-  const row = before as
-    | { trip_id: string; seats: number; confirmation_code: string; status: string }
-    | null;
-
-  if (row && (row.status === "cancelled" || row.status === "completed")) {
+  if (before && (before.status === "cancelled" || before.status === "completed")) {
     return { error: "already_closed" };
   }
 
   const trimmedReason = reason?.trim() || null;
 
-  // 1) RPC serveur (migration 0016) — le plus fiable
-  const { error: rpcError } = await supabase.rpc("passenger_cancel_booking", {
-    p_booking_id: bookingId,
-    p_reason: trimmedReason,
-  });
+  const { error: rpcError } = await invokeRpcWithAccessToken(
+    "passenger_cancel_booking",
+    { p_booking_id: bookingId, p_reason: trimmedReason },
+    token
+  );
 
   if (rpcError) {
-    const msg = rpcError.message ?? "";
+    const msg = rpcError;
     const fnMissing =
       /passenger_cancel_booking/i.test(msg) ||
       /Could not find the function/i.test(msg);
 
     if (!fnMissing) {
-      // Erreurs métier explicites
       if (/already_closed/i.test(msg)) return { error: "already_closed" };
       if (/reason_required/i.test(msg)) return { error: "reason_required" };
       if (/not_allowed/i.test(msg)) return { error: "not_allowed" };
@@ -226,37 +240,41 @@ export async function cancelBooking(
       return { error: msg };
     }
 
-    // 2) Repli : mise à jour directe (avant migration 0016)
     const payload: Record<string, unknown> = { status: "cancelled" };
     if (trimmedReason) payload.cancel_reason = trimmedReason;
 
-    let { error: updError } = await supabase
-      .from("bookings")
-      .update(payload)
-      .eq("id", bookingId);
+    let upd = await restUpdate(
+      "bookings",
+      { eq: { id: bookingId } },
+      payload,
+      token
+    );
 
-    // Colonne cancel_reason absente → annuler sans motif en base
-    if (updError && /cancel_reason/i.test(updError.message)) {
-      const retry = await supabase
-        .from("bookings")
-        .update({ status: "cancelled" })
-        .eq("id", bookingId);
-      updError = retry.error;
+    if (upd.error && /cancel_reason/i.test(upd.error)) {
+      upd = await restUpdate(
+        "bookings",
+        { eq: { id: bookingId } },
+        { status: "cancelled" },
+        token
+      );
     }
 
-    if (updError) return { error: updError.message };
+    if (upd.error) return { error: upd.error };
   }
-
-  // Notification chauffeur : trigger SQL trg_booking_notify_status (migration 0020)
 
   return {};
 }
 
-export async function cancelTripWithBroadcast(tripId: string, reason?: string) {
-  const { data, error } = await supabase.rpc("cancel_trip_with_broadcast", {
-    p_trip_id: tripId,
-    p_reason: reason ?? null,
-  });
-  if (error) return { error: error.message };
+export async function cancelTripWithBroadcast(
+  tripId: string,
+  reason?: string,
+  accessToken?: string
+) {
+  const { data, error } = await invokeRpcWithAccessToken(
+    "cancel_trip_with_broadcast",
+    { p_trip_id: tripId, p_reason: reason ?? null },
+    accessToken
+  );
+  if (error) return { error };
   return { notified: data as number };
 }

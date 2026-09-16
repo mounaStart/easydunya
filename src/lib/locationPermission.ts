@@ -1,5 +1,7 @@
 import { Geolocation } from "@capacitor/geolocation";
+import { Capacitor } from "@capacitor/core";
 import {
+  EasyDunyaLocation,
   isDeviceLocationEnabled,
   openAppPermissionSettings,
   openDeviceLocationSettings,
@@ -44,6 +46,13 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
       const deviceEnabled = await isDeviceLocationEnabled();
       if (deviceEnabled === false) return "prompt";
 
+      if (Capacitor.getPlatform() === "ios") {
+        const native = await EasyDunyaLocation.checkPermission();
+        if (native.status === "granted") return "granted";
+        if (native.status === "denied") return "denied";
+        return "prompt";
+      }
+
       const status = await Geolocation.checkPermissions();
       if (status.location === "granted") return "granted";
       if (status.location === "denied") return "denied";
@@ -67,7 +76,7 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
 }
 
 export interface RequestAppLocationOptions {
-  /** Ouvre les paramètres GPS Android si le GPS système est éteint. */
+  /** Ouvre les paramètres GPS (Android) ou Réglages de l'app (iOS) si le GPS est éteint. */
   openSettingsIfDisabled?: boolean;
   /** Ouvre les paramètres de l'app si la permission a déjà été refusée. */
   openAppSettingsOnDenied?: boolean;

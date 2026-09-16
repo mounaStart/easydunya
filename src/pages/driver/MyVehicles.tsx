@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
+import { restSelect } from "../../lib/supabaseRest";
 import type { Vehicle } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 
@@ -14,13 +14,15 @@ export default function MyVehicles() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    supabase
-      .from("vehicles")
-      .select("*")
-      .eq("driver_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setVehicles((data as Vehicle[] | null) ?? []);
+    restSelect<Vehicle>(
+      "vehicles",
+      {
+        select: "*",
+        eq: { driver_id: user.id },
+        order: "created_at.desc",
+      }
+    ).then(({ data }) => {
+        setVehicles(data);
         setLoading(false);
       });
   }, [user]);

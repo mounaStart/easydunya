@@ -18,6 +18,7 @@ i18n
     fallbackLng: DEFAULT,
     supportedLngs: ["fr", "ar"],
     interpolation: { escapeValue: false },
+    react: { useSuspense: false },
     detection: {
       order: ["localStorage", "navigator"],
       caches: ["localStorage"],

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { useMyBookings } from "../../hooks/useBookings";
-import { supabase } from "../../lib/supabase";
+import { restSelect } from "../../lib/supabaseRest";
 import type { BookingStatus, TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
@@ -26,13 +26,12 @@ export default function Historique() {
   useEffect(() => {
     if (bookings.length === 0) return;
     const ids = Array.from(new Set(bookings.map((b) => b.trip_id)));
-    supabase
-      .from("trips_public")
-      .select("*")
-      .in("id", ids)
-      .then(({ data }) => {
+    restSelect<TripPublic>("trips_public", {
+      select: "*",
+      in: { id: ids },
+    }).then(({ data }) => {
         const map: Record<string, TripPublic> = {};
-        (data as TripPublic[] | null)?.forEach((tp) => (map[tp.id] = tp));
+        data.forEach((tp) => (map[tp.id] = tp));
         setTrips(map);
       });
   }, [bookings]);
