@@ -43,3 +43,19 @@ if (!fs.existsSync(pkgPath)) {
 
 fs.writeFileSync(pkgPath, minimal);
 console.log("ios-xcode15: Package.swift minimal (sans plugins) pour Xcode 15.2");
+
+const cfgPath = path.join(root, "ios/App/App/capacitor.config.json");
+if (fs.existsSync(cfgPath)) {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+    const list = Array.isArray(cfg.packageClassList) ? cfg.packageClassList : [];
+    if (!list.includes("EasyDunyaLocationPlugin")) {
+      list.push("EasyDunyaLocationPlugin");
+      cfg.packageClassList = list;
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+    }
+    console.log("ios-xcode15: packageClassList + EasyDunyaLocationPlugin");
+  } catch (err) {
+    console.warn("ios-xcode15: capacitor.config.json non modifié:", err);
+  }
+}

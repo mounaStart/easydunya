@@ -504,6 +504,7 @@ export async function ensureLocationPermission(): Promise<boolean> {
   if (Capacitor.getPlatform() === "ios") {
     const ios = await ensureIosCoreLocationPermission();
     if (ios !== null) return ios;
+    throw new Error("iOS location plugin unavailable");
   }
   try {
     const status = await Geolocation.checkPermissions();
@@ -528,40 +529,32 @@ const ACCURATE_POSITION_OPTIONS: PositionOptions = {
 
 async function getIosCoreLocationPosition(
   options: PositionOptions
-): Promise<GeolocationPosition | null> {
-  if (Capacitor.getPlatform() !== "ios") return null;
-  try {
-    const pos = await EasyDunyaLocation.getCurrentPosition({
-      enableHighAccuracy: options.enableHighAccuracy ?? false,
-      timeout: options.timeout ?? POSITION_OPTIONS.timeout,
-    });
-    if (pos.ok === false || pos.error) {
-      const msg = pos.error || "unavailable";
-      const err = new Error(msg) as Error & { code?: number };
-      if (msg.toLowerCase().includes("denied")) err.code = 1;
-      else if (msg.toLowerCase().includes("timeout")) err.code = 3;
-      else if (msg.toLowerCase().includes("disabled")) err.code = 2;
-      throw err;
-    }
-    if (!Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)) return null;
-    return toGeolocationPosition({
-      coords: {
-        latitude: pos.latitude as number,
-        longitude: pos.longitude as number,
-        accuracy: pos.accuracy || 0,
-      },
-      timestamp: pos.timestamp || Date.now(),
-    });
-  } catch (err) {
-    if (isLocationServicesDisabledError(err)) throw err;
-    const text = String((err as Error)?.message ?? err).toLowerCase();
-    if (text.includes("denied")) {
-      const denied = new Error("Geolocation permission denied") as Error & { code?: number };
-      denied.code = 1;
-      throw denied;
-    }
-    return null;
+): Promise<GeolocationPosition> {
+  const pos = await EasyDunyaLocation.getCurrentPosition({
+    enableHighAccuracy: options.enableHighAccuracy ?? false,
+    timeout: options.timeout ?? POSITION_OPTIONS.timeout,
+  });
+  if (pos.ok === false || pos.error) {
+    const msg = pos.error || "unavailable";
+    const err = new Error(msg) as Error & { code?: number };
+    if (msg.toLowerCase().includes("denied")) err.code = 1;
+    else if (msg.toLowerCase().includes("timeout")) err.code = 3;
+    else if (msg.toLowerCase().includes("disabled")) err.code = 2;
+    throw err;
   }
+  if (!Number.isFinite(pos.latitude) || !Number.isFinite(pos.longitude)) {
+    const err = new Error("Geolocation unavailable") as Error & { code?: number };
+    err.code = 2;
+    throw err;
+  }
+  return toGeolocationPosition({
+    coords: {
+      latitude: pos.latitude as number,
+      longitude: pos.longitude as number,
+      accuracy: pos.accuracy || 0,
+    },
+    timestamp: pos.timestamp || Date.now(),
+  });
 }
 
 async function getNativePosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {
@@ -571,21 +564,15 @@ async function getNativePosition(options: PositionOptions = POSITION_OPTIONS): P
     err.code = 1;
     throw err;
   }
-  const iosPos = await getIosCoreLocationPosition(options);
-  if (iosPos) return iosPos;
-  try {
-    const pos = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: options.enableHighAccuracy ?? false,
-      timeout: options.timeout ?? POSITION_OPTIONS.timeout,
-      maximumAge: options.maximumAge ?? POSITION_OPTIONS.maximumAge,
-    });
-    return toGeolocationPosition(pos);
-  } catch (err) {
-    if (Capacitor.getPlatform() === "ios") {
-      return getBrowserPosition(options);
-    }
-    throw err;
+  if (Capacitor.getPlatform() === "ios") {
+    return getIosCoreLocationPosition(options);
   }
+  const pos = await Geolocation.getCurrentPosition({
+    enableHighAccuracy: options.enableHighAccuracy ?? false,
+    timeout: options.timeout ?? POSITION_OPTIONS.timeout,
+    maximumAge: options.maximumAge ?? POSITION_OPTIONS.maximumAge,
+  });
+  return toGeolocationPosition(pos);
 }
 
 function getBrowserPosition(options: PositionOptions = POSITION_OPTIONS): Promise<GeolocationPosition> {

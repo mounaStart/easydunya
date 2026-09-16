@@ -17,18 +17,38 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
         CAPPluginMethod(name: "getCurrentPosition", returnType: CAPPluginReturnPromise)
     ]
 
-    private let manager = CLLocationManager()
+    private var manager: CLLocationManager?
     private var permissionCall: CAPPluginCall?
     private var positionCall: CAPPluginCall?
     private var positionTimer: Timer?
 
     public override func load() {
-        manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        onMain {
+            self.ensureManager()
+        }
+    }
+
+    private func ensureManager() {
+        if manager != nil { return }
+        let mgr = CLLocationManager()
+        mgr.delegate = self
+        mgr.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        mgr.distanceFilter = kCLDistanceFilterNone
+        mgr.pausesLocationUpdatesAutomatically = false
+        manager = mgr
+    }
+
+    private func onMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
     }
 
     private func authStatus() -> CLAuthorizationStatus {
-        return manager.authorizationStatus
+        ensureManager()
+        return manager?.authorizationStatus ?? .notDetermined
     }
 
     private func statusString(_ status: CLAuthorizationStatus) -> String {
@@ -47,7 +67,9 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
     }
 
     @objc func isEnabled(_ call: CAPPluginCall) {
-        call.resolve(["enabled": CLLocationManager.locationServicesEnabled()])
+        onMain {
+            call.resolve(["enabled": CLLocationManager.locationServicesEnabled()])
+        }
     }
 
     @objc func openSettings(_ call: CAPPluginCall) {
@@ -61,86 +83,93 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
     }
 
     @objc func checkPermission(_ call: CAPPluginCall) {
-        if !CLLocationManager.locationServicesEnabled() {
-            call.resolve(["status": "prompt", "enabled": false])
-            return
+        onMain {
+            if !CLLocationManager.locationServicesEnabled() {
+                call.resolve(["status": "prompt", "enabled": false])
+                return
+            }
+            call.resolve([
+                "status": self.statusString(self.authStatus()),
+                "enabled": true
+            ])
         }
-        call.resolve([
-            "status": statusString(authStatus()),
-            "enabled": true
-        ])
     }
 
     @objc func requestPermission(_ call: CAPPluginCall) {
-        if !CLLocationManager.locationServicesEnabled() {
-            call.resolve(["status": "denied", "enabled": false])
-            return
-        }
-        let status = authStatus()
-        if status == .authorizedAlways || status == .authorizedWhenInUse {
-            call.resolve(["status": "granted", "enabled": true])
-            return
-        }
-        if status == .denied || status == .restricted {
-            call.resolve(["status": "denied", "enabled": true])
-            return
-        }
-        permissionCall = call
-        DispatchQueue.main.async {
-            self.manager.requestWhenInUseAuthorization()
+        onMain {
+            self.ensureManager()
+            if !CLLocationManager.locationServicesEnabled() {
+                call.resolve(["status": "denied", "enabled": false])
+                return
+            }
+            let status = self.authStatus()
+            if status == .authorizedAlways || status == .authorizedWhenInUse {
+                call.resolve(["status": "granted", "enabled": true])
+                return
+            }
+            if status == .denied || status == .restricted {
+                call.resolve(["status": "denied", "enabled": true])
+                return
+            }
+            self.permissionCall = call
+            self.manager?.requestWhenInUseAuthorization()
         }
     }
 
     @objc func getCurrentPosition(_ call: CAPPluginCall) {
-        if !CLLocationManager.locationServicesEnabled() {
-            failPosition(call, "Location services disabled")
-            return
-        }
-        let status = authStatus()
-        if status == .denied || status == .restricted {
-            failPosition(call, "Geolocation permission denied")
-            return
-        }
-
-        let highAccuracy = call.getBool("enableHighAccuracy", false)
-        manager.desiredAccuracy = highAccuracy
-            ? kCLLocationAccuracyBest
-            : kCLLocationAccuracyHundredMeters
-
-        positionCall = call
-        startPositionTimeout(20)
-
-        if status == .notDetermined {
-            permissionCall = nil
-            DispatchQueue.main.async {
-                self.manager.requestWhenInUseAuthorization()
+        onMain {
+            self.ensureManager()
+            if !CLLocationManager.locationServicesEnabled() {
+                self.failPosition(call, "Location services disabled")
+                return
             }
-            return
-        }
-        DispatchQueue.main.async {
-            self.manager.requestLocation()
+            let status = self.authStatus()
+            if status == .denied || status == .restricted {
+                self.failPosition(call, "Geolocation permission denied")
+                return
+            }
+
+            let highAccuracy = call.getBool("enableHighAccuracy", false)
+            self.manager?.desiredAccuracy = highAccuracy
+                ? kCLLocationAccuracyBest
+                : kCLLocationAccuracyHundredMeters
+
+            self.stopUpdates()
+            self.positionCall = call
+            self.startPositionTimeout(20)
+
+            if status == .notDetermined {
+                self.permissionCall = nil
+                self.manager?.requestWhenInUseAuthorization()
+                return
+            }
+            self.manager?.startUpdatingLocation()
         }
     }
 
     private func startPositionTimeout(_ seconds: TimeInterval) {
         positionTimer?.invalidate()
-        positionTimer = Timer.scheduledTimer(withTimeInterval: max(5, seconds), repeats: false) { [weak self] _ in
+        let timer = Timer(timeInterval: max(8, seconds), repeats: false) { [weak self] _ in
             guard let strong = self, let call = strong.positionCall else { return }
             strong.positionCall = nil
+            strong.stopUpdates()
             strong.failPosition(call, "Location timeout")
         }
+        RunLoop.main.add(timer, forMode: .common)
+        positionTimer = timer
     }
 
-    private func clearPositionWait() {
+    private func stopUpdates() {
         positionTimer?.invalidate()
         positionTimer = nil
+        manager?.stopUpdatingLocation()
     }
 
     private func openAppSettingsUrl() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else {
             return
         }
-        DispatchQueue.main.async {
+        onMain {
             UIApplication.shared.open(url)
         }
     }
@@ -154,45 +183,56 @@ public class EasyDunyaLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationMan
             call.resolve(["status": statusString(status), "enabled": true])
         }
 
-        if let call = positionCall {
+        if let _ = positionCall {
             if granted {
-                DispatchQueue.main.async {
-                    self.manager.requestLocation()
-                }
+                manager?.startUpdatingLocation()
             } else if status == .denied || status == .restricted {
-                positionCall = nil
-                clearPositionWait()
-                failPosition(call, "Geolocation permission denied")
+                if let call = positionCall {
+                    positionCall = nil
+                    stopUpdates()
+                    failPosition(call, "Geolocation permission denied")
+                }
             }
         }
     }
 
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        handleAuthChange()
+        onMain {
+            self.handleAuthChange()
+        }
     }
 
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let loc = locations.last, let call = positionCall else { return }
-        positionCall = nil
-        clearPositionWait()
-        call.resolve([
-            "ok": true,
-            "latitude": loc.coordinate.latitude,
-            "longitude": loc.coordinate.longitude,
-            "accuracy": loc.horizontalAccuracy,
-            "timestamp": loc.timestamp.timeIntervalSince1970 * 1000
-        ])
+        onMain {
+            guard let loc = locations.last, let call = self.positionCall else { return }
+            if loc.horizontalAccuracy < 0 { return }
+            self.positionCall = nil
+            self.stopUpdates()
+            call.resolve([
+                "ok": true,
+                "latitude": loc.coordinate.latitude,
+                "longitude": loc.coordinate.longitude,
+                "accuracy": loc.horizontalAccuracy,
+                "timestamp": loc.timestamp.timeIntervalSince1970 * 1000
+            ])
+        }
     }
 
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        guard let call = positionCall else { return }
-        positionCall = nil
-        clearPositionWait()
-        let ns = error as NSError
-        if ns.domain == kCLErrorDomain, ns.code == CLError.denied.rawValue {
-            failPosition(call, "Geolocation permission denied")
-            return
+        onMain {
+            let ns = error as NSError
+            // Première fix GPS : iOS envoie souvent locationUnknown. On attend le timeout.
+            if ns.domain == kCLErrorDomain, ns.code == CLError.locationUnknown.rawValue {
+                return
+            }
+            guard let call = self.positionCall else { return }
+            self.positionCall = nil
+            self.stopUpdates()
+            if ns.domain == kCLErrorDomain, ns.code == CLError.denied.rawValue {
+                self.failPosition(call, "Geolocation permission denied")
+                return
+            }
+            self.failPosition(call, error.localizedDescription)
         }
-        failPosition(call, error.localizedDescription)
     }
 }

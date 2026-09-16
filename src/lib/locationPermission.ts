@@ -47,14 +47,10 @@ export async function queryLocationPermission(): Promise<LocationPermissionState
       if (deviceEnabled === false) return "prompt";
 
       if (Capacitor.getPlatform() === "ios") {
-        try {
-          const native = await EasyDunyaLocation.checkPermission();
-          if (native.status === "granted") return "granted";
-          if (native.status === "denied") return "denied";
-          return "prompt";
-        } catch {
-          /* plugin iOS : repli Capacitor / prompt */
-        }
+        const native = await EasyDunyaLocation.checkPermission();
+        if (native.status === "granted") return "granted";
+        if (native.status === "denied") return "denied";
+        return "prompt";
       }
 
       const status = await Geolocation.checkPermissions();
