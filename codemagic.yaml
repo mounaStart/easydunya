@@ -1,0 +1,68 @@
+workflows:
+  ios-app-store:
+    name: iOS App Store
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      # Nom de la clé dans Codemagic → Team integrations → Developer Portal.
+      # Créez la clé dans le navigateur (App Store Connect) puis nommez-la « easydunya ».
+      app_store_connect: easydunya
+    environment:
+      groups:
+        - easydunya_vite
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.easydunya
+      vars:
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+        BUNDLE_ID: app.easydunya
+      node: 22.11.0
+      xcode: latest
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm ci --no-audit --no-fund
+      - name: Contrôles App Store
+        script: |
+          npm run ios:store-check
+      - name: Build web + Capacitor iOS (JS embarqué, Xcode 26)
+        script: |
+          export BUILD_FOR_APK=1
+          export CAPACITOR_SERVER_URL=embedded
+          export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-https://prfmqfnaqtmyfyxqjeli.supabase.co}"
+          npm run cap:ios:cloud
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd ios/App
+          LATEST=""
+          if [ -n "${APP_STORE_APPLE_ID:-}" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || true)
+          fi
+          if [ -z "$LATEST" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID" || true)
+          fi
+          if [ -z "$LATEST" ] || [ "$LATEST" = "None" ]; then
+            NEW="${BUILD_NUMBER:-23}"
+          else
+            NEW=$((LATEST + 1))
+          fi
+          agvtool new-marketing-version 1.1.0
+          agvtool new-version -all "$NEW"
+          echo "Version 1.1.0 ($NEW)"
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

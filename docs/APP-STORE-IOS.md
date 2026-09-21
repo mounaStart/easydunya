@@ -2,55 +2,39 @@
 
 ## Réponse courte
 
-**Payer 99 $ ne suffit pas** avec le Xcode actuel.
+**Oui : vous n’avez pas besoin de votre Mac 2017** pour Archive / TestFlight / App Store.
 
-Ce sont **deux portes différentes** :
+Il faut un **Mac dans le cloud** (Xcode 26 + SDK iOS 26), pas un Linux. Le workflow Android GitHub (`ubuntu-latest`) **ne produit pas** d’IPA. Codemagic et GitHub Actions `macos-26` louent un Mac Apple silicon le temps du build.
 
-| Porte | À quoi ça sert | Votre machine aujourd’hui |
+Ce qui reste obligatoire (navigateur, pas Xcode) :
+
+| Porte | À quoi ça sert | Sans ça |
 | --- | --- | --- |
-| Apple Developer **99 $/an** | Droit d’envoyer l’app sur App Store Connect / TestFlight | Personal Team = **interdit** d’uploader |
-| **Xcode 26** + SDK **iOS 26** | Outil qu’Apple accepte pour l’upload depuis le **28 avril 2026** | Xcode **15.2** + macOS **13** = **refusé** à l’upload |
+| Apple Developer **99 $/an** | Droit d’envoyer l’app, créer certificats, TestFlight | Personal Team = **interdit** d’uploader |
+| Clé API App Store Connect (fichier `.p8`) | Le cloud signe et envoie à la place de Xcode | Le build cloud échoue à la signature |
+| **Xcode 26** sur le Mac cloud | Apple refuse tout binaire plus ancien depuis le **28 avril 2026** | Votre Xcode **15.2** local serait refusé |
 
-Avec Xcode 15.2 vous pouvez encore **tester sur l’iPhone en câble**.  
-Vous **ne pouvez pas** mettre en production / TestFlight tant que le Mac n’a pas Xcode 26.
+Votre MacBook Pro 13" 2017 / Ventura 13 ne peut **pas** installer Sequoia ni Xcode 26. Il reste utile seulement pour tester l’app en câble. L’upload Store passe par le cloud.
 
-Xcode 26 **ne s’installe pas** sur macOS 13. Il faut au minimum **macOS Sequoia 15.6**, puis Xcode **26.0 à 26.3** (la dernière qui tourne encore sur Sequoia). Les Xcode 26.4+ demandent souvent macOS Tahoe.
+Ne **pas** utiliser PWABuilder, Xcode Cloud (le 1er réglage demande souvent un Mac), ni `npm run cap:ios` pour le cloud (`cap:ios` enlève des plugins pour Xcode 15.2).
 
 ---
 
 ## Ordre à suivre (ne pas sauter)
 
-1. Vérifier si le Mac peut passer à Sequoia  
-2. Payer les 99 $  
-3. Mettre à jour macOS, puis installer Xcode 26  
-4. Déployer la fonction `delete-own-account` (Terminal)  
-5. Fusionner le code pour que Netlify ait `/confidentialite`  
-6. Créer l’app dans App Store Connect (politique, support, compte démo)  
-7. Sur le Mac : `cap:ios` + Archive + Upload  
-8. TestFlight, puis Soumettre à Apple  
+1. Payer les **99 $** Apple Developer  
+2. Créer l’identifiant `app.easydunya` + la fiche App Store Connect  
+3. Créer la **clé API** `.p8` (navigateur)  
+4. Déployer `delete-own-account` (Terminal)  
+5. Page `/confidentialite` en ligne (Netlify)  
+6. Build cloud → TestFlight (**Codemagic** recommandé, ou GitHub Actions)  
+7. Tester sur l’iPhone via TestFlight, puis **Soumettre** à Apple  
 
 ---
 
-### Étape 1 — Le Mac peut-il installer Sequoia ?
+### Étape 1 — Payer 99 $ (Apple Developer Program)
 
-Menu pomme → **À propos de ce Mac**.
-
-- Année / modèle (ex. MacBook Air 2020, Mac mini M1…)
-- macOS actuel : **Ventura 13** chez vous
-
-Sequoia 15.6 tourne en général sur :
-
-- tout Mac **Apple silicon** (M1 / M2 / M3 / M4)
-- Intel **2018 ou plus récent** (selon le modèle)
-
-[Liste officielle Sequoia](https://support.apple.com/en-us/120282)
-
-- **Oui, le Mac est dans la liste** → passez à l’étape 2, puis 3.  
-- **Non** → les 99 $ ne débloquent rien sur cette machine. Il faut un Mac compatible (ou un Mac d’emprunt) pour l’Archive.
-
----
-
-### Étape 2 — Payer 99 $ (Apple Developer Program)
+Sans cet abonnement, aucun cloud ne peut uploader.
 
 1. Ouvrez [https://developer.apple.com/programs/enroll/](https://developer.apple.com/programs/enroll/) **avec le même Apple ID** que Xcode (Rakky Bah).
 2. Enroll as **Individual** (personne physique).
@@ -58,85 +42,27 @@ Sequoia 15.6 tourne en général sur :
 4. Attendre l’e-mail « Welcome to the Apple Developer Program » (souvent quelques heures, parfois 24–48 h).
 5. Vérifiez : [https://developer.apple.com/account](https://developer.apple.com/account) affiche **Program** / membership **Active**, plus seulement « Personal Team ».
 
-Sans cet e-mail, Xcode n’aura pas l’équipe payante et l’upload restera bloqué.
+Notez le **Team ID** (10 caractères, Membership details). Il servira de secret `APPLE_TEAM_ID`.
 
 ---
 
-### Étape 3 — macOS Sequoia puis Xcode 26
+### Étape 2 — Identifiant + fiche App Store Connect
 
-**3a. Sauvegarder** (Time Machine ou copie).
-
-**3b. Réglages → Général → Mise à jour de logiciels**
-
-Monter autant que le Mac le permet :
-
-Ventura 13 → Sonoma 14 (si proposé) → **Sequoia 15.6 ou plus**.
-
-**3c. Installer Xcode 26**
-
-- App Store → chercher **Xcode** : si la version proposée exige Tahoe et que vous êtes encore sur Sequoia, **ne pas** prendre Xcode 26.4+.
-- À la place : [https://developer.apple.com/download/all/](https://developer.apple.com/download/all/) (Apple ID payant) → télécharger **Xcode 26.3** (SDK iOS 26, compatible Sequoia 15.6).
-- Installer, ouvrir Xcode une fois, accepter la licence.
-
-**3d. Vérifier dans Terminal**
-
-```bash
-xcodebuild -version
-```
-
-Il faut voir **Xcode 26.**x et un SDK **iOS 26**.  
-S’il affiche encore 15.2 : Xcode 26 n’est pas l’app ouverte / sélectionnée.
-
----
-
-### Étape 4 — Fonction suppression de compte (Terminal, pas SQL)
-
-Sur le Mac, une fois (et après chaque changement de cette fonction) :
-
-```bash
-cd ~/chemin/vers/easydunya
-npx supabase login
-npx supabase functions deploy delete-own-account --project-ref prfmqfnaqtmyfyxqjeli
-```
-
-Collez **une commande à la fois**. Pas dans l’éditeur SQL Supabase.
-
-Sans ça, **Profil → Supprimer mon compte** échoue → Apple rejette (règle 5.1.1v).
-
----
-
-### Étape 5 — Page confidentialité en ligne (Netlify)
-
-Apple exige une **URL publique** sans login.
-
-Aujourd’hui `https://easydunya.netlify.app/confidentialite` n’a pas encore ce texte : il faut **merger** la branche App Store jusqu’à `main` (PR iOS + PR Store), attendre le déploiement Netlify, puis ouvrir l’URL dans Safari : le titre **Politique de confidentialité** doit apparaître.
-
-URLs à coller plus tard dans Connect :
-
-| Champ | URL |
-| --- | --- |
-| Privacy Policy | https://easydunya.netlify.app/confidentialite |
-| Support | https://easydunya.netlify.app/a-propos |
-| Marketing (optionnel) | https://easydunya.netlify.app |
-
----
-
-### Étape 6 — Fiche App Store Connect (avant ou pendant l’upload)
-
-1. [https://appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Apps** → **+** → **Nouvelle app**.
-2. Plateforme **iOS**. Nom : **Easy Dunya**. Langue principale : français.
-3. Bundle ID : créer `app.easydunya` dans  
-   [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list)  
-   si absent **sur le compte payant**. SKU libre : `easydunya-ios`.
-4. Catégorie : **Voyages / Travel**. Prix : gratuit. Âge : **4+**.
-5. Chiffrement : **Non** (HTTPS seulement).
-6. Privacy Policy + Support = les URLs de l’étape 5.
-7. Confidentialité (nutrition labels) :
+1. [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list) → **+** → App IDs → App.
+2. Description : Easy Dunya. Bundle ID **Explicit** : `app.easydunya`.
+3. **Ne pas** cocher Push Notifications ni Background Modes.
+4. [https://appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Apps** → **+** → **Nouvelle app**.
+5. Plateforme **iOS**. Nom : **Easy Dunya**. Langue principale : français. Bundle ID : `app.easydunya`. SKU : `easydunya-ios`.
+6. Catégorie : **Voyages / Travel**. Prix : gratuit. Âge : **4+**.
+7. Chiffrement : **Non** (HTTPS seulement).
+8. Privacy Policy : `https://easydunya.netlify.app/confidentialite`  
+   Support : `https://easydunya.netlify.app/a-propos`
+9. Confidentialité (nutrition labels) :
    - Nom, téléphone, localisation précise + approximative, interactions produit
    - Liées au compte, **pas** de tracking pub, finalité **fonctionnalité de l’app**
    - Localisation : **lorsque l’app est utilisée**, pas en arrière-plan
-8. Captures **iPhone 6.7"** et **6.1"** (recherche, voyage, réservation, profil). Pas de cadre Android, pas de « build 22 ».
-9. **Compte démo** (obligatoire) — créez un vrai passager dans l’app **avant** de soumettre, puis dans **Notes de révision** :
+10. Captures **iPhone 6.7"** et **6.1"** (recherche, voyage, réservation, profil). Pas de cadre Android, pas de « build 22 ».
+11. **Compte démo** (obligatoire) — créez un vrai passager **avant** de soumettre, puis dans **Notes de révision** :
 
 ```
 Compte démo passager
@@ -151,50 +77,122 @@ Suppression de compte : Profil → Supprimer mon compte.
 
 Ne mettez **pas** le mot de passe admin dans ces notes.
 
+Notez aussi l’**Apple ID** numérique de l’app (App Store Connect → l’app → App Information). Utile pour Codemagic (`APP_STORE_APPLE_ID`).
+
 ---
 
-### Étape 7 — Compiler et envoyer le binaire (Mac + Xcode 26)
+### Étape 3 — Clé API App Store Connect (navigateur, 1 fois)
+
+C’est ce qui remplace Xcode sur votre bureau.
+
+1. Connectez-vous : [Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api)
+2. **+** → nom `EasyDunyaCloud` → accès **Admin** ou **App Manager**.
+3. **Download API Key** : fichier `AuthKey_XXXXXXXXXX.p8` — **une seule fois**. Gardez-le.
+4. Notez **Issuer ID** (UUID en haut de la page) et **Key ID** (10 caractères).
+
+Ne commitez jamais le `.p8` dans Git.
+
+---
+
+### Étape 4 — Fonction suppression de compte (Terminal, pas SQL)
+
+Sans ça, **Profil → Supprimer mon compte** échoue → Apple rejette (règle 5.1.1v).
 
 ```bash
 cd ~/chemin/vers/easydunya
+npx supabase login
 git fetch origin
-git checkout cursor/ios-app-store-ready-0cb8
-git pull
-npm ci
-npm run ios:store-check
-npm run cap:ios
+git checkout origin/main -- supabase/functions/delete-own-account
+npx supabase functions deploy delete-own-account --project-ref prfmqfnaqtmyfyxqjeli
 ```
 
-La dernière ligne doit être :
+Collez **une commande à la fois**. Pas dans l’éditeur SQL Supabase.
 
-`OK — Xcode a le JS embarqué App Store : easydunya-ios-store`
-
-Puis Xcode :
-
-1. Ouvrir `ios/App/App.xcodeproj` (pas un `.xcworkspace`).
-2. Cible **App** → **Signing & Capabilities** :
-   - Automatically manage signing
-   - **Team = l’équipe payante** (plus Personal Team)
-   - Bundle Identifier = `app.easydunya`  
-     (pas `app.easydunya.rakky` — c’était le test Personal Team)
-3. **Ne pas** ajouter Push Notifications ni Background Modes.
-4. Destination : **Any iOS Device (arm64)** (pas un simulateur).
-5. **Product → Clean Build Folder**, puis **Product → Archive**.
-6. Organizer → **Distribute App** → **App Store Connect** → Upload.
-7. Si Apple refuse l’upload en parlant de SDK / Xcode : c’est encore Xcode 15.2. Revenir à l’étape 3.
-
-Détail Archive : [`BUILD-IPA.md`](BUILD-IPA.md).
+Si `git checkout main` est refusé à cause de `project.pbxproj` / `Info.plist` : ne changez **pas** de branche. La commande `git checkout origin/main -- supabase/functions/delete-own-account` copie seulement ce dossier.
 
 ---
 
-### Étape 8 — TestFlight puis revue Apple
+### Étape 5 — Page confidentialité en ligne (Netlify)
 
-1. Connect → l’app → **TestFlight**. Attendre « Ready to Test » (5–30 min).
-2. Installer **TestFlight** sur l’iPhone, tester : connexion, recherche, profil, suppression sur un **compte jetable**.
+Apple exige une **URL publique** sans login.
+
+Aujourd’hui il faut que `main` ait le texte (PR iOS Store fusionnée), puis ouvrir dans Safari : le titre **Politique de confidentialité** doit apparaître.
+
+| Champ | URL |
+| --- | --- |
+| Privacy Policy | https://easydunya.netlify.app/confidentialite |
+| Support | https://easydunya.netlify.app/a-propos |
+| Marketing (optionnel) | https://easydunya.netlify.app |
+
+---
+
+### Étape 6 — Build cloud (recommandé : Codemagic)
+
+Codemagic crée le certificat Distribution **sans Mac** (Generate certificate). GitHub Actions peut aussi signer tout seul avec la clé `.p8`.
+
+#### 6a. Codemagic (le plus simple sans Mac)
+
+1. Compte : [https://codemagic.io/start](https://codemagic.io/start) → Sign in with GitHub → autoriser `mounaStart/easydunya`.
+2. Applications → **Add application** → GitHub → `easydunya`. Type : Ionic Capacitor.  
+   **Check for configuration file** sur la branche `cursor/ios-cloud-appstore-0cb8` (fichier `codemagic.yaml`).
+3. Team settings → **Team integrations → Developer Portal → Manage keys** → Add key :
+   - Name : **`easydunya`** (doit matcher `codemagic.yaml`)
+   - Issuer ID + Key ID de l’étape 3
+   - Upload du `.p8`
+4. Team settings → **codemagic.yaml settings → Code signing identities → iOS certificates** → **Generate certificate** :
+   - Type : **Apple Distribution**
+   - API key : easydunya
+5. Sur [developer.apple.com Profiles](https://developer.apple.com/account/resources/profiles/list) → **+** → **App Store Connect** → App ID `app.easydunya` → le certificat Distribution que Codemagic vient de créer → Download n’est pas obligatoire : dans Codemagic, **iOS provisioning profiles → Fetch profiles**, sélectionnez le profil App Store, reference name libre.
+6. Variables d’environnement (group **`easydunya_vite`**, cocher Secret) :
+
+   | Variable | Valeur |
+   | --- | --- |
+   | `VITE_SUPABASE_URL` | `https://prfmqfnaqtmyfyxqjeli.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | clé anon Supabase |
+   | `VITE_GOOGLE_MAPS_API_KEY` | clé Maps |
+   | `VITE_VAPID_PUBLIC_KEY` | optionnel |
+   | `APP_STORE_APPLE_ID` | ID numérique de l’étape 2 |
+
+7. **Start new build** → workflow **iOS App Store**. Attendre 15–25 min.
+8. Si vert : l’IPA est sur **TestFlight**. Pas encore en revue Apple.
+
+Le 1er mois Codemagic offre des minutes Mac. Au-delà, un forfait pay-as-you-go (quelques dollars par build) suffit.
+
+#### 6b. Alternative : GitHub Actions (Mac `macos-26`, déjà dans le dépôt)
+
+Le repo public `easydunya` peut lancer un runner **macos-26** (Xcode 26). Ce n’est **pas** le workflow Android Ubuntu.
+
+1. GitHub → `mounaStart/easydunya` → **Settings → Secrets and variables → Actions** → New repository secret :
+
+   | Secret | Valeur |
+   | --- | --- |
+   | `APP_STORE_CONNECT_KEY_ID` | Key ID (10 caractères) |
+   | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID (UUID) |
+   | `APP_STORE_CONNECT_PRIVATE_KEY` | contenu entier du `.p8` (y compris `BEGIN PRIVATE KEY`) |
+   | `APPLE_TEAM_ID` | Team ID 10 caractères |
+   | `VITE_SUPABASE_ANON_KEY` | déjà utilisé pour l’AAB Android si présent |
+   | `VITE_GOOGLE_MAPS_API_KEY` | idem |
+   | `VITE_VAPID_PUBLIC_KEY` | optionnel |
+
+2. Onglet **Actions** → **Build iOS IPA** → **Run workflow**.
+3. Branche : `cursor/ios-cloud-appstore-0cb8` (ou `cursor/ios-app-store-ready-0cb8` une fois fusionné).
+4. `upload_to_testflight` : coché.
+5. Attendre le job vert, puis Connect → TestFlight.
+
+Signature : Xcode sur le runner crée certificat + profil via `-allowProvisioningUpdates` (équipe payante). Ne pas ajouter Push.
+
+Artifact `EasyDunya-ipa` = copie de l’IPA. L’upload TestFlight est déjà fait si l’étape « Envoyer vers TestFlight » est verte.
+
+---
+
+### Étape 7 — TestFlight puis revue Apple
+
+1. App Store Connect → l’app → **TestFlight**. Attendre « Ready to Test » (5–30 min, parfois plus au 1er build : traitement du compte).
+2. Installer **TestFlight** sur l’iPhone (App Store), tester : connexion, recherche, profil, suppression sur un **compte jetable**.
 3. Connect → version **1.1.0** → Build 23 (ou plus) → **Ajouter pour révision** → **Soumettre**.
 4. Délai Apple souvent 24–48 h, parfois une semaine.
 
-Chaque nouvel upload : augmenter seulement le **Build** (23 → 24 → 25), garder 1.1.0 tant que c’est la même version Store.
+Chaque nouvel upload : augmenter seulement le **Build** (23 → 24 → 25), garder 1.1.0 tant que c’est la même version Store. Codemagic incrémente tout seul si `APP_STORE_APPLE_ID` est renseigné.
 
 ---
 
@@ -210,7 +208,26 @@ Chaque nouvel upload : augmenter seulement le **Build** (23 → 24 → 25), gard
 | Sign in with Apple | Non exigé (téléphone + mot de passe) |
 | Push / APNs | Entitlements vides. Ne pas ajouter Push pour la 1re version |
 
-Contrôle local : `npm run ios:store-check`
+Contrôle local : `npm run ios:store-check`  
+Build cloud (Xcode 26, plugins complets) : `npm run cap:ios:cloud`  
+Build Mac 2017 / Xcode 15.2 (test câble seulement) : `npm run cap:ios`
+
+---
+
+## Ce que le cloud ne remplace pas
+
+- Les **99 $** Apple.
+- La **fiche** App Store Connect (captures, confidentialité, compte démo) — tout ça se fait dans le navigateur.
+- Un **iPhone** pour tester TestFlight.
+- Votre Mac 2017 pour un test USB si vous voulez, **pas** pour l’upload.
+
+Xcode Cloud (Apple) : le premier workflow se configure souvent **depuis Xcode** → inutile ici. Codemagic / GitHub Actions `macos-26` n’ont pas besoin d’ouvrir Xcode chez vous.
+
+---
+
+## Annexe — si vous achetez un Mac plus tard
+
+Xcode 26 demande au minimum **macOS Sequoia 15.6**, donc un Mac **Apple silicon (M1+)** ou Intel 2018+. Commandes locales : voir [`BUILD-IPA.md`](BUILD-IPA.md). Ce n’est **pas** requis tant que le cloud envoie TestFlight.
 
 ---
 
