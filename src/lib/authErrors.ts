@@ -40,10 +40,10 @@ export function mapAuthError(msg: string, code?: string): string {
     return "Création chauffeur non activée sur le serveur. Déployez la fonction Supabase « create-driver-account » (Dashboard → Edge Functions), puis réessayez.";
   }
   if (
-    lower.includes("functions/v1/register-passenger") ||
-    lower.includes("register-passenger")
+    lower.includes("functions/v1/admin-book-passenger") ||
+    lower.includes("admin-book-passenger")
   ) {
-    return "Inscription non activée sur le serveur. Déployez la fonction Supabase « register-passenger » (Dashboard → Edge Functions), puis réessayez.";
+    return "Réservation admin non activée sur le serveur. Déployez la fonction Supabase « admin-book-passenger » (Dashboard → Edge Functions), puis réessayez.";
   }
   if (lower.includes("email address") || lower.includes("@phone.easydunya.app")) {
     return "Impossible de créer le compte avec ce numéro. Réessayez ou contactez l'administrateur.";

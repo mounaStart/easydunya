@@ -24,3 +24,8 @@ export function isValidPhone(raw: string): boolean {
 export function phoneToDefaultPassword(raw: string): string {
   return `${normalizePhone(raw)}ED`;
 }
+
+/** Mot de passe réservation téléphonique admin : ES + numéro renseigné */
+export function phoneToCallBookingPassword(raw: string): string {
+  return `ES${normalizePhone(raw)}`;
+}
