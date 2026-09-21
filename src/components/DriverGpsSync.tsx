@@ -4,6 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../hooks/useAuth";
 import { useDriverGps, type TripRouteEndpoints } from "../hooks/useDriverGps";
 import { supabase } from "../lib/supabase";
+import { restSelectOne } from "../lib/supabaseRest";
 
 /** Envoie la position GPS du chauffeur pendant tout voyage en cours (toutes pages). */
 export default function DriverGpsSync() {
@@ -22,14 +23,19 @@ export default function DriverGpsSync() {
       setTripRoute(null);
       return;
     }
+    const id = tripId;
     let cancelled = false;
 
     async function loadRoute() {
-      const { data } = await supabase
-        .from("trips_public")
-        .select("from_lat, from_lng, to_lat, to_lng")
-        .eq("id", tripId)
-        .maybeSingle();
+      const { data } = await restSelectOne<{
+        from_lat: number;
+        from_lng: number;
+        to_lat: number;
+        to_lng: number;
+      }>("trips_public", {
+        select: "from_lat,from_lng,to_lat,to_lng",
+        eq: { id },
+      });
       if (cancelled || !data) return;
       if (
         Number.isFinite(data.from_lat) &&

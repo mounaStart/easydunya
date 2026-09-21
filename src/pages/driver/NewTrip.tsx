@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
+import { insertDriverTrip } from "../../lib/tripApi";
+import { restSelect } from "../../lib/supabaseRest";
 import { useCities } from "../../hooks/useCities";
 import { useCityPrices } from "../../hooks/useCityPrices";
 import { reverseQuartier } from "../../lib/geocode";
@@ -20,7 +21,7 @@ const EVENING_HOUR = 18;
 
 export default function NewTrip() {
   const { t, i18n } = useTranslation();
-  const { user, profile } = useAuth();
+  const { user, profile, session } = useAuth();
   const navigate = useNavigate();
   const [locked, setLocked] = useState(false);
   const [lockedTrip, setLockedTrip] = useState<TripPublic | null>(null);
@@ -116,14 +117,13 @@ export default function NewTrip() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("trips_public")
-      .select("*")
-      .eq("driver_id", user.id)
-      .in("status", ["scheduled", "in_progress"])
-      .order("depart_at", { ascending: true })
-      .then(({ data }) => {
-        const active = pickPrimaryActiveTrip((data as TripPublic[] | null) ?? []);
+    restSelect<TripPublic>("trips_public", {
+      select: "*",
+      eq: { driver_id: user.id },
+      in: { status: ["scheduled", "in_progress"] },
+      order: "depart_at.asc",
+    }).then(({ data }) => {
+        const active = pickPrimaryActiveTrip(data);
         setLockedTrip(active);
         setLocked(Boolean(active));
       });
@@ -131,12 +131,11 @@ export default function NewTrip() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("vehicles")
-      .select("*")
-      .eq("driver_id", user.id)
-      .then(({ data }) => {
-        const list = (data as Vehicle[] | null) ?? [];
+    restSelect<Vehicle>("vehicles", {
+      select: "*",
+      eq: { driver_id: user.id },
+    }).then(({ data }) => {
+        const list = data;
         setVehicles(list);
         if (list[0]) {
           setVehicleId(list[0].id);
@@ -175,26 +174,37 @@ export default function NewTrip() {
       }
     }
 
-    const { error } = await supabase.from("trips").insert({
-      driver_id: user.id,
-      vehicle_id: vehicleId || null,
-      from_city_id: fromCityId,
-      to_city_id: toCityId,
-      depart_at: departDateTime.toISOString(),
-      price_per_seat: price,
-      seats_total: seats,
-      seats_available: seats,
-      notes: notes || null,
-      status: "scheduled",
-      city_price_id: cityPrice?.id ?? null,
-      distance_km: cityPrice?.distance_km ?? computedDistance,
-      depart_lat: departPos?.lat ?? null,
-      depart_lng: departPos?.lng ?? null,
-      depart_quartier: departQuartier,
-    });
+    const token = session?.access_token;
+    if (!token) {
+      setBusy(false);
+      setError("Session expirée. Déconnectez-vous puis reconnectez-vous.");
+      return;
+    }
+
+    const { error } = await insertDriverTrip(
+      {
+        driver_id: user.id,
+        vehicle_id: vehicleId || null,
+        from_city_id: fromCityId,
+        to_city_id: toCityId,
+        depart_at: departDateTime.toISOString(),
+        price_per_seat: price,
+        seats_total: seats,
+        seats_available: seats,
+        notes: notes || null,
+        status: "scheduled",
+        city_price_id: cityPrice?.id ?? null,
+        distance_km: cityPrice?.distance_km ?? computedDistance,
+        depart_lat: departPos?.lat ?? null,
+        depart_lng: departPos?.lng ?? null,
+        depart_quartier: departQuartier,
+      },
+      token,
+      session?.refresh_token
+    );
     setBusy(false);
     if (error) {
-      setError(error.message);
+      setError(error);
       return;
     }
     navigate("/driver");

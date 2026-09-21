@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
+import { fetchBookingsWithAccessToken } from "../../lib/bookingApi";
+import { restSelect } from "../../lib/supabaseRest";
 import type { TripPublic } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
@@ -29,7 +31,7 @@ interface Stats {
 
 export default function DriverDashboard() {
   const { t, i18n } = useTranslation();
-  const { user, profile } = useAuth();
+  const { user, profile, session } = useAuth();
   const [trips, setTrips] = useState<TripPublic[]>([]);
   const [stats, setStats] = useState<Stats>({ earnings: 0, tripsCount: 0, upcoming: 0 });
   const [pendingByTrip, setPendingByTrip] = useState<Record<string, number>>({});
@@ -41,36 +43,36 @@ export default function DriverDashboard() {
     async function load() {
       if (!user) return;
 
-      const { data: tripsData } = await supabase
-        .from("trips_public")
-        .select("*")
-        .eq("driver_id", user.id)
-        .order("depart_at", { ascending: true });
+      const { data: allTrips } = await restSelect<TripPublic>("trips_public", {
+        select: "*",
+        eq: { driver_id: user.id },
+        order: "depart_at.asc",
+      });
 
-      const allTrips = (tripsData as TripPublic[] | null) ?? [];
-
-      const { data: bookingsData } = await supabase
-        .from("bookings")
-        .select("seats, status, trip_id")
-        .in(
-          "trip_id",
-          allTrips.length > 0 ? allTrips.map((t) => t.id) : ["00000000-0000-0000-0000-000000000000"]
-        );
+      const bookingsData = await fetchBookingsWithAccessToken(session?.access_token, {
+        tripIds:
+          allTrips.length > 0
+            ? allTrips.map((t) => t.id)
+            : [],
+        select: "seats,status,trip_id",
+      });
 
       // Revenus = NET réel encaissé (après commission Easy Dunya), via la table payments
-      const { data: payData } = await supabase
-        .from("payments")
-        .select("driver_earning")
-        .eq("driver_id", user.id)
-        .eq("status", "paid");
-      const earnings = (payData as { driver_earning: number }[] | null ?? []).reduce(
+      const { data: payData } = await restSelect<{ driver_earning: number }>(
+        "payments",
+        {
+          select: "driver_earning",
+          eq: { driver_id: user.id, status: "paid" },
+        }
+      );
+      const earnings = payData.reduce(
         (sum, p) => sum + (p.driver_earning ?? 0),
         0
       );
 
       let upcoming = 0;
       const pendingMap: Record<string, number> = {};
-      for (const b of bookingsData ?? []) {
+      for (const b of bookingsData) {
         const trip = allTrips.find((tr) => tr.id === b.trip_id);
         if (!trip) continue;
         if (b.status === "pending") {
@@ -108,7 +110,7 @@ export default function DriverDashboard() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, session?.access_token]);
 
   if (loading) return <Spinner />;
 

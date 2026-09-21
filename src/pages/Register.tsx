@@ -42,7 +42,7 @@ export default function Register() {
     setLoading(false);
 
     if (error) {
-      setError(mapAuthError(error));
+      setError(mapAuthError(error, undefined, "signup"));
       return;
     }
     navigate("/", { replace: true });

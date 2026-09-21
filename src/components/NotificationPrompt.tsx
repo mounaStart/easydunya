@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { subscribeToPush, getPushState, type PushState } from "../lib/push";
-import { isNativePlatform } from "../lib/nativePush";
+import { isIosApp, isNotificationPromptSupported } from "../lib/nativePush";
 import { onLocationPromptSettled } from "../lib/startupPrompts";
 
 const SNOOZE_KEY = "ed_notif_snooze_until";
@@ -30,11 +30,9 @@ export default function NotificationPrompt() {
   const nativeRequested = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!user || !isNativePlatform()) return;
-    const st = await getPushState(user.id);
-    if (st === "off") await subscribeToPush(user.id);
+    if (!user || !isNotificationPromptSupported()) return;
     setState(await getPushState(user.id));
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();
@@ -60,7 +58,7 @@ export default function NotificationPrompt() {
   // APK : une seule boîte système, après la localisation
   useEffect(() => {
     if (!user || hidden || !locationReady || nativeRequested.current) return;
-    if (!isNativePlatform() || state !== "off") return;
+    if (!isNotificationPromptSupported() || state !== "off") return;
 
     nativeRequested.current = true;
     subscribeToPush(user.id)
@@ -72,7 +70,7 @@ export default function NotificationPrompt() {
   }, [user, hidden, locationReady, state, refresh]);
 
   if (!user || hidden || !locationReady) return null;
-  if (!isNativePlatform()) return null;
+  if (!isNotificationPromptSupported()) return null;
   if (state !== "off") return null;
 
   async function enable() {
@@ -116,8 +114,9 @@ export default function NotificationPrompt() {
           <div className="min-w-0">
             <div className="font-bold text-ink">Activer les notifications</div>
             <p className="text-sm text-slate-500 mt-0.5">
-              Soyez prévenu des réservations, confirmations et départs — même
-              quand l'application est fermée.
+              {isIosApp()
+                ? "Soyez prévenu des réservations, confirmations et départs."
+                : "Soyez prévenu des réservations, confirmations et départs — même quand l'application est fermée."}
             </p>
           </div>
         </div>

@@ -8,7 +8,7 @@ import {
   getRememberedCodes,
   useMyBookings,
 } from "../../hooks/useBookings";
-import { supabase } from "../../lib/supabase";
+import { restSelectOne } from "../../lib/supabaseRest";
 import {
   useTripDriverPosition,
   isDriverPositionStale,
@@ -97,21 +97,21 @@ export default function Reservation() {
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("trips_public")
-        .select("*")
-        .eq("id", active.trip_id)
-        .maybeSingle();
+      const { data: tp } = await restSelectOne<TripPublic>("trips_public", {
+        select: "*",
+        eq: { id: active.trip_id },
+      });
       if (cancelled) return;
-      const tp = (data as TripPublic | null) ?? null;
       setTrip(tp);
       if (tp?.driver_id) {
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("phone")
-          .eq("id", tp.driver_id)
-          .maybeSingle();
-        if (!cancelled) setDriverPhone((prof as { phone?: string } | null)?.phone ?? null);
+        const { data: prof } = await restSelectOne<{ phone?: string }>(
+          "profiles",
+          {
+            select: "phone",
+            eq: { id: tp.driver_id },
+          }
+        );
+        if (!cancelled) setDriverPhone(prof?.phone ?? null);
       }
     })();
     return () => {

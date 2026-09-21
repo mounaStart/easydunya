@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { restSelect } from "../lib/supabaseRest";
 import type { CityPrice } from "../lib/types";
 
 export function useCityPrices() {
@@ -8,11 +8,11 @@ export function useCityPrices() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("city_prices")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setPrices((data as CityPrice[] | null) ?? []);
+    const { data } = await restSelect<CityPrice>("city_prices", {
+      select: "*",
+      order: "created_at.desc",
+    });
+    setPrices(data);
     setLoading(false);
   }, []);
 

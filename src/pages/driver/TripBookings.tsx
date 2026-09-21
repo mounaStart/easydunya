@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../../lib/supabase";
+import { invokeRpcWithAccessToken, patchRowWithAccessToken } from "../../lib/supabaseRpc";
+import { restSelectOne } from "../../lib/supabaseRest";
+import { fetchProfilesByIds } from "../../lib/profileApi";
 import { cancelTripWithBroadcast, updateBookingStatus, useTripBookings } from "../../hooks/useBookings";
 import { useTripDriverPosition } from "../../hooks/useDriverGps";
 import TrackingMap from "../../components/TrackingMap";
@@ -27,7 +30,7 @@ const END_TRIP_RADIUS_M = 500;
 export default function TripBookings() {
   const { tripId } = useParams();
   const { t, i18n } = useTranslation();
-  const { refreshProfile, role } = useAuth();
+  const { refreshProfile, role, session } = useAuth();
   const { bookings, loading, refresh } = useTripBookings(tripId);
   const [trip, setTrip] = useState<TripPublic | null>(null);
   const [tripLoading, setTripLoading] = useState(true);
@@ -117,12 +120,11 @@ export default function TripBookings() {
 
   const reloadTrip = useCallback(async () => {
     if (!tripId) return;
-    const { data } = await supabase
-      .from("trips_public")
-      .select("*")
-      .eq("id", tripId)
-      .maybeSingle();
-    setTrip((data as TripPublic | null) ?? null);
+    const { data } = await restSelectOne<TripPublic>("trips_public", {
+      select: "*",
+      eq: { id: tripId },
+    });
+    setTrip(data);
   }, [tripId]);
 
   useEffect(() => {
@@ -162,21 +164,17 @@ export default function TripBookings() {
       .map((b) => b.passenger_id)
       .filter((x): x is string => !!x);
     if (ids.length === 0) return;
-    supabase
-      .from("profiles")
-      .select("*")
-      .in("id", ids)
-      .then(({ data }) => {
+    fetchProfilesByIds(ids, "*", session?.access_token).then((data) => {
         const map: Record<string, Profile> = {};
-        (data as Profile[] | null)?.forEach((p) => (map[p.id] = p));
+        data.forEach((p) => (map[p.id] = p));
         setProfiles(map);
       });
-  }, [bookings]);
+  }, [bookings, session?.access_token]);
 
   async function setStatus(b: Booking, status: Booking["status"]) {
     setBusy(true);
     setLockMsg(null);
-    const { error } = await updateBookingStatus(b.id, status);
+    const { error } = await updateBookingStatus(b.id, status, session?.access_token);
     if (error) {
       setLockMsg(error);
       setBusy(false);
@@ -193,13 +191,15 @@ export default function TripBookings() {
     if (next < 0 || next > trip.seats_total) return;
     setBusy(true);
     setLockMsg(null);
-    const { error } = await supabase
-      .from("trips")
-      .update({ seats_available: next })
-      .eq("id", tripId);
+    const { error } = await patchRowWithAccessToken(
+      "trips",
+      tripId,
+      { seats_available: next },
+      session?.access_token
+    );
     setBusy(false);
     if (error) {
-      setLockMsg(error.message);
+      setLockMsg(error);
       return;
     }
     await reloadTrip();
@@ -209,10 +209,14 @@ export default function TripBookings() {
     if (!tripId) return;
     setBusy(true);
     setLockMsg(null);
-    const { error } = await supabase.rpc("driver_start_trip", { p_trip_id: tripId });
+    const { error } = await invokeRpcWithAccessToken(
+      "driver_start_trip",
+      { p_trip_id: tripId },
+      session?.access_token
+    );
     setBusy(false);
     if (error) {
-      setLockMsg(error.message);
+      setLockMsg(error);
       return;
     }
     await reloadTrip();
@@ -223,7 +227,7 @@ export default function TripBookings() {
     if (!tripId) return;
     if (!confirm("Annuler ce voyage ? Les autres chauffeurs vers la même destination seront notifiés.")) return;
     setBusy(true);
-    const { error } = await cancelTripWithBroadcast(tripId);
+    const { error } = await cancelTripWithBroadcast(tripId, undefined, session?.access_token);
     setBusy(false);
     if (error) {
       setLockMsg(error);
@@ -236,10 +240,14 @@ export default function TripBookings() {
   async function endTrip() {
     if (!tripId) return;
     setBusy(true);
-    const { error } = await supabase.rpc("driver_end_trip", { p_trip_id: tripId });
+    const { error } = await invokeRpcWithAccessToken(
+      "driver_end_trip",
+      { p_trip_id: tripId },
+      session?.access_token
+    );
     setBusy(false);
     if (error) {
-      setLockMsg(error.message);
+      setLockMsg(error);
       return;
     }
     await reloadTrip();

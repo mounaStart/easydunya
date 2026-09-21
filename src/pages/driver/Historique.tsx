@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
+import { restSelect } from "../../lib/supabaseRest";
 import type { TripPublic, TripStatus } from "../../lib/types";
 import Spinner from "../../components/Spinner";
 import StatusBadge from "../../components/StatusBadge";
@@ -23,13 +23,12 @@ export default function DriverHistorique() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    supabase
-      .from("trips_public")
-      .select("*")
-      .eq("driver_id", user.id)
-      .order("depart_at", { ascending: false })
-      .then(({ data }) => {
-        setTrips((data as TripPublic[] | null) ?? []);
+    restSelect<TripPublic>("trips_public", {
+      select: "*",
+      eq: { driver_id: user.id },
+      order: "depart_at.desc",
+    }).then(({ data }) => {
+        setTrips(data);
         setLoading(false);
       });
   }, [user]);

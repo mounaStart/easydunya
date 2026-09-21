@@ -20,7 +20,7 @@ function isRootScreen(path: string, isDriver: boolean, isAdmin: boolean): boolea
 export function useAndroidBackButton() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isDriver, isAdmin, user, profile, loading, authReady } = useAuth();
+  const { isDriver, isAdmin, user, profile, loading, authReady, profileHydrated } = useAuth();
 
   useEffect(() => {
     if (!isNativePlatform()) return;
@@ -31,6 +31,7 @@ export function useAndroidBackButton() {
         userId: user?.id,
         profile,
         authPending: loading || (!!user && !authReady),
+        profileHydrated,
       });
       if (user && termsOk === false) {
         void App.exitApp();
@@ -65,5 +66,5 @@ export function useAndroidBackButton() {
       removed = true;
       void sub.then((handle) => handle.remove());
     };
-  }, [location.pathname, navigate, isDriver, isAdmin, user?.id, profile, loading, authReady]);
+  }, [location.pathname, navigate, isDriver, isAdmin, user?.id, profile, loading, authReady, profileHydrated]);
 }

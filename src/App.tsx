@@ -34,7 +34,9 @@ function HomeIndex() {
   const { loading, profile } = useAuth();
   if (loading) return <Home />;
   if (profile?.role === "driver") return <DriverHome />;
-  if (profile?.role === "admin") return <Navigate to="/admin" replace />;
+  if (profile?.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
   return <Home />;
 }
 

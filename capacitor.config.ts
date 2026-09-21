@@ -1,15 +1,16 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-/** Site prod Netlify — l'APK charge cette URL (clés VITE_* = variables Netlify, pas GitHub). */
+/** Site prod Netlify — l'APK / IPA charge cette URL (clés VITE_* = variables Netlify, pas GitHub). */
 const NETLIFY_URL = "https://easydunya.netlify.app";
 
 /**
  * CAPACITOR_SERVER_URL :
  * - non défini ou URL → charge le site distant (défaut Netlify, comme avant)
- * - "embedded" → dist/ embarqué dans l'APK (secrets GitHub VITE_* requis au build)
+ * - "embedded" → dist/ embarqué dans l'APK / IPA (secrets GitHub VITE_* requis au build)
  */
-const raw = process.env.CAPACITOR_SERVER_URL?.trim() ?? "";
-const useEmbedded = raw === "embedded" || raw === "local";
+/** Par défaut : JS embarqué. Netlify seulement si CAPACITOR_SERVER_URL=https://… */
+const raw = process.env.CAPACITOR_SERVER_URL?.trim() ?? "embedded";
+const useEmbedded = raw === "embedded" || raw === "local" || raw === "";
 const remoteUrl = useEmbedded ? "" : (raw.replace(/\/$/, "") || NETLIFY_URL);
 
 const config: CapacitorConfig = {
@@ -20,6 +21,7 @@ const config: CapacitorConfig = {
     ? {
         server: {
           androidScheme: "https",
+          iosScheme: "https",
         },
       }
     : {
@@ -29,9 +31,15 @@ const config: CapacitorConfig = {
           errorPath: "/offline.html",
         },
       }),
+  backgroundColor: "#f8fafc",
+  ios: {
+    contentInset: "automatic",
+    scheme: "Easy Dunya",
+    backgroundColor: "#f8fafc",
+  },
   plugins: {
     PushNotifications: {
-      presentationOptions: ["badge", "sound"],
+      presentationOptions: ["badge", "sound", "alert"],
     },
     SystemBars: {
       insetsHandling: "css",

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
-import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "../lib/supabase";
 import { fetchRemainingToDestinationM, type RoutePoint } from "../lib/routing";
+import { ensureLocationPermission, getCurrentPosition } from "../lib/geocode";
+import { invokeRpcWithAccessToken } from "../lib/supabaseRpc";
+import { restSelectOne } from "../lib/supabaseRest";
 
 export interface TripRouteEndpoints {
   from: RoutePoint;
@@ -32,14 +34,14 @@ async function pushDriverGps(
   lng: number,
   routeRemainingM?: number | null
 ): Promise<DriverGpsPushResult | null> {
-  const { data, error } = await supabase.rpc("driver_update_gps", {
+  const { data, error } = await invokeRpcWithAccessToken("driver_update_gps", {
     p_trip_id: tripId,
     p_lat: lat,
     p_lng: lng,
     p_route_remaining_m: routeRemainingM ?? null,
   });
   if (error) {
-    console.warn("[gps] driver_update_gps:", error.message);
+    console.warn("[gps] driver_update_gps:", error);
     return null;
   }
   return (data as DriverGpsPushResult | null) ?? null;
@@ -92,11 +94,7 @@ export function useDriverGps(
 
     async function sendCurrentNative() {
       try {
-        const pos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 20_000,
-          maximumAge: 5_000,
-        });
+        const pos = await getCurrentPosition({ accurate: true });
         await sendCoords(pos.coords.latitude, pos.coords.longitude);
       } catch {
         /* position momentanément indisponible */
@@ -104,23 +102,9 @@ export function useDriverGps(
     }
 
     async function startNative() {
-      const perm = await Geolocation.checkPermissions();
-      if (perm.location !== "granted") {
-        const req = await Geolocation.requestPermissions();
-        if (req.location !== "granted") return;
-      }
+      const allowed = await ensureLocationPermission();
+      if (!allowed) return;
       await sendCurrentNative();
-      watchRef.current = await Geolocation.watchPosition(
-        {
-          enableHighAccuracy: true,
-          timeout: 20_000,
-          maximumAge: 10_000,
-        },
-        (pos, err) => {
-          if (cancelled || err || !pos) return;
-          void sendCoords(pos.coords.latitude, pos.coords.longitude);
-        }
-      );
       intervalRef.current = window.setInterval(() => {
         void sendCurrentNative();
       }, SEND_INTERVAL_MS);
@@ -155,19 +139,22 @@ export function useDriverGps(
 
     if (Capacitor.isNativePlatform()) {
       void startNative();
-      const appListener = App.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) void sendCurrentNative();
-      });
+      let appListener: Promise<{ remove: () => Promise<void> }> | null = null;
+      try {
+        appListener = App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) void sendCurrentNative();
+        });
+      } catch {
+        appListener = null;
+      }
       return () => {
         cancelled = true;
-        void appListener.then((h) => h.remove());
+        if (appListener) {
+          void appListener.then((h) => h.remove()).catch(() => {});
+        }
         if (intervalRef.current !== null) {
           window.clearInterval(intervalRef.current);
           intervalRef.current = null;
-        }
-        if (watchRef.current !== null) {
-          void Geolocation.clearWatch({ id: String(watchRef.current) });
-          watchRef.current = null;
         }
       };
     }
@@ -214,16 +201,19 @@ export function useTripDriverPosition(
       setPos(null);
       return;
     }
+    const id = tripId;
     let cancelled = false;
 
     async function loadLatest() {
-      const { data } = await supabase
-        .from("driver_positions")
-        .select("latitude, longitude, recorded_at")
-        .eq("trip_id", tripId)
-        .order("recorded_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data } = await restSelectOne<{
+        latitude: number;
+        longitude: number;
+        recorded_at: string;
+      }>("driver_positions", {
+        select: "latitude,longitude,recorded_at",
+        eq: { trip_id: id },
+        order: "recorded_at.desc",
+      });
       if (cancelled || !data) return;
       setPos({
         lat: data.latitude as number,

@@ -2,9 +2,10 @@
 // Edge Function: send-fcm
 // Reçoit { user_id, title, body, data } (appelée par le trigger SQL
 // trg_notifications_push) et envoie une notification FCM native à tous
-// les appareils (APK) enregistrés de l'utilisateur.
+// les appareils (APK Android + IPA iOS) enregistrés de l'utilisateur.
 //
 // Affichage : « Easy Dunya » + logo couleur (ic_notify_large dans l'APK).
+// iOS : payload APNs (alerte + son) en plus des data FCM.
 //
 // Secret requis (supabase secrets set ...) :
 //   FCM_SERVICE_ACCOUNT  = contenu JSON du compte de service Firebase
@@ -220,6 +221,23 @@ Deno.serve(async (req) => {
           android: {
             priority: "HIGH",
             collapse_key: notifTag,
+          },
+          // iOS : payload APNs (les messages data-only seuls n'affichent pas
+          // de bannière quand l'app est en arrière-plan).
+          apns: {
+            headers: {
+              "apns-priority": "10",
+              "apns-collapse-id": notifTag,
+            },
+            payload: {
+              aps: {
+                alert: {
+                  title,
+                  body: body ?? "",
+                },
+                sound: "default",
+              },
+            },
           },
         },
       };

@@ -9,6 +9,7 @@ import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
 import type { TripPublic } from "../lib/types";
 import { useAppRefresh } from "../lib/appRefresh";
+import { getCurrentPosition } from "../lib/geocode";
 import { distanceKm, formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
 
 const NOUAKCHOTT_ID = "11111111-1111-1111-1111-000000000001";
@@ -178,34 +179,23 @@ export default function Home() {
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleNearest = () => {
+  const handleNearest = async () => {
     if (nearMode) {
       setNearMode(false);
       return;
     }
     setGeoError(null);
-    if (!("geolocation" in navigator)) {
-      setGeoError(t("search.geoUnavailable"));
-      return;
-    }
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setNearMode(true);
-        setGeoLoading(false);
-        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      },
-      (err) => {
-        setGeoLoading(false);
-        setGeoError(
-          err.code === err.PERMISSION_DENIED
-            ? t("search.geoDenied")
-            : t("search.geoUnavailable")
-        );
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120_000 }
-    );
+    try {
+      const pos = await getCurrentPosition();
+      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setNearMode(true);
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      setGeoError(t("search.geoUnavailable"));
+    } finally {
+      setGeoLoading(false);
+    }
   };
 
   const firstName = profile?.full_name
