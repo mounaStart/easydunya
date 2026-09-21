@@ -9,10 +9,14 @@ distinct (`ios/`), généré par Capacitor, signé avec un compte Apple.
 > de compte, politique de confidentialité). Cette page décrit surtout
 > Archive / export IPA.
 
-> Cette étape **signature + archive + export IPA** se fait uniquement
-> sur un **Mac avec Xcode**. Linux / Windows / Cloud Agent peuvent
-> préparer le dossier `ios/` (`npx cap add ios` + `npx cap sync ios`)
-> mais ne peuvent pas produire l’IPA.
+> **Sans Mac personnel :** un Mac **cloud** (Codemagic ou GitHub
+> Actions `macos-26`) produit l’IPA et l’envoie à TestFlight. Linux /
+> Windows / le runner Android `ubuntu-latest` ne peuvent **pas**
+> compiler iOS. Guide : [`APP-STORE-IOS.md`](APP-STORE-IOS.md)
+> (étape 6).
+>
+> Cette page décrit l’Archive **locale** si vous avez un Mac avec
+> **Xcode 26**. Xcode 15.2 sur macOS 13 ne sert qu’au test USB.
 
 ---
 
