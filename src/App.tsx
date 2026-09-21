@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
+import LegalDoc from "./pages/LegalDoc";
 import Search from "./pages/Search";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -44,6 +45,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<HomeIndex />} />
         <Route path="a-propos" element={<About />} />
+        <Route path="cgu" element={<LegalDoc kind="cgu" />} />
+        <Route path="confidentialite" element={<LegalDoc kind="privacy" />} />
         <Route path="search" element={<Search />} />
         <Route path="login" element={<Login />} />
         <Route path="forgot-password" element={<ForgotPassword />} />

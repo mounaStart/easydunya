@@ -118,9 +118,9 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Build signed release APK
+      - name: Build signed release APK + AAB
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -132,4 +132,11 @@ jobs:
         with:
           name: EasyDunya-apk
           path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload AAB (Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyDunya-aab
+          path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { subscribeToPush, getPushState, type PushState } from "../lib/push";
 import { isNativePlatform } from "../lib/nativePush";
@@ -17,8 +17,8 @@ function snoozed(): boolean {
 }
 
 /**
- * Notifications : une seule demande, après le GPS.
- * Sur APK → boîte système Android directement (pas de bannière intermédiaire).
+ * Notifications : bannière in-app après le GPS, puis boîte système Android
+ * seulement si l'utilisateur tape Autoriser (politique Play).
  */
 export default function NotificationPrompt() {
   const { user } = useAuth();
@@ -27,12 +27,9 @@ export default function NotificationPrompt() {
   const [hidden, setHidden] = useState(snoozed());
   const [error, setError] = useState<string | null>(null);
   const [locationReady, setLocationReady] = useState(false);
-  const nativeRequested = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!user || !isNativePlatform()) return;
-    const st = await getPushState(user.id);
-    if (st === "off") await subscribeToPush(user.id);
     setState(await getPushState(user.id));
   }, [user]);
 
@@ -57,19 +54,8 @@ export default function NotificationPrompt() {
     };
   }, [refresh]);
 
-  // APK : une seule boîte système, après la localisation
-  useEffect(() => {
-    if (!user || hidden || !locationReady || nativeRequested.current) return;
-    if (!isNativePlatform() || state !== "off") return;
-
-    nativeRequested.current = true;
-    subscribeToPush(user.id)
-      .then((ok) => refresh().then(() => ok))
-      .then((ok) => {
-        if (ok) setHidden(true);
-      })
-      .catch(() => {});
-  }, [user, hidden, locationReady, state, refresh]);
+  // APK : expliquer dans l'app, puis boîte système seulement si l'utilisateur tape Autoriser.
+  // (Play : ne pas enchaîner une permission système sans transparence.)
 
   if (!user || hidden || !locationReady) return null;
   if (!isNativePlatform()) return null;

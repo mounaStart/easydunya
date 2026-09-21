@@ -1,6 +1,10 @@
 # Générer un APK Android (Easy Dunya)
 
-Easy Dunya est une **PWA**. Pour un APK de test, la méthode la plus simple est **[PWABuilder](https://www.pwabuilder.com/)** (gratuit, comme dans la présentation produit).
+**Google Play (production)** : suivez [`PLAY-STORE-ANDROID.md`](PLAY-STORE-ANDROID.md)
+(compte 25 $, fichier **AAB**, Play Console). Cette page décrit l’APK de
+**test** (câble / WhatsApp), pas la mise en boutique.
+
+Easy Dunya est une **PWA**. Pour un APK de test, la méthode la plus simple est **[PWABuilder](https://www.pwabuilder.com/)** (gratuit, comme dans la présentation produit). **Ne pas** envoyer un APK PWABuilder sur Play : le package n’est pas `app.easydunya`.
 
 > **Prérequis** : l’app doit être accessible en **HTTPS** sur Internet (pas seulement `localhost`). PWABuilder analyse votre URL en ligne.
 

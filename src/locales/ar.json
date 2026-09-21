@@ -487,7 +487,16 @@
     "about": "حول Easy Dunya",
     "contactUs": "اتصل بنا",
     "changePassword": "تغيير كلمة المرور",
-    "logout": "تسجيل الخروج"
+    "logout": "تسجيل الخروج",
+    "deleteAccount": "حذف حسابي",
+    "deleteAccountLead": "هذا الإجراء نهائي. سيتم إلغاء حجوزاتك الجارية ومسح بيانات حسابك. يجب إنهاء أي رحلة سائق قيد التنفيذ أولاً.",
+    "deleteAccountConfirm": "أفهم أن حسابي سيُحذف نهائياً.",
+    "deleteAccountCta": "حذف نهائياً",
+    "deleteAccountBusy": "جار الحذف…"
+  },
+  "legal": {
+    "cgu": "شروط الاستخدام",
+    "privacy": "سياسة الخصوصية"
   },
   "lang": {
     "fr": "Français",
