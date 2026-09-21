@@ -1,11 +1,12 @@
-/** Vérifie que Xcode chargera le JS local (pas Netlify) et le build actuel. */
+/** Vérifie que Xcode chargera le JS local (pas Netlify) et le build App Store. */
 import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
 const publicDir = path.join(root, "ios/App/App/public");
 const cfgPath = path.join(root, "ios/App/App/capacitor.config.json");
-const stamp = "iOS build 22";
+const stamp = "easydunya-ios-store";
+const forbidden = ["iOS build 22", "ED 22", "réserver admin"];
 
 if (!fs.existsSync(publicDir)) {
   console.error("ios/App/App/public absent. Relancez : npm run cap:ios");
@@ -31,12 +32,23 @@ function walk(dir) {
   return out;
 }
 
-const found = walk(publicDir).some((file) => fs.readFileSync(file, "utf8").includes(stamp));
-if (!found) {
+const blob = walk(publicDir)
+  .map((file) => fs.readFileSync(file, "utf8"))
+  .join("\n");
+
+if (!blob.includes(stamp)) {
   console.error(`Le dossier iOS n'a pas « ${stamp} ».`);
   console.error("git pull + npm run cap:ios n'a pas été pris. Ne lancez pas Xcode.");
   process.exit(1);
 }
 
-console.log("OK — Xcode a le JS embarqué :", stamp);
+for (const mark of forbidden) {
+  if (blob.includes(mark)) {
+    console.error(`Le JS iOS contient encore le tampon de debug « ${mark} ».`);
+    console.error("Ne soumettez pas cette archive à Apple.");
+    process.exit(1);
+  }
+}
+
+console.log("OK — Xcode a le JS embarqué App Store :", stamp);
 console.log("Ensuite : fermer Xcode, Product → Clean, supprimer l'app iPhone, ▶");

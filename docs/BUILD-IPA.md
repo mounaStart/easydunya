@@ -4,6 +4,11 @@ Easy Dunya est une app **React / Vite** packagée avec **Capacitor**.
 Un IPA n’est **pas** une conversion d’APK : c’est un projet Xcode iOS
 distinct (`ios/`), généré par Capacitor, signé avec un compte Apple.
 
+> **App Store :** lisez d’abord [`APP-STORE-IOS.md`](APP-STORE-IOS.md)
+> (rejets fréquents, Xcode 26 obligatoire, compte payant, suppression
+> de compte, politique de confidentialité). Cette page décrit surtout
+> Archive / export IPA.
+
 > Cette étape **signature + archive + export IPA** se fait uniquement
 > sur un **Mac avec Xcode**. Linux / Windows / Cloud Agent peuvent
 > préparer le dossier `ios/` (`npx cap add ios` + `npx cap sync ios`)
@@ -16,7 +21,7 @@ distinct (`ios/`), généré par Capacitor, signé avec un compte Apple.
 | Android (`android/`) | iOS (`ios/`) |
 | --- | --- |
 | `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION` | `NSLocationWhenInUseUsageDescription` dans `Info.plist` |
-| `POST_NOTIFICATIONS` | Capability **Push Notifications** + `UIBackgroundModes` = `remote-notification` |
+| `POST_NOTIFICATIONS` | iOS 1re soumission : notifications **locales** (`EasyDunyaNotifyPlugin`). Pas de capability Push / APNs. |
 | `google-services.json` | `GoogleService-Info.plist` (Firebase, **ne pas committer**) |
 | `EasyDunyaLocationPlugin.java` | `EasyDunyaLocationPlugin.swift` (GPS + Réglages) |
 | `EasyDunyaMessagingService.java` | FCM / APNs via `@capacitor/push-notifications` |
@@ -29,14 +34,13 @@ Bundle ID / `appId` : **`app.easydunya`** (identique à Android).
 ## Prérequis (Mac)
 
 - macOS + **Xcode** (App Store) + outils ligne de commande
-- Compte **Apple Developer** (99 $/an) pour installer sur un iPhone
-  réel ou publier sur TestFlight / App Store
+- Compte **Apple Developer** (99 $/an) pour TestFlight / App Store.
+  Un Personal Team ne suffit **pas** à soumettre.
+- **Xcode 26** (SDK iOS 26) pour tout upload App Store Connect depuis
+  avril 2026. Xcode 15.2 ne sert qu’aux tests locaux sur macOS 13.
 - Node.js ≥ 20 + dépendances du repo (`npm ci`)
-- Dans [Firebase Console](https://console.firebase.google.com/) :
-  1. Ajouter une app **iOS** avec le bundle ID `app.easydunya`
-  2. Télécharger **`GoogleService-Info.plist`**
-  3. **Project settings → Cloud Messaging → APNs Authentication Key**
-     (fichier `.p8` + Key ID + Team ID)
+- Firebase iOS / APNs : **optionnel**. La 1re soumission n’inclut pas
+  la capability Push (entitlements vides).
 
 ---
 
@@ -241,8 +245,8 @@ Vérifiez **General** :
 | --- | --- |
 | Display Name | Easy Dunya |
 | Bundle Identifier | `app.easydunya` |
-| Version | `1.0.7` |
-| Build | `8` |
+| Version | `1.1.0` |
+| Build | `23` |
 | Minimum Deployments | iOS 15.0 |
 | Supported Destinations | iPhone (portrait) |
 
@@ -263,22 +267,17 @@ est déjà pris par un autre compte Apple — il faut que **le même
 compte** qui a l’app Android / Firebase soit sélectionné, ou
 contacter le titulaire de l’équipe.
 
-### G. Capabilities push (si absentes à l’écran)
+### G. Capabilities (1re soumission App Store)
 
-Le fichier `App.entitlements` contient déjà `aps-environment = development`.
+`App.entitlements` est **vide** : pas de Push, pas de Background Modes.
 
-Si **Push Notifications** n’apparaît pas dans la liste :
+**Ne pas** ajouter Push Notifications ni « Remote notifications » pour
+la première revue. Les notifications iOS sont locales tant que l’app
+est ouverte. Ajouter Push trop tôt (Personal Team, ou plugin Capacitor
+non compilable sous Xcode 15.2) fait échouer la signature ou la revue.
 
-1. Bouton **+ Capability**
-2. Ajoutez **Push Notifications**
-3. Ajoutez **Background Modes** → cochez **Remote notifications**
-
-(Le `Info.plist` a déjà `UIBackgroundModes` = `remote-notification`.)
-
-Pour un IPA **Development / test** : laissez `development`.  
-Pour **TestFlight / App Store**, Xcode bascule en général vers
-`production` à l’export. Si Validation échoue sur `aps-environment`,
-passez la valeur à `production` uniquement pour l’archive Store.
+Push / Firebase / APNs = étape **ultérieure**, sur le compte payant,
+une fois Xcode 26 en place. Voir [`APP-STORE-IOS.md`](APP-STORE-IOS.md).
 
 ### H. (Optionnel) Firebase — uniquement pour les push iOS
 
@@ -349,11 +348,11 @@ appareils) ou **Ad Hoc** (testeurs dont vous avez l’UDID).
 
 1. **Distribution options** : laissez **All compatible device variants**.
 2. **Re-sign** : **Automatically manage signing** (même Team).
-3. **Review** : Bundle `app.easydunya`, version `1.0.7` (8).
+3. **Review** : Bundle `app.easydunya`, version `1.1.0` (23).
 4. **Export** (Development / Ad Hoc) → choisissez un dossier
    (ex. Bureau) → **Export**.
 5. Vous obtenez un dossier avec **`App.ipa`** (renommez-le
-   `EasyDunya-1.0.7.ipa` si vous voulez).
+   `EasyDunya-1.1.0.ipa` si vous voulez).
 
 Pour **App Store Connect** : **Upload** → Xcode envoie le binaire.
 Puis [App Store Connect](https://appstoreconnect.apple.com/) →
@@ -386,7 +385,7 @@ npx cap sync ios
 
 Puis dans Xcode : **Run** (test) ou **Archive** (nouvel IPA).
 Incrémentez **Build** (`CURRENT_PROJECT_VERSION`) avant chaque
-upload TestFlight (8 → 9 → 10…). Le site Netlify se met à jour
+upload TestFlight (23 → 24 → 25…). Le site Netlify se met à jour
 sans nouvel IPA si vous restez en mode URL distante.
 
 ---
@@ -417,5 +416,5 @@ le site distant).
 | Bannière iOS n’apparaît pas | Vérifier `send-fcm` (payload `apns`) déployé ; permission Notifications = Autoriser |
 | Localisation refusée | Réglages iPhone → Easy Dunya → Position → **Lorsque l’app est active** |
 | Écran blanc | Rebuild avec les bonnes variables `VITE_*` (mode `embedded`) ou vérifier l’URL Netlify |
-| Xcode garde l’ancien JS | Fermer Xcode, `git pull` + `npm run cap:ios` jusqu’à `OK — Xcode a le JS embarqué`. Clean, supprimer l’app, ▶. La connexion doit afficher **iOS build 7**. |
+| Xcode garde l’ancien JS | Fermer Xcode, `git pull` + `npm run cap:ios` jusqu’à `OK — Xcode a le JS embarqué App Store`. Clean, supprimer l’app, ▶. Aucun tampon « iOS build … » ne doit apparaître à la connexion. |
 | `npx cap open ios` sur Linux | Normal : ouvrez le projet sur un Mac |

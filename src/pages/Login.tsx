@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { mapAuthError, isEmailLogin } from "../lib/authErrors";
 import { useAuth } from "../hooks/useAuth";
+import { IOS_EMBED_STAMP } from "../lib/iosEmbedStamp";
 import PasswordInput from "../components/PasswordInput";
 
 export default function Login() {
@@ -44,11 +45,8 @@ export default function Login() {
   }
 
   return (
-    <div className="page max-w-md">
+    <div className="page max-w-md" data-ed-embed={IOS_EMBED_STAMP}>
       <div className="card p-6 sm:p-8">
-        <div className="mb-4 rounded-xl bg-amber-100 border border-amber-300 px-3 py-2 text-center text-sm font-bold text-amber-950">
-          iOS build 22 — réserver admin
-        </div>
         <h1 className="h1 mb-1">{t("auth.loginTitle")}</h1>
         <p className="muted mb-6">
           Passagers et chauffeurs : téléphone + mot de passe. Admin : email ou téléphone.
@@ -102,7 +100,15 @@ export default function Login() {
             {t("auth.signUp")}
           </Link>
         </p>
-        <p className="text-center text-[11px] text-slate-400 mt-4">iOS build 22</p>
+        <p className="muted text-center mt-4 text-xs leading-relaxed">
+          <Link to="/cgu" className="text-brand-700 font-semibold">
+            {t("legal.cgu")}
+          </Link>
+          {" · "}
+          <Link to="/confidentialite" className="text-brand-700 font-semibold">
+            {t("legal.privacy")}
+          </Link>
+        </p>
       </div>
     </div>
   );

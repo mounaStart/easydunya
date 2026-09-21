@@ -466,7 +466,7 @@
     "later": "Plus tard",
     "enable": "Activer votre position",
     "enabling": "Activation…",
-    "denied": "GPS refusé. iPhone : Réglages → Easy Dunya (ou ED 20) → Position → Lorsque l'app est active.",
+    "denied": "GPS refusé. iPhone : Réglages → Easy Dunya → Position → Lorsque l'app est active.",
     "timeout": "Délai dépassé. Vérifiez que le GPS est activé et que vous avez du réseau.",
     "disabled": "Le GPS est désactivé sur cet appareil. Activez-le dans les paramètres.",
     "settingsOpened": "Paramètres GPS ouverts. Activez la localisation, puis revenez dans l'application.",
@@ -487,7 +487,16 @@
     "about": "À propos d'Easy Dunya",
     "contactUs": "Nous contacter",
     "changePassword": "Changer le mot de passe",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountLead": "Cette action est définitive. Vos réservations en cours seront annulées et vos données de compte seront effacées. Un voyage chauffeur déjà démarré doit d'abord être terminé.",
+    "deleteAccountConfirm": "Je comprends que mon compte sera définitivement supprimé.",
+    "deleteAccountCta": "Supprimer définitivement",
+    "deleteAccountBusy": "Suppression…"
+  },
+  "legal": {
+    "cgu": "Conditions d'utilisation",
+    "privacy": "Politique de confidentialité"
   },
   "lang": {
     "fr": "Français",
