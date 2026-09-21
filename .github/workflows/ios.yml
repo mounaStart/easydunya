@@ -1,0 +1,215 @@
+name: Build iOS IPA
+
+# Archive + upload TestFlight sur un Mac GitHub (macos-26 / Xcode 26).
+# Votre Mac 2017 n’est pas utilisé. Linux (ubuntu) ne peut PAS produire d’IPA.
+# Lancement : Actions → "Build iOS IPA" → Run workflow.
+# Le code iOS n’est pas sur main : par défaut on checkout cursor/ios-cloud-appstore-0cb8.
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: "Envoyer l’IPA sur TestFlight (App Store Connect)"
+        type: boolean
+        required: false
+        default: true
+      build_number:
+        description: "CFBundleVersion (vide = 23)"
+        required: false
+        default: "23"
+      ref:
+        description: "Branche Git du projet iOS (laissez la valeur par défaut)"
+        required: false
+        default: "cursor/ios-cloud-appstore-0cb8"
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref != '' && github.event.inputs.ref || 'cursor/ios-cloud-appstore-0cb8' }}
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26"
+
+      - name: Vérifier Xcode 26 + SDK iOS 26
+        run: |
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26' || {
+            echo "::error::Il faut Xcode 26 (SDK iOS 26) pour App Store Connect depuis avril 2026"
+            exit 1
+          }
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Contrôles App Store (bannières, privacy, suppression)
+        run: npm run ios:store-check
+
+      - name: Vérifier les secrets iOS
+        env:
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Secret manquant : VITE_SUPABASE_ANON_KEY"
+            missing=1
+          fi
+          if [ -z "$VITE_GOOGLE_MAPS_API_KEY" ]; then
+            echo "::error::Secret manquant : VITE_GOOGLE_MAPS_API_KEY"
+            missing=1
+          fi
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error::Secret manquant : APPLE_TEAM_ID (Compte Apple Developer → Membership)"
+            missing=1
+          fi
+          if [ -z "$APP_STORE_CONNECT_KEY_ID" ] || [ -z "$APP_STORE_CONNECT_ISSUER_ID" ] || [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "::error::Secrets manquants : APP_STORE_CONNECT_KEY_ID / ISSUER_ID / PRIVATE_KEY (clé .p8)"
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Secrets iOS OK ✓"
+
+      - name: Build web + Capacitor iOS (JS embarqué, plugins Xcode 26)
+        run: npm run cap:ios:cloud
+        env:
+          BUILD_FOR_APK: "1"
+          CAPACITOR_SERVER_URL: embedded
+          VITE_SUPABASE_URL: https://prfmqfnaqtmyfyxqjeli.supabase.co
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          VITE_DEFAULT_LOCALE: fr
+
+      - name: Écrire la clé API App Store Connect
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys" "$RUNNER_TEMP/private_keys"
+          KEY_FILE="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          if printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" | grep -q 'BEGIN PRIVATE KEY'; then
+            printf '%s\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$KEY_FILE"
+          else
+            printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY" | tr -d '\r\n ' | base64 --decode > "$KEY_FILE"
+          fi
+          test -s "$KEY_FILE"
+          cp "$KEY_FILE" "$RUNNER_TEMP/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          echo "P8_PATH=$RUNNER_TEMP/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8" >> "$GITHUB_ENV"
+          echo "Clé AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8 écrite ✓"
+
+      - name: Build number
+        env:
+          REQUESTED: ${{ github.event.inputs.build_number }}
+        run: |
+          cd ios/App
+          NEW="${REQUESTED:-23}"
+          agvtool new-version -all "$NEW"
+          echo "CFBundleVersion=$NEW"
+
+      - name: Résoudre les packages Swift
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj \
+            -scheme App \
+            -resolvePackageDependencies
+
+      - name: Archive (Any iOS Device, signature automatique)
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$P8_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            archive
+
+      - name: Export IPA
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$P8_PATH" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+          ls -la "$RUNNER_TEMP/ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyDunya-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: error
+
+      - name: Envoyer vers TestFlight
+        if: ${{ github.event.inputs.upload_to_testflight == 'true' }}
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          IPA=$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -1)
+          test -n "$IPA"
+          echo "Upload $IPA → App Store Connect"
+          if xcrun altool --help >/dev/null 2>&1; then
+            xcrun altool --upload-app --type ios --file "$IPA" \
+              --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+              --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+          else
+            xcrun iTMSTransporter -m upload -assetFile "$IPA" \
+              -apiKey "$APP_STORE_CONNECT_KEY_ID" \
+              -apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+              -v informational
+          fi
+          echo "IPA envoyé. Dans 5–30 min : App Store Connect → TestFlight."
