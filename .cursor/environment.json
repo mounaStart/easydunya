@@ -1,0 +1,12 @@
+{
+  "name": "Easy Dunya",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "dev-server",
+      "command": "npm run dev"
+    }
+  ],
+  "ports": [5173, 54321, 54323]
+}
