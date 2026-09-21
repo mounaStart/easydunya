@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CGU_V1_TEXT } from "../content/cguV1";
+import { PRIVACY_V1_TEXT } from "../content/privacyV1";
 import { acceptTerms } from "../lib/termsAcceptance";
 import { exitApplication } from "../lib/exitApp";
 import { useAuth } from "../hooks/useAuth";
@@ -27,7 +28,10 @@ export default function TermsGate({ onAccepted }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const blocks = useMemo(() => formatCguBlocks(CGU_V1_TEXT), []);
+  const blocks = useMemo(
+    () => [...formatCguBlocks(CGU_V1_TEXT), ...formatCguBlocks(PRIVACY_V1_TEXT)],
+    []
+  );
 
   const canAccept =
     acceptCgu && acceptPrivacy && (!isDriver || acceptDriver) && !busy;

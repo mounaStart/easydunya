@@ -53,5 +53,6 @@ if (!fs.existsSync(pub)) {
   walk(pub);
   const blob = files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
   console.log("Profil introuvable dans public :", blob.includes("Profil introuvable") ? "OUI = ANCIEN JS" : "non");
-  console.log("iOS build 22 dans public :", blob.includes("iOS build 22") ? "OUI = BON JS" : "NON");
+  console.log("tampon App Store dans public :", blob.includes("easydunya-ios-store") ? "OUI = BON JS" : "NON");
+  console.log("tampon debug iOS build 22 :", blob.includes("iOS build 22") ? "OUI = À RETIRER" : "non");
 }
