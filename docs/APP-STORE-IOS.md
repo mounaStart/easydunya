@@ -158,30 +158,88 @@ Codemagic crée le certificat Distribution **sans Mac** (Generate certificate). 
 
 Le 1er mois Codemagic offre des minutes Mac. Au-delà, un forfait pay-as-you-go (quelques dollars par build) suffit.
 
-#### 6b. Alternative : GitHub Actions (Mac `macos-26`, déjà dans le dépôt)
+#### 6b. Alternative : GitHub Actions — étapes exactes
 
-Le repo public `easydunya` peut lancer un runner **macos-26** (Xcode 26). Ce n’est **pas** le workflow Android Ubuntu.
+Même résultat que Codemagic : un Mac Apple silicon chez GitHub (`macos-26`, Xcode 26) compile l’IPA et l’envoie à TestFlight. **Ce n’est pas** le bouton « Build Android APK » (celui-là tourne sur Linux).
 
-1. GitHub → `mounaStart/easydunya` → **Settings → Secrets and variables → Actions** → New repository secret :
+À faire **dans l’ordre**. Les étapes A–C se font dans le navigateur Apple. Les étapes D–F sur GitHub. Aucun Xcode local.
 
-   | Secret | Valeur |
-   | --- | --- |
-   | `APP_STORE_CONNECT_KEY_ID` | Key ID (10 caractères) |
-   | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID (UUID) |
-   | `APP_STORE_CONNECT_PRIVATE_KEY` | contenu entier du `.p8` (y compris `BEGIN PRIVATE KEY`) |
-   | `APPLE_TEAM_ID` | Team ID 10 caractères |
-   | `VITE_SUPABASE_ANON_KEY` | déjà utilisé pour l’AAB Android si présent |
-   | `VITE_GOOGLE_MAPS_API_KEY` | idem |
-   | `VITE_VAPID_PUBLIC_KEY` | optionnel |
+##### A. Compte payant actif
 
-2. Onglet **Actions** → **Build iOS IPA** → **Run workflow**.
-3. Branche : `cursor/ios-cloud-appstore-0cb8` (ou `cursor/ios-app-store-ready-0cb8` une fois fusionné).
-4. `upload_to_testflight` : coché.
-5. Attendre le job vert, puis Connect → TestFlight.
+[https://developer.apple.com/account](https://developer.apple.com/account) doit afficher **Program / Active**, pas seulement Personal Team. Sinon l’étape F échoue à la signature.
 
-Signature : Xcode sur le runner crée certificat + profil via `-allowProvisioningUpdates` (équipe payante). Ne pas ajouter Push.
+##### B. Team ID (`APPLE_TEAM_ID`)
 
-Artifact `EasyDunya-ipa` = copie de l’IPA. L’upload TestFlight est déjà fait si l’étape « Envoyer vers TestFlight » est verte.
+1. [https://developer.apple.com/account](https://developer.apple.com/account)
+2. **Membership details** (parfois « Informations d’adhésion »).
+3. Copiez **Team ID** : 10 caractères, lettres + chiffres (ex. `A1B2C3D4E5`).
+
+##### C. Clé API `.p8` (une seule fois)
+
+1. [https://appstoreconnect.apple.com/access/integrations/api](https://appstoreconnect.apple.com/access/integrations/api)
+   (Connect → **Utilisateurs et accès** → **Intégrations** → **App Store Connect API**.)
+2. Notez **Issuer ID** en haut de la page (UUID du type `69a6de16-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).
+3. **+** / Generate API Key → nom `EasyDunyaGitHub` → accès **Admin** ou **App Manager** → Generate.
+4. Copiez le **Key ID** (10 caractères) affiché dans le tableau.
+5. **Download API Key** → fichier `AuthKey_XXXXXXXXXX.p8`. Apple ne le redonne **jamais**. Ouvrez-le avec TextEdit (pas Word) : il commence par `-----BEGIN PRIVATE KEY-----`.
+
+Créez aussi l’App ID et la fiche si ce n’est pas déjà fait (étape 2 plus haut) : bundle **`app.easydunya`**, sans Push. Sans fiche App Store Connect, GitHub compile mais **TestFlight refuse** l’upload.
+
+##### D. Coller les secrets GitHub
+
+Ouvrez [https://github.com/mounaStart/easydunya/settings/secrets/actions](https://github.com/mounaStart/easydunya/settings/secrets/actions)
+
+Pour **chaque** ligne : **New repository secret** → Name (exactement ce nom) → Secret → **Add secret**.
+
+| Name | Quoi coller |
+| --- | --- |
+| `APPLE_TEAM_ID` | Team ID de B |
+| `APP_STORE_CONNECT_KEY_ID` | Key ID de C (10 caractères, **pas** le fichier) |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID de C (UUID) |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | **Tout** le texte du `.p8`, y compris les lignes `BEGIN` / `END` |
+| `VITE_SUPABASE_ANON_KEY` | clé anon Supabase (souvent **déjà** là pour l’AAB Android) |
+| `VITE_GOOGLE_MAPS_API_KEY` | clé Maps (souvent déjà là) |
+| `VITE_VAPID_PUBLIC_KEY` | optionnel ; ignorer si déjà présent |
+
+Si GitHub dit que le secret existe déjà (`VITE_*`) : **ne le recréez pas**.
+
+Ne commitez jamais le `.p8`. Une fois collé dans Secrets, vous pouvez garder le fichier dans un dossier privé hors Git.
+
+##### E. Identifier `app.easydunya` sur le compte **payant**
+
+1. [Identifiers](https://developer.apple.com/account/resources/identifiers/list) → si `app.easydunya` est déjà là **sur l’équipe 99 $**, rien à faire.
+2. Sinon **+** → App IDs → App → Description Easy Dunya → Bundle ID **Explicit** `app.easydunya` → **ne pas** cocher Push Notifications.
+
+##### F. Lancer **Build iOS IPA**
+
+1. [https://github.com/mounaStart/easydunya/actions](https://github.com/mounaStart/easydunya/actions)
+2. À gauche : **Build iOS IPA** (pas « Build Android APK »).
+   - S’il n’est **pas** dans la liste : GitHub ne montre que les workflows présents sur `main`. Ouvrez le menu **Run workflow** après fusion du fichier `.github/workflows/ios.yml`, ou choisissez la branche `cursor/ios-cloud-appstore-0cb8` dans **Use workflow from**.
+3. Bouton **Run workflow** (à droite).
+4. **Use workflow from** : `cursor/ios-cloud-appstore-0cb8` (c’est cette branche qui contient le projet iOS + Xcode 26).
+5. `upload_to_testflight` : **coché** (défaut).
+6. `build_number` : `23` pour le premier envoi. Ensuite 24, 25… (ou laissez vide = 23).
+7. `ref` : laissez **vide**.
+8. **Run workflow**.
+
+Le job prend **15–40 min**. Cliquez la course jaune pour voir les étapes. Vert = IPA envoyé.
+
+| Étape rouge | Cause habituelle |
+| --- | --- |
+| Vérifier les secrets iOS | nom de secret faux / `.p8` collé sans `BEGIN PRIVATE KEY` |
+| Archive / signature | 99 $ pas encore actif, ou Team ID d’une autre équipe, ou bundle pas `app.easydunya` |
+| Envoyer vers TestFlight | app pas créée dans Connect, ou Key accès trop faible (Developer au lieu d’App Manager) |
+
+Artifact **EasyDunya-ipa** = copie de l’IPA (téléchargeable). Si « Envoyer vers TestFlight » est vert, vous n’en avez pas besoin : Connect a déjà le binaire.
+
+##### G. Vérifier TestFlight
+
+1. [App Store Connect](https://appstoreconnect.apple.com) → Easy Dunya → **TestFlight**.
+2. Attendre « Ready to Test » (5–30 min, parfois plus au 1er build).
+3. Sur l’iPhone : app **TestFlight** → installer Easy Dunya.
+4. Quand le test est bon : Connect → version **1.1.0** → ce build → **Ajouter pour révision** → **Soumettre**.
+
+Xcode sur le runner crée tout seul le certificat Distribution + le profil (`-allowProvisioningUpdates`). **Ne pas** ajouter Push dans Identifiers pendant ce 1er build.
 
 ---
 
