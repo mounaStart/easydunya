@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-native-icons.mjs",
     "native-icons": "node scripts/make-native-icons.mjs && npx capacitor-assets generate --android",
+    "android:store-check": "node scripts/play-store-check.mjs",
     "vapid": "node scripts/generate-vapid.mjs",
     "test:route": "node scripts/test-route-remaining.mjs",
     "test:directions": "node scripts/test-google-directions.mjs",

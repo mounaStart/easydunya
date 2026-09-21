@@ -219,6 +219,15 @@ export default function About() {
           </svg>
           {CONTACT_PHONE}
         </a>
+        <p className="text-sm text-slate-500">
+          <Link to="/cgu" className="text-brand-700 font-semibold">
+            {t("legal.cgu")}
+          </Link>
+          {" · "}
+          <Link to="/confidentialite" className="text-brand-700 font-semibold">
+            {t("legal.privacy")}
+          </Link>
+        </p>
       </section>
 
       {/* CTA */}

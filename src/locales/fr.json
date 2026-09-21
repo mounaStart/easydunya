@@ -487,7 +487,16 @@
     "about": "À propos d'Easy Dunya",
     "contactUs": "Nous contacter",
     "changePassword": "Changer le mot de passe",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountLead": "Cette action est définitive. Vos réservations en cours seront annulées et vos données de compte seront effacées. Un voyage chauffeur déjà démarré doit d'abord être terminé.",
+    "deleteAccountConfirm": "Je comprends que mon compte sera définitivement supprimé.",
+    "deleteAccountCta": "Supprimer définitivement",
+    "deleteAccountBusy": "Suppression…"
+  },
+  "legal": {
+    "cgu": "Conditions d'utilisation",
+    "privacy": "Politique de confidentialité"
   },
   "lang": {
     "fr": "Français",

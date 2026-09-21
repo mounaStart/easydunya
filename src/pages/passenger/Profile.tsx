@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useCallback, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../hooks/useAuth";
 import { BRAND_GRADIENT_BR } from "../../lib/brandColors";
 import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
+import { deleteOwnAccount } from "../../lib/deleteAccount";
 import { queryLocationPermission } from "../../lib/locationPermission";
 import {
   getPassengerLocationDisplay,
@@ -90,6 +91,10 @@ export default function Profile() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { isLoaded: mapsReady } = useGoogleMapsReady();
   const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const isAdmin = profile?.role === "admin";
   const displayEmail =
@@ -170,6 +175,20 @@ export default function Profile() {
     navigate("/login", { replace: true });
   }
 
+  async function handleDeleteAccount() {
+    if (!deleteConfirm || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    const { error } = await deleteOwnAccount();
+    if (error) {
+      setDeleteError(error);
+      setDeleteBusy(false);
+      return;
+    }
+    await signOut();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="page max-w-md space-y-4 pb-4">
       <div className="card p-6 text-center">
@@ -235,6 +254,24 @@ export default function Profile() {
             </span>
           }
         />
+        <MenuLink
+          to="/cgu"
+          label={t("legal.cgu")}
+          icon={
+            <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
+              📄
+            </span>
+          }
+        />
+        <MenuLink
+          to="/confidentialite"
+          label={t("legal.privacy")}
+          icon={
+            <span className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 inline-flex items-center justify-center shrink-0">
+              🛡️
+            </span>
+          }
+        />
       </div>
 
       <div className="card overflow-hidden">
@@ -248,6 +285,61 @@ export default function Profile() {
           </svg>
           {t("nav.logout")}
         </button>
+      </div>
+
+      <div className="card overflow-hidden">
+        {!deleteOpen ? (
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteOpen(true);
+              setDeleteConfirm(false);
+              setDeleteError(null);
+            }}
+            className="w-full px-4 py-4 text-sm text-slate-500 font-semibold hover:bg-slate-50"
+          >
+            {t("profile.deleteAccount")}
+          </button>
+        ) : (
+          <div className="px-4 py-4 space-y-3">
+            <p className="text-sm font-semibold text-ink">{t("profile.deleteAccount")}</p>
+            <p className="text-sm text-slate-600 leading-relaxed">{t("profile.deleteAccountLead")}</p>
+            <label className="flex items-start gap-3 text-sm text-ink">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                checked={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.checked)}
+              />
+              <span>{t("profile.deleteAccountConfirm")}</span>
+            </label>
+            {deleteError && (
+              <p className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-lg">{deleteError}</p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={deleteBusy}
+                onClick={() => {
+                  setDeleteOpen(false);
+                  setDeleteConfirm(false);
+                  setDeleteError(null);
+                }}
+                className="rounded-2xl px-4 py-3 font-semibold text-slate-600 bg-slate-100"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={!deleteConfirm || deleteBusy}
+                onClick={() => void handleDeleteAccount()}
+                className="rounded-2xl px-4 py-3 font-semibold text-white bg-rose-600 disabled:opacity-50"
+              >
+                {deleteBusy ? t("profile.deleteAccountBusy") : t("profile.deleteAccountCta")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

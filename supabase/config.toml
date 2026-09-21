@@ -21,3 +21,6 @@ verify_jwt = true
 
 [functions.directions]
 verify_jwt = true
+
+[functions.delete-own-account]
+verify_jwt = true

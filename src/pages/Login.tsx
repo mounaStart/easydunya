@@ -94,6 +94,15 @@ export default function Login() {
             {t("auth.signUp")}
           </Link>
         </p>
+        <p className="muted text-center mt-4 text-xs leading-relaxed">
+          <Link to="/cgu" className="text-brand-700 font-semibold">
+            {t("legal.cgu")}
+          </Link>
+          {" · "}
+          <Link to="/confidentialite" className="text-brand-700 font-semibold">
+            {t("legal.privacy")}
+          </Link>
+        </p>
       </div>
     </div>
   );

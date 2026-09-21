@@ -10,12 +10,42 @@ keystore** que vos APK déjà installés (`app.easydunya`).
 Ne **pas** utiliser PWABuilder / package `mr.easydunya.app` : ce n’est
 pas la même appli, Google la traiterait comme une autre app.
 
+Contrôle local : `npm run android:store-check`
+
+---
+
+## Ce que Google peut rejeter (déjà corrigé dans le code)
+
+| Risque Play | Statut |
+| --- | --- |
+| Pas de **suppression de compte** in-app (User Data) | **Profil → Supprimer mon compte** |
+| Pas de **politique de confidentialité** publique | `/confidentialite` + liens Login / Profil / À propos |
+| Identifiant publicitaire (AD_ID) alors que Data safety = « non » | Permission **retirée** du manifeste |
+| Localisation **arrière-plan** | Absente. GPS seulement app ouverte + bannière avant la boîte système |
+| Notifications système sans explication | Bannière **Autoriser** avant la permission Android 13 |
+| `allowBackup=true` (jetons de session dans la sauvegarde) | **false** |
+| HTTP en clair | Interdit (`usesCleartextTraffic=false`) |
+| FileProvider `external-path="."` (tout le stockage) | Restreint au cache / files de l’app |
+| Package TWA PWABuilder dans `assetlinks.json` | Remplacé par `app.easydunya` |
+| APK de test au lieu d’un **AAB** | Workflow GitHub produit **EasyDunya-aab** |
+| Version | **1.1.0** (`versionCode` **9**) |
+
+À faire **hors code** (sinon rejet Console, pas du binaire) :
+
+- 25 $ Play + vérification d’identité  
+- coller l’URL confidentialité dans la fiche  
+- Data safety aligné sur le tableau ci-dessus (**pas** d’identifiant pub)  
+- **12 testeurs / 14 jours** (compte perso récent)  
+- compte démo dans les notes  
+- coller le SHA-256 **Play App Signing** dans `assetlinks.json` (Console → Intégrité de l’app)  
+- `npx supabase functions deploy delete-own-account --project-ref prfmqfnaqtmyfyxqjeli`
+
 ---
 
 ## Ordre à suivre
 
 1. Compte Google Play (25 $)  
-2. Fusionner confidentialité + suppression de compte sur `main` (Netlify)  
+2. Fusionner **cette** branche sur `main` (Netlify : `/confidentialite` + bouton Profil)  
 3. Déployer `delete-own-account` (Terminal)  
 4. Construire l’**AAB** (GitHub Actions)  
 5. Fiche Play Console (politique, fiche, Data safety)  
