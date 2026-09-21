@@ -395,7 +395,31 @@
       "driver": "Chauffeur",
       "passenger": "Passager"
     },
-    "confirmDriverStatus": "Confirmer « {{status}} » pour {{name}} ?"
+    "confirmDriverStatus": "Confirmer « {{status}} » pour {{name}} ?",
+    "book": {
+      "title": "Réserver pour un passager",
+      "subtitle": "Appel sans compte : choisissez un voyage, saisissez le nom et le téléphone, puis validez. Un compte passager est créé (mot de passe ES + numéro).",
+      "choose": "Effectuer la réservation",
+      "formTitle": "Informations du passager",
+      "quartier": "Quartier (optionnel)",
+      "quartierPh": "Ex. Arafat, Tevragh-Zeina…",
+      "passwordPreview": "Mot de passe si nouveau compte",
+      "submit": "Valider la réservation",
+      "saving": "Enregistrement…",
+      "noTrips": "Aucun voyage disponible.",
+      "errName": "Nom complet requis.",
+      "errPhone": "Numéro de téléphone invalide.",
+      "errSeats": "Nombre de places invalide.",
+      "errGeneric": "La réservation a échoué. Réessayez.",
+      "successTitle": "Réservation enregistrée",
+      "code": "Code de confirmation",
+      "password": "Mot de passe du compte",
+      "passwordHint": "À communiquer au passager : ES + son numéro. Il pourra se connecter dans l’app.",
+      "existingAccount": "Ce numéro avait déjà un compte passager. Seule la réservation a été créée.",
+      "copy": "Copier",
+      "copied": "Copié",
+      "another": "Nouvelle réservation"
+    }
   },
   "reservation": {
     "title": "Ma réservation",

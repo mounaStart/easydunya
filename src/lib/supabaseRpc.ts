@@ -152,3 +152,67 @@ export async function patchRowWithAccessToken(
   if (error) return { error: mapRpcError(401, { message: error.message }) };
   return {};
 }
+
+/**
+ * Edge Function avec JWT explicite (iOS : supabase.functions.invoke omet souvent le jeton).
+ */
+export async function invokeEdgeFunction(
+  name: string,
+  body: Record<string, unknown>,
+  accessToken = currentAccessToken()
+): Promise<{ data?: unknown; error?: string }> {
+  if (!accessToken) {
+    return { error: "Session expirée. Déconnectez-vous puis reconnectez-vous." };
+  }
+  const url = `${supabaseUrl}/functions/v1/${name}`;
+  const headers = rpcHeaders(accessToken);
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const res = await CapacitorHttp.post({
+        url,
+        headers,
+        data: body,
+        connectTimeout: 20_000,
+        readTimeout: 20_000,
+      });
+      const payload =
+        res.data && typeof res.data === "object"
+          ? (res.data as Record<string, unknown>)
+          : null;
+      if (res.status < 200 || res.status >= 300) {
+        return { error: mapRpcError(res.status, res.data) };
+      }
+      if (payload?.error) return { error: String(payload.error) };
+      return { data: res.data };
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    let data: unknown = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    const payload =
+      data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+    if (!res.ok) {
+      return { error: mapRpcError(res.status, data) };
+    }
+    if (payload?.error) return { error: String(payload.error) };
+    return { data };
+  } catch (err) {
+    console.warn("[fn]", name, err);
+  }
+
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) return { error: mapRpcError(401, { message: error.message }) };
+  const payload =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  if (payload?.error) return { error: String(payload.error) };
+  return { data };
+}
