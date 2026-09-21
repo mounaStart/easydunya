@@ -3,17 +3,19 @@ import AdminDrivers from "./AdminDrivers";
 import AdminUsers from "./AdminUsers";
 import AdminTrips from "./AdminTrips";
 import AdminCityPrices from "./AdminCityPrices";
+import AdminBookPassenger from "./AdminBookPassenger";
 
-type TabId = "drivers" | "users" | "trips" | "prices";
+type TabId = "book" | "drivers" | "users" | "trips" | "prices";
 
 interface Props {
   onChange?: () => void;
 }
 
 export default function AdminTabs({ onChange }: Props) {
-  const [tab, setTab] = useState<TabId>("drivers");
+  const [tab, setTab] = useState<TabId>("book");
 
   const tabs: Array<{ id: TabId; label: string; icon: string }> = [
+    { id: "book", label: "Réserver", icon: "📞" },
     { id: "drivers", label: "Chauffeurs", icon: "🚗" },
     { id: "trips", label: "Voyages", icon: "🛣" },
     { id: "prices", label: "Prix villes", icon: "💵" },
@@ -40,6 +42,7 @@ export default function AdminTabs({ onChange }: Props) {
       </div>
 
       <div className="p-4 sm:p-5">
+        {tab === "book" && <AdminBookPassenger />}
         {tab === "drivers" && <AdminDrivers onMutate={onChange} />}
         {tab === "trips" && <AdminTrips />}
         {tab === "prices" && <AdminCityPrices />}
