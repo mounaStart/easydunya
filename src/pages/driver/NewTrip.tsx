@@ -13,6 +13,7 @@ import { distanceKm, formatPrice } from "../../lib/utils";
 import { fetchDrivingDistanceKm } from "../../lib/routing";
 import { tripRouteEndpoint } from "../../lib/cityRoutePoints";
 import type { Vehicle } from "../../lib/types";
+import SeatStepper from "../../components/SeatStepper";
 
 // Heures par défaut associées aux périodes (le passager ne voit que Matin/Soir)
 const MORNING_HOUR = 8;
@@ -239,7 +240,7 @@ export default function NewTrip() {
             onChange={(e) => {
               const v = vehicles.find((x) => x.id === e.target.value);
               setVehicleId(e.target.value);
-              if (v) setSeats(v.seats);
+              if (v) setSeats((n) => Math.min(v.seats, Math.max(1, n)));
             }}
           >
             <option value="">—</option>
@@ -391,17 +392,12 @@ export default function NewTrip() {
             )}
           </div>
           <div>
-            <label className="label">{t("common.seats")}</label>
-            <input
-              type="number"
-              className="input"
-              required
+            <label className="label">{t("driver.offeredSeats")}</label>
+            <SeatStepper
+              value={seats}
               min={1}
               max={maxSeats}
-              value={seats}
-              onChange={(e) =>
-                setSeats(Math.min(maxSeats, Math.max(1, Number(e.target.value))))
-              }
+              onChange={setSeats}
             />
             <p className="text-xs text-slate-500 mt-1">
               {t("driver.maxSeatsHint", { count: maxSeats })}

@@ -20,6 +20,13 @@ import {
 } from "../../lib/utils";
 import { useTripRemainingDistance } from "../../hooks/useDrivingRoute";
 import { isNearTripEntrance } from "../../lib/tripDestination";
+import {
+  bookingDistanceKm,
+  nearbyOnly,
+  rankByDistance,
+  useNearestPassengerFilter,
+} from "../../hooks/useNearestPassengerFilter";
+import NearestFilterToggle from "../../components/NearestFilterToggle";
 
 // Rayon (en mètres) autour de la destination où le chauffeur peut terminer le voyage.
 const END_TRIP_RADIUS_M = 500;
@@ -41,6 +48,7 @@ export default function TripBookings() {
   const driverPos = driverTrack
     ? { lat: driverTrack.lat, lng: driverTrack.lng }
     : null;
+  const nearest = useNearestPassengerFilter(driverPos);
 
   const isAdmin = role === "admin";
 
@@ -108,6 +116,38 @@ export default function TripBookings() {
       passengerNames: m.passengerNames,
     }));
   }, [pending, confirmed, profiles]);
+
+  const displayedPickups = useMemo(() => {
+    const ranked = rankByDistance(mapPickups, nearest.origin);
+    return nearbyOnly(ranked, nearest.enabled, nearest.radiusKm);
+  }, [mapPickups, nearest.origin, nearest.enabled, nearest.radiusKm]);
+
+  const pendingDistances = useMemo(() => {
+    const map = new Map<string, number | null>();
+    if (!nearest.origin) return map;
+    for (const b of pending) {
+      const profile = b.passenger_id ? profiles[b.passenger_id] : null;
+      const enriched = enrichBookingPickup(b, profile);
+      map.set(
+        b.id,
+        bookingDistanceKm(nearest.origin, enriched.pickup_lat, enriched.pickup_lng)
+      );
+    }
+    return map;
+  }, [pending, profiles, nearest.origin]);
+
+  const pendingForList = useMemo(() => {
+    if (!nearest.enabled) return pending;
+    const withDist = pending.map((b) => ({
+      b,
+      distKm: pendingDistances.get(b.id) ?? null,
+    }));
+    const near = withDist
+      .filter((x) => x.distKm != null && x.distKm <= nearest.radiusKm)
+      .sort((a, c) => (a.distKm ?? 0) - (c.distKm ?? 0));
+    const unknown = withDist.filter((x) => x.distKm == null);
+    return [...near, ...unknown].map((x) => x.b);
+  }, [nearest.enabled, nearest.radiusKm, pending, pendingDistances]);
 
   const showMap =
     !!trip &&
@@ -189,13 +229,16 @@ export default function TripBookings() {
 
   async function adjustSeats(delta: number) {
     if (!trip || !tripId) return;
-    const next = trip.seats_available + delta;
-    if (next < 0 || next > trip.seats_total) return;
+    const occupied = Math.max(0, trip.seats_total - trip.seats_available);
+    const maxCap = trip.vehicle_seats && trip.vehicle_seats > 0 ? trip.vehicle_seats : 60;
+    const nextTotal = trip.seats_total + delta;
+    if (nextTotal < 1 || nextTotal < occupied || nextTotal > maxCap) return;
+    const nextAvailable = nextTotal - occupied;
     setBusy(true);
     setLockMsg(null);
     const { error } = await supabase
       .from("trips")
-      .update({ seats_available: next })
+      .update({ seats_total: nextTotal, seats_available: nextAvailable })
       .eq("id", tripId);
     setBusy(false);
     if (error) {
@@ -307,6 +350,12 @@ export default function TripBookings() {
               <span className="code-display font-bold text-brand-700">
                 {b.confirmation_code}
               </span>
+              {pendingDistances.get(b.id) != null && (
+                <span className="text-brand-700 font-semibold">
+                  {" "}
+                  · {formatDistance(pendingDistances.get(b.id)! * 1000)}
+                </span>
+              )}
             </div>
             {b.pickup_quartier && (
               <div className="text-[11px] text-slate-500 mt-0.5">
@@ -374,13 +423,17 @@ export default function TripBookings() {
           {(trip.status === "scheduled" || trip.status === "in_progress") && (
             <div className="shrink-0 text-center">
               <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
-                {t("driver.seatsAvailableLabel")}
+                {t("driver.offeredSeats")}
               </div>
               <div className="inline-flex items-center gap-1 rounded-xl bg-slate-50 border border-slate-100 px-1 py-0.5">
                 <button
                   type="button"
                   onClick={() => adjustSeats(-1)}
-                  disabled={busy || trip.seats_available <= 0}
+                  disabled={
+                    busy ||
+                    trip.seats_total <= 1 ||
+                    trip.seats_total <= Math.max(0, trip.seats_total - trip.seats_available)
+                  }
                   className="w-8 h-8 rounded-lg bg-white text-lg font-bold text-ink-soft active:scale-95 transition disabled:opacity-40"
                   aria-label="−"
                 >
@@ -393,13 +446,19 @@ export default function TripBookings() {
                 <button
                   type="button"
                   onClick={() => adjustSeats(1)}
-                  disabled={busy || trip.seats_available >= trip.seats_total}
+                  disabled={
+                    busy ||
+                    trip.seats_total >= (trip.vehicle_seats && trip.vehicle_seats > 0 ? trip.vehicle_seats : 60)
+                  }
                   className="w-8 h-8 rounded-lg bg-white text-lg font-bold text-ink-soft active:scale-95 transition disabled:opacity-40"
                   aria-label="+"
                 >
                   +
                 </button>
               </div>
+              <p className="text-[10px] text-slate-500 mt-1 max-w-[9rem] leading-tight">
+                {t("driver.seatsAdjustHint")}
+              </p>
             </div>
           )}
         </div>
@@ -459,23 +518,60 @@ export default function TripBookings() {
         </div>
       ) : pending.length > 0 ? (
         <div className="mb-3">
-          <h2 className="text-base font-bold text-ink mb-2">
-            {t("driver.pendingTotal")} ({pending.length})
-          </h2>
-          <div className="space-y-2">{pending.map(renderBookingCard)}</div>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <h2 className="text-base font-bold text-ink">
+              {t("driver.pendingTotal")} ({pendingForList.length})
+            </h2>
+            <NearestFilterToggle
+              enabled={nearest.enabled}
+              busy={nearest.busy}
+              error={nearest.error}
+              onToggle={() => void nearest.toggle()}
+            />
+          </div>
+          {pendingForList.length > 0 ? (
+            <div className="space-y-2">{pendingForList.map(renderBookingCard)}</div>
+          ) : (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+              {t("driver.nearestNone", { km: nearest.radiusKm })}
+            </p>
+          )}
         </div>
       ) : null}
 
       {/* Carte de suivi */}
       {showMap && (
         <div className="mb-3">
-          <h2 className="text-sm font-bold text-ink mb-1.5">{t("trip.trackingMap")}</h2>
-          <TrackingMap
-            from={{ lat: trip.from_lat, lng: trip.from_lng, label: isAr ? trip.from_name_ar : trip.from_name_fr }}
-            to={{ lat: trip.to_lat, lng: trip.to_lng, label: isAr ? trip.to_name_ar : trip.to_name_fr }}
-            driver={driverPos}
-            pickups={mapPickups}
-          />
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <h2 className="text-sm font-bold text-ink">{t("trip.trackingMap")}</h2>
+            {pending.length === 0 && mapPickups.length > 0 && (
+              <NearestFilterToggle
+                enabled={nearest.enabled}
+                busy={nearest.busy}
+                error={nearest.error}
+                onToggle={() => void nearest.toggle()}
+              />
+            )}
+          </div>
+          {displayedPickups.length > 0 ? (
+            <TrackingMap
+              from={{ lat: trip.from_lat, lng: trip.from_lng, label: isAr ? trip.from_name_ar : trip.from_name_fr }}
+              to={{ lat: trip.to_lat, lng: trip.to_lng, label: isAr ? trip.to_name_ar : trip.to_name_fr }}
+              driver={driverPos ?? nearest.origin}
+              pickups={displayedPickups}
+            />
+          ) : nearest.enabled && mapPickups.length > 0 ? (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+              {t("driver.nearestNone", { km: nearest.radiusKm })}
+            </p>
+          ) : (
+            <TrackingMap
+              from={{ lat: trip.from_lat, lng: trip.from_lng, label: isAr ? trip.from_name_ar : trip.from_name_fr }}
+              to={{ lat: trip.to_lat, lng: trip.to_lng, label: isAr ? trip.to_name_ar : trip.to_name_fr }}
+              driver={driverPos}
+              pickups={mapPickups}
+            />
+          )}
         </div>
       )}
 

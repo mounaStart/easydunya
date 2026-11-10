@@ -12,7 +12,13 @@ import TrackingMap from "../../components/TrackingMap";
 import { clusterBookingsByQuartier } from "../../lib/mapClusters";
 import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
-import { cn, formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import { cn, formatDistance, formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import {
+  nearbyOnly,
+  rankByDistance,
+  useNearestPassengerFilter,
+} from "../../hooks/useNearestPassengerFilter";
+import NearestFilterToggle from "../../components/NearestFilterToggle";
 import {
   driverBookingsPath,
   filterActiveTrips,
@@ -88,6 +94,7 @@ export default function DriverHome() {
   const driverPos = driverTrack
     ? { lat: driverTrack.lat, lng: driverTrack.lng }
     : null;
+  const nearest = useNearestPassengerFilter(driverPos);
 
   useEffect(() => {
     if (!activeTrips.length) {
@@ -326,7 +333,21 @@ export default function DriverHome() {
       }));
   }, [quartierMarkers, focusTrip]);
 
+  const displayedPickups = useMemo(() => {
+    const ranked = rankByDistance(mapPickups, nearest.origin);
+    return nearbyOnly(ranked, nearest.enabled, nearest.radiusKm);
+  }, [mapPickups, nearest.origin, nearest.enabled, nearest.radiusKm]);
+
+  useEffect(() => {
+    if (!nearest.enabled || !selectedClusterId) return;
+    if (!displayedPickups.some((p) => p.id === selectedClusterId)) {
+      setSelectedClusterId(null);
+    }
+  }, [nearest.enabled, displayedPickups, selectedClusterId]);
+
   const selectedCluster = quartierMarkers.find((c) => c.id === selectedClusterId) ?? null;
+  const selectedPickupDistKm =
+    displayedPickups.find((p) => p.id === selectedClusterId)?.distKm ?? null;
   const selectedClusterBookings = pendingOnFocus.filter((b) =>
     selectedCluster?.bookingIds.includes(b.id)
   );
@@ -456,11 +477,21 @@ export default function DriverHome() {
                   )}
                 </div>
               </div>
-              <ManageBookingsButton
-                to={driverBookingsPath(focusTrip.id)}
-                pending={pendingByTrip[focusTrip.id] ?? 0}
-                className="w-full sm:w-auto justify-center"
-              />
+              <div className="flex flex-col gap-2 w-full sm:w-auto sm:items-end">
+                <ManageBookingsButton
+                  to={driverBookingsPath(focusTrip.id)}
+                  pending={pendingByTrip[focusTrip.id] ?? 0}
+                  className="w-full sm:w-auto justify-center"
+                />
+                {(mapPickups.length > 0 || pendingOnFocus.length > 0 || nearest.enabled) && (
+                  <NearestFilterToggle
+                    enabled={nearest.enabled}
+                    busy={nearest.busy}
+                    error={nearest.error}
+                    onToggle={() => void nearest.toggle()}
+                  />
+                )}
+              </div>
             </div>
 
             {isInProgress && showMap ? (
@@ -478,18 +509,22 @@ export default function DriverHome() {
                 }}
                 driver={driverPos}
               />
-            ) : mapPickups.length > 0 ? (
+            ) : displayedPickups.length > 0 ? (
               <TrackingMap
                 fullBleed
                 variant="pickups"
-                pickups={mapPickups}
-                driver={driverPos}
+                pickups={displayedPickups}
+                driver={driverPos ?? nearest.origin}
                 selectedPickupId={selectedClusterId}
                 onPickupSelect={(id) => {
                   setSelectedClusterId(id);
                   setSelectedOffMapBookingId(null);
                 }}
               />
+            ) : nearest.enabled && mapPickups.length > 0 ? (
+              <p className="px-3 py-4 text-xs text-amber-700 bg-amber-50 border-y border-amber-100">
+                {t("driver.nearestNone", { km: nearest.radiusKm })}
+              </p>
             ) : pendingOnFocus.length > 0 ? (
               <p className="px-3 py-4 text-xs text-amber-700 bg-amber-50 border-y border-amber-100">
                 {t("driver.noPickupOnMap")}
@@ -546,6 +581,12 @@ export default function DriverHome() {
                     {selectedCluster.count > 1
                       ? t("driver.passengersInQuartier")
                       : t("driver.passengerInQuartier")}
+                    {selectedPickupDistKm != null && (
+                      <span className="text-brand-700 font-semibold">
+                        {" "}
+                        · {formatDistance(selectedPickupDistKm * 1000)}
+                      </span>
+                    )}
                   </p>
                   <div className="space-y-3">
                     {selectedClusterBookings.map((b) => (
@@ -652,7 +693,10 @@ export default function DriverHome() {
               </div>
             )}
 
-            {showMap && mapPickups.length === 0 && pendingOnFocus.length > 0 && (
+            {showMap &&
+              displayedPickups.length === 0 &&
+              pendingOnFocus.length > 0 &&
+              !nearest.enabled && (
               <p className="px-3 pb-3 text-xs text-amber-700">
                 {t("driver.noPickupOnMap")}
               </p>

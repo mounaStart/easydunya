@@ -13,6 +13,7 @@ import {
   relativeDateLabel,
 } from "../../lib/utils";
 import Spinner from "../../components/Spinner";
+import SeatStepper from "../../components/SeatStepper";
 
 type SuccessInfo = {
   confirmationCode: string;
@@ -245,15 +246,16 @@ export default function AdminBookPassenger() {
               />
             </div>
             <div>
-              <label className="label">{t("common.seats")} *</label>
-              <input
-                type="number"
-                min={1}
-                max={selected.seats_available}
-                className="input"
+              <label className="label">{t("admin.book.seatsLabel")} *</label>
+              <SeatStepper
                 value={seats}
-                onChange={(e) => setSeats(Number(e.target.value))}
+                min={1}
+                max={Math.max(1, selected.seats_available)}
+                onChange={setSeats}
               />
+              <p className="text-xs text-slate-500 mt-1">
+                {selected.seats_available} {t("common.seatsAvailable")}
+              </p>
             </div>
             <div>
               <label className="label">{t("admin.book.quartier")}</label>
@@ -338,8 +340,8 @@ export default function AdminBookPassenger() {
                   <span>
                     {formatPrice(tr.price_per_seat)}/{t("common.seats").toLowerCase()}
                   </span>
-                  <span>
-                    {tr.seats_available}/{tr.seats_total} {t("common.seatsAvailable")}
+                  <span className="font-semibold text-brand-700">
+                    {tr.seats_available}/{tr.seats_total} {t("admin.book.seatsOnTrip")}
                   </span>
                 </div>
               </div>
