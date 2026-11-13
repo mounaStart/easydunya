@@ -356,9 +356,6 @@ export default function NewTrip() {
               📍 {departQuartier ?? `${departPos.lat.toFixed(4)}, ${departPos.lng.toFixed(4)}`}
             </p>
           )}
-          {!departPos && (
-            <p className="text-xs text-slate-500 mt-1.5">{t("driver.departPointHint")}</p>
-          )}
           {geoErr && (
             <p className="text-xs text-rose-600 mt-1.5">{geoErr}</p>
           )}
@@ -375,20 +372,13 @@ export default function NewTrip() {
               value={price}
               onChange={(e) => setPrice(Number(e.target.value))}
             />
-            {cityPrice ? (
+            {cityPrice && (
               <p className="text-xs text-brand-700 mt-1">
                 ✓ {t("driver.officialPriceHint", {
                   price: formatPrice(cityPrice.price_per_seat),
                   km: Number(cityPrice.distance_km),
                 })}
               </p>
-            ) : (
-              fromCityId &&
-              toCityId && (
-                <p className="text-xs text-amber-600 mt-1">
-                  Aucun tarif officiel pour ce trajet — prix libre.
-                </p>
-              )
             )}
           </div>
           <div>
@@ -399,9 +389,6 @@ export default function NewTrip() {
               max={maxSeats}
               onChange={setSeats}
             />
-            <p className="text-xs text-slate-500 mt-1">
-              {t("driver.maxSeatsHint", { count: maxSeats })}
-            </p>
           </div>
         </div>
 
