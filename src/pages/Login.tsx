@@ -41,10 +41,7 @@ export default function Login() {
   return (
     <div className="page max-w-md">
       <div className="card p-6 sm:p-8">
-        <h1 className="h1 mb-1">{t("auth.loginTitle")}</h1>
-        <p className="muted mb-6">
-          Passagers et chauffeurs : téléphone + mot de passe. Admin : email ou téléphone.
-        </p>
+        <h1 className="h1 mb-6">{t("auth.loginTitle")}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
