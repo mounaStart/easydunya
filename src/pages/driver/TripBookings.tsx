@@ -456,9 +456,6 @@ export default function TripBookings() {
                   +
                 </button>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1 max-w-[9rem] leading-tight">
-                {t("driver.seatsAdjustHint")}
-              </p>
             </div>
           )}
         </div>
