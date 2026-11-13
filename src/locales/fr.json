@@ -313,7 +313,7 @@
     "addVehicle": "Ajouter un véhicule",
     "vehiclesByAdmin": "Vos véhicules sont enregistrés par l'administrateur Easy Dunya.",
     "offeredSeats": "Places proposées",
-    "maxSeatsHint": "Maximum {{count}} places (capacité du véhicule). Tapez le nombre ou utilisez − / +.",
+    "maxSeatsHint": "Cliquez dans la case et tapez le nombre (ex. 5). Maximum {{count}} (capacité du véhicule).",
     "noVehicles": "Aucun véhicule enregistré.",
     "make": "Marque",
     "model": "Modèle",
