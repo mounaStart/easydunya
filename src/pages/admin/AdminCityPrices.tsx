@@ -9,7 +9,7 @@ import Spinner from "../../components/Spinner";
 export default function AdminCityPrices() {
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const { cities } = useCities();
+  const { cities, tripCities } = useCities();
   const { prices, loading, refresh } = useCityPrices();
 
   const [fromId, setFromId] = useState("");
@@ -83,7 +83,7 @@ export default function AdminCityPrices() {
             <label className="label">Ville de départ</label>
             <select className="input" value={fromId} onChange={(e) => setFromId(e.target.value)}>
               <option value="">—</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>{nameById[c.id]}</option>
               ))}
             </select>
@@ -92,7 +92,7 @@ export default function AdminCityPrices() {
             <label className="label">Ville d'arrivée</label>
             <select className="input" value={toId} onChange={(e) => setToId(e.target.value)}>
               <option value="">—</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>{nameById[c.id]}</option>
               ))}
             </select>

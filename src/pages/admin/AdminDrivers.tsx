@@ -299,7 +299,7 @@ export default function AdminDrivers({ onMutate }: Props) {
 
 function CreateDriverForm({ onCreated }: { onCreated: () => void }) {
   const { createDriverAccount } = useAuth();
-  const { cities } = useCities();
+  const { tripCities } = useCities();
   const { i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -392,7 +392,7 @@ function CreateDriverForm({ onCreated }: { onCreated: () => void }) {
           <label className="label">Ville de base</label>
           <select className="input" value={baseCityId} onChange={(e) => setBaseCityId(e.target.value)}>
             <option value="">— Sélectionner —</option>
-            {cities.map((c) => (
+            {tripCities.map((c) => (
               <option key={c.id} value={c.id}>
                 {i18n.language === "ar" ? c.name_ar : c.name_fr}
               </option>

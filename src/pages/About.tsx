@@ -12,7 +12,7 @@ export default function About() {
   const isAr = i18n.language === "ar";
   const navigate = useNavigate();
   const topRef = useRef<HTMLElement>(null);
-  const { cities } = useCities();
+  const { tripCities } = useCities();
   const { trips } = useUpcomingTrips({ days: 30 });
 
   // Lignes disponibles : regroupées par trajet, prix minimum
@@ -128,7 +128,7 @@ export default function About() {
         <StatCard
           icon={<path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/>}
           extra={<circle cx="12" cy="10" r="2.5"/>}
-          value={String(cities.length || 14)}
+          value={String(tripCities.length || 13)}
           label={t("home.statCities")}
         />
         <StatCard

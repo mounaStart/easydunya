@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { filterTripCities } from "../lib/tripCities";
 import type { City } from "../lib/types";
 
 export function useCities() {
@@ -24,5 +25,7 @@ export function useCities() {
     };
   }, []);
 
-  return { cities, loading };
+  const tripCities = useMemo(() => filterTripCities(cities), [cities]);
+
+  return { cities, tripCities, loading };
 }

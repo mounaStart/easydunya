@@ -28,7 +28,7 @@ type SuccessInfo = {
 export default function AdminBookPassenger() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const { cities } = useCities();
+  const { cities, tripCities } = useCities();
   const [trips, setTrips] = useState<TripPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [fromId, setFromId] = useState("");
@@ -290,7 +290,7 @@ export default function AdminBookPassenger() {
       <div className="grid sm:grid-cols-3 gap-3 mb-4">
         <select className="input" value={fromId} onChange={(e) => setFromId(e.target.value)}>
           <option value="">{t("search.fromCity")}</option>
-          {cities.map((c) => (
+          {tripCities.map((c) => (
             <option key={c.id} value={c.id}>
               {cityName(c.id)}
             </option>
@@ -298,7 +298,7 @@ export default function AdminBookPassenger() {
         </select>
         <select className="input" value={toId} onChange={(e) => setToId(e.target.value)}>
           <option value="">{t("search.toCity")}</option>
-          {cities.map((c) => (
+          {tripCities.map((c) => (
             <option key={c.id} value={c.id}>
               {cityName(c.id)}
             </option>

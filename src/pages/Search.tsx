@@ -11,7 +11,7 @@ import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../lib/brandColors";
 export default function Search() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const { cities } = useCities();
+  const { tripCities } = useCities();
   const { cities: cityCounts } = useCityCounts();
   const { trips, loading } = useUpcomingTrips({ days: 30 });
 
@@ -53,7 +53,7 @@ export default function Search() {
               onChange={(e) => setFromId(e.target.value)}
             >
               <option value="">{t("search.selectCity")}</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {cityName(c)}
                 </option>
@@ -68,7 +68,7 @@ export default function Search() {
               onChange={(e) => setToId(e.target.value)}
             >
               <option value="">{t("search.selectCity")}</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {cityName(c)}
                 </option>

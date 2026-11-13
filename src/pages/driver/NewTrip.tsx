@@ -25,7 +25,7 @@ export default function NewTrip() {
   const navigate = useNavigate();
   const [locked, setLocked] = useState(false);
   const [lockedTrip, setLockedTrip] = useState<TripPublic | null>(null);
-  const { cities } = useCities();
+  const { cities, tripCities } = useCities();
   const { prices } = useCityPrices();
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -262,7 +262,7 @@ export default function NewTrip() {
               onChange={(e) => setFromCityId(e.target.value)}
             >
               <option value="">—</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {i18n.language === "ar" ? c.name_ar : c.name_fr}
                 </option>
@@ -278,7 +278,7 @@ export default function NewTrip() {
               onChange={(e) => setToCityId(e.target.value)}
             >
               <option value="">—</option>
-              {cities.map((c) => (
+              {tripCities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {i18n.language === "ar" ? c.name_ar : c.name_fr}
                 </option>

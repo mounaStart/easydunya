@@ -58,7 +58,7 @@ export default function Home() {
   const { t, i18n } = useTranslation();
   const { user, profile } = useAuth();
   const isAr = i18n.language === "ar";
-  const { cities } = useCities();
+  const { cities, tripCities } = useCities();
   const { cities: cityCounts } = useCityCounts();
   const { trips, loading, error: tripsError } = useUpcomingTrips({ days: 30 });
 
@@ -272,7 +272,7 @@ export default function Home() {
                   className="absolute inset-0 z-10 opacity-0 w-full h-full cursor-pointer"
                   aria-label={t("search.fieldDeparture")}
                 >
-                  {cities.map((c) => (
+                  {tripCities.map((c) => (
                     <option key={c.id} value={c.id}>{cityName(c)}</option>
                   ))}
                 </select>
@@ -290,7 +290,7 @@ export default function Home() {
                   aria-label={t("search.fieldArrival")}
                 >
                   <option value="">{t("search.selectCity")}</option>
-                  {cities.filter((c) => c.id !== fromId).map((c) => (
+                  {tripCities.filter((c) => c.id !== fromId).map((c) => (
                     <option key={c.id} value={c.id}>{cityName(c)}</option>
                   ))}
                 </select>
