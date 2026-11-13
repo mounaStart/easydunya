@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SeatStepperProps = {
   value: number;
@@ -23,9 +23,11 @@ export default function SeatStepper({
   const lo = Math.max(1, min);
   const hi = Math.max(lo, max);
   const [draft, setDraft] = useState(String(value));
+  const focusedRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setDraft(String(value));
+    if (!focusedRef.current) setDraft(String(value));
   }, [value]);
 
   function commit(raw: string) {
@@ -51,28 +53,30 @@ export default function SeatStepper({
         −
       </button>
       <input
+        ref={inputRef}
         type="text"
         inputMode="numeric"
-        pattern="[0-9]*"
         autoComplete="off"
         disabled={disabled}
         value={draft}
-        onChange={(e) => {
-          const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
-          setDraft(raw);
-          if (raw === "") return;
-          const n = Number.parseInt(raw, 10);
-          if (Number.isFinite(n) && n >= lo && n <= hi) onChange(n);
+        onFocus={() => {
+          focusedRef.current = true;
+          requestAnimationFrame(() => inputRef.current?.select());
         }}
-        onBlur={() => commit(draft)}
+        onChange={(e) => {
+          setDraft(e.target.value.replace(/\D/g, "").slice(0, 2));
+        }}
+        onBlur={() => {
+          focusedRef.current = false;
+          commit(draft);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commit(draft);
-            (e.currentTarget as HTMLInputElement).blur();
+            inputRef.current?.blur();
           }
         }}
-        className="w-12 h-9 bg-transparent text-center text-lg font-extrabold text-ink tabular-nums outline-none disabled:opacity-40"
+        className="w-12 h-9 rounded-lg bg-white text-center text-lg font-extrabold text-ink tabular-nums outline-none ring-1 ring-slate-200 focus:ring-brand-400 disabled:opacity-40"
         aria-label="Nombre de places"
       />
       <button
