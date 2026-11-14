@@ -21,7 +21,7 @@ const EVENING_HOUR = 18;
 
 export default function NewTrip() {
   const { t, i18n } = useTranslation();
-  const { user, profile } = useAuth();
+  const { user, profile, authReady } = useAuth();
   const navigate = useNavigate();
   const [locked, setLocked] = useState(false);
   const [lockedTrip, setLockedTrip] = useState<TripPublic | null>(null);
@@ -132,16 +132,15 @@ export default function NewTrip() {
   }, [user, profile?.current_trip_id]);
 
   useEffect(() => {
-    if (!user) {
-      setVehiclesLoading(false);
-      return;
-    }
+    if (!user) return;
+    let cancelled = false;
     setVehiclesLoading(true);
     supabase
       .from("vehicles")
       .select("*")
       .eq("driver_id", user.id)
       .then(({ data }) => {
+        if (cancelled) return;
         const list = (data as Vehicle[] | null) ?? [];
         setVehicles(list);
         if (list[0]) {
@@ -149,7 +148,12 @@ export default function NewTrip() {
           setSeats(list[0].seats);
         }
       })
-      .finally(() => setVehiclesLoading(false));
+      .finally(() => {
+        if (!cancelled) setVehiclesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   async function handleSubmit(e: FormEvent) {
@@ -231,7 +235,7 @@ export default function NewTrip() {
     <div className="page max-w-xl">
       <h1 className="h1 mb-5">{t("driver.newTripTitle")}</h1>
 
-      {!vehiclesLoading && vehicles.length === 0 && (
+      {authReady && user && !vehiclesLoading && vehicles.length === 0 && (
         <p className="card p-4 mb-4 text-sm text-amber-800 bg-amber-50 border-amber-200">
           ⚠ {t("driver.noVehicles")}
         </p>
