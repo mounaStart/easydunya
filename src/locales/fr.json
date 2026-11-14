@@ -24,7 +24,8 @@
     "logout": "Déconnexion",
     "login": "Connexion",
     "register": "Inscription",
-    "registerShort": "Inscr."
+    "registerShort": "Inscr.",
+    "agency": "Espace agence"
   },
   "common": {
     "loading": "Chargement…",
@@ -179,6 +180,7 @@
     "adminIdentifier": "Identifiant administrateur",
     "loginId": "Téléphone ou identifiant",
     "loginIdPlaceholder": "+222… ou admin",
+    "agencyHint": "Personnel d'agence : connectez-vous avec l'identifiant fourni par Easy Dunya.",
     "adminLoginDetected": "Connexion administrateur détectée",
     "backToPhoneLogin": "← Connexion par téléphone",
     "changePasswordTitle": "Changer le mot de passe",
@@ -401,6 +403,7 @@
       "driver": "Chauffeur",
       "passenger": "Passager"
     },
+    "agencies": "Agences",
     "confirmDriverStatus": "Confirmer « {{status}} » pour {{name}} ?",
     "book": {
       "title": "Réserver pour un passager",

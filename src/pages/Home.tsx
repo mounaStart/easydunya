@@ -7,6 +7,7 @@ import Spinner from "../components/Spinner";
 import { useAuth } from "../hooks/useAuth";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
+import { agencyTripPath, isAgencyTripPublicId, useAgencyPublicTrips } from "../lib/agency/public";
 import type { TripPublic } from "../lib/types";
 import { useAppRefresh } from "../lib/appRefresh";
 import { distanceKm, formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
@@ -60,7 +61,12 @@ export default function Home() {
   const isAr = i18n.language === "ar";
   const { cities, tripCities } = useCities();
   const { cities: cityCounts } = useCityCounts();
-  const { trips, loading, error: tripsError } = useUpcomingTrips({ days: 30 });
+  const { trips: driverTrips, loading, error: tripsError } = useUpcomingTrips({ days: 30 });
+  const agencyTrips = useAgencyPublicTrips();
+  const trips = useMemo(
+    () => [...driverTrips, ...agencyTrips].sort((a, b) => a.depart_at.localeCompare(b.depart_at)),
+    [driverTrips, agencyTrips]
+  );
 
   const [fromId, setFromId] = useState(NOUAKCHOTT_ID);
   const [toId, setToId] = useState(BOGHE_ID);
@@ -638,7 +644,7 @@ function SearchResults({
             {results.map(({ tr, dist }) => (
               <Link
                 key={tr.id}
-                to={`/trips/${tr.id}`}
+                to={isAgencyTripPublicId(tr.id) ? agencyTripPath(tr.id) : `/trips/${tr.id}`}
                 className="card p-4 flex items-start gap-3 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-14">
@@ -653,6 +659,9 @@ function SearchResults({
                   </div>
                   <div className="text-xs text-slate-500 mt-1 text-center">
                     {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
+                    {isAgencyTripPublicId(tr.id) && (
+                      <span className="ml-2 text-[10px] font-bold uppercase text-brand-700">Agence</span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0">

@@ -24,7 +24,8 @@
     "logout": "تسجيل الخروج",
     "login": "تسجيل الدخول",
     "register": "إنشاء حساب",
-    "registerShort": "تسجيل"
+    "registerShort": "تسجيل",
+    "agency": "فضاء الوكالة"
   },
   "common": {
     "loading": "جار التحميل…",
@@ -179,6 +180,7 @@
     "adminIdentifier": "معرّف المدير",
     "loginId": "الهاتف أو المعرّف",
     "loginIdPlaceholder": "+222… أو admin",
+    "agencyHint": "موظفو الوكالة: سجّلوا الدخول بالمعرّف الذي تقدّمه إيزي دنيا.",
     "adminLoginDetected": "تم اكتشاف دخول المدير",
     "backToPhoneLogin": "← الدخول بالهاتف",
     "changePasswordTitle": "تغيير كلمة المرور",
@@ -401,6 +403,7 @@
       "driver": "سائق",
       "passenger": "مسافر"
     },
+    "agencies": "الوكالات",
     "confirmDriverStatus": "تأكيد « {{status}} » لـ {{name}} ؟",
     "book": {
       "title": "حجز لمسافر",
