@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { useAgency } from "../lib/agency/useAgency";
+import { logoutAgency } from "../lib/agency/store";
 import { supabase } from "../lib/supabase";
 import LangSwitcher from "./LangSwitcher";
 import NotificationBell from "./NotificationBell";
@@ -24,10 +26,12 @@ function UserAvatarMenu({
   name,
   email,
   onLogout,
+  profileTo = "/profile",
 }: {
   name?: string | null;
   email?: string | null;
   onLogout: () => void;
+  profileTo?: string;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -87,7 +91,7 @@ function UserAvatarMenu({
                 className="w-full px-4 py-3.5 text-start text-sm font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100"
                 onClick={() => {
                   setOpen(false);
-                  navigate("/profile");
+                  navigate(profileTo);
                 }}
               >
                 {t("nav.profile")}
@@ -133,6 +137,8 @@ export default function Header({ className }: { className?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, profile, authReady, isAdmin, isDriver, signOut } = useAuth();
+  const { staff, agency } = useAgency();
+  const agencyNav = !!staff && agency?.status === "approved";
   const profileOk = authReady || !user;
   const [pendingDriversCount, setPendingDriversCount] = useState(0);
 
@@ -158,7 +164,9 @@ export default function Header({ className }: { className?: string }) {
   const driverApproved = profile?.driver_status === "approved";
 
   const links: NavLinkItem[] = [{ to: "/", label: t("nav.home") }];
-  if (isDriver) {
+  if (agencyNav) {
+    links.push({ to: "/agence", label: t("nav.agency") });
+  } else if (isDriver) {
     links.push(
       { to: "/driver", label: t("nav.dashboard") },
       { to: "/driver/historique", label: t("nav.historique") }
@@ -180,6 +188,7 @@ export default function Header({ className }: { className?: string }) {
   }
 
   async function handleLogout() {
+    if (agencyNav) logoutAgency();
     await signOut();
     navigate("/login", { replace: true, state: {} });
   }
@@ -219,11 +228,12 @@ export default function Header({ className }: { className?: string }) {
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <NotificationBell />
           <LangSwitcher />
-          {user ? (
+          {user || agencyNav ? (
             <UserAvatarMenu
-              name={profileOk ? profile?.full_name : null}
-              email={user.email}
+              name={agencyNav ? agency?.name ?? staff?.name : profileOk ? profile?.full_name : null}
+              email={user?.email ?? staff?.email ?? null}
               onLogout={handleLogout}
+              profileTo={agencyNav ? "/agence" : "/profile"}
             />
           ) : (
             <>

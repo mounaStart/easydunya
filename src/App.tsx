@@ -3,6 +3,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Spinner from "./components/Spinner";
 import { useAuth } from "./hooks/useAuth";
+import { useAgency } from "./lib/agency/useAgency";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -30,13 +31,28 @@ import DriverEarnings from "./pages/driver/Earnings";
 import DriverHistorique from "./pages/driver/Historique";
 
 import AdminDashboard from "./pages/admin/Dashboard";
+import AgencyLayout from "./pages/agency/AgencyLayout";
+import AgencyDashboard from "./pages/agency/Dashboard";
+import AgencyDeparts from "./pages/agency/Departs";
+import AgencyPlaces from "./pages/agency/Places";
+import AgencyReservations from "./pages/agency/Reservations";
+import AgencyGuichet from "./pages/agency/Guichet";
+import AgencyEmbarquement from "./pages/agency/Embarquement";
+import AgencyRapports from "./pages/agency/Rapports";
+import AgencyVehicules from "./pages/agency/Vehicules";
+import AgencyChauffeurs from "./pages/agency/Chauffeurs";
+import AgencyReseau from "./pages/agency/Reseau";
+import AgencyParametres from "./pages/agency/Parametres";
+import AgencyVoyagePublic from "./pages/agency/VoyagePublic";
 
 /** Page d'accueil selon le rôle : chauffeur → tableau de bord, admin → admin, sinon recherche passager. */
 function HomeIndex() {
   const { loading, profile, user, authReady } = useAuth();
+  const { staff, agency } = useAgency();
   if (loading || (user && !authReady)) return <Spinner />;
   if (profile?.role === "driver") return <DriverHome />;
   if (profile?.role === "admin") return <Navigate to="/admin" replace />;
+  if (!user && staff && agency?.status === "approved") return <Navigate to="/agence" replace />;
   return <Home />;
 }
 
@@ -62,6 +78,21 @@ export default function App() {
         />
         <Route path="check" element={<CheckBooking />} />
         <Route path="trips/:tripId" element={<TripDetail />} />
+        <Route path="agence/voyage/:tripId" element={<AgencyVoyagePublic />} />
+
+        <Route path="agence" element={<AgencyLayout />}>
+          <Route index element={<AgencyDashboard />} />
+          <Route path="departs" element={<AgencyDeparts />} />
+          <Route path="places" element={<AgencyPlaces />} />
+          <Route path="reservations" element={<AgencyReservations />} />
+          <Route path="guichet" element={<AgencyGuichet />} />
+          <Route path="embarquement" element={<AgencyEmbarquement />} />
+          <Route path="rapports" element={<AgencyRapports />} />
+          <Route path="vehicules" element={<AgencyVehicules />} />
+          <Route path="chauffeurs" element={<AgencyChauffeurs />} />
+          <Route path="reseau" element={<AgencyReseau />} />
+          <Route path="parametres" element={<AgencyParametres />} />
+        </Route>
 
         {/* Passenger */}
         <Route path="reservation" element={<Reservation />} />

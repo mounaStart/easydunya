@@ -5,6 +5,7 @@ import MapView from "../components/MapView";
 import Spinner from "../components/Spinner";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
+import { agencyTripPath, isAgencyTripPublicId, useAgencyPublicTrips } from "../lib/agency/public";
 import { formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
 import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../lib/brandColors";
 
@@ -13,7 +14,12 @@ export default function Search() {
   const isAr = i18n.language === "ar";
   const { tripCities } = useCities();
   const { cities: cityCounts } = useCityCounts();
-  const { trips, loading } = useUpcomingTrips({ days: 30 });
+  const { trips: driverTrips, loading } = useUpcomingTrips({ days: 30 });
+  const agencyTrips = useAgencyPublicTrips();
+  const trips = useMemo(
+    () => [...driverTrips, ...agencyTrips].sort((a, b) => a.depart_at.localeCompare(b.depart_at)),
+    [driverTrips, agencyTrips]
+  );
 
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
@@ -138,7 +144,7 @@ export default function Search() {
             {results.map((tr) => (
               <Link
                 key={tr.id}
-                to={`/trips/${tr.id}`}
+                to={isAgencyTripPublicId(tr.id) ? agencyTripPath(tr.id) : `/trips/${tr.id}`}
                 className="card p-4 flex items-center gap-4 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-16">
@@ -174,6 +180,9 @@ export default function Search() {
                     <span className="inline-flex items-center gap-1">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-3-3.87M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                       {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
+                      {isAgencyTripPublicId(tr.id) && (
+                        <span className="ml-1 text-[10px] font-bold uppercase text-brand-700">Agence</span>
+                      )}
                     </span>
                   </div>
                 </div>

@@ -3,8 +3,15 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { mapAuthError, isEmailLogin } from "../lib/authErrors";
 import { postLoginPath } from "../lib/postLoginPath";
+import { loginAgency, logoutAgency } from "../lib/agency/store";
 import { useAuth } from "../hooks/useAuth";
 import PasswordInput from "../components/PasswordInput";
+
+function looksLikeAgencyIdent(login: string): boolean {
+  const s = login.trim();
+  if (!s || s.includes("@")) return false;
+  return /[a-z.]/i.test(s);
+}
 
 export default function Login() {
   const { t } = useTranslation();
@@ -27,15 +34,35 @@ export default function Login() {
     setError(null);
 
     const login = phone.trim();
+
+    if (looksLikeAgencyIdent(login) || from.startsWith("/agence")) {
+      const agency = loginAgency(login, password);
+      if (!agency.error) {
+        navigate(from.startsWith("/agence") ? from : "/agence", { replace: true });
+        return;
+      }
+      if (looksLikeAgencyIdent(login)) {
+        setLoading(false);
+        setError(agency.error ?? t("auth.loginError"));
+        return;
+      }
+    }
+
     const result = isEmailLogin(login)
       ? await signInWithEmail(login, password)
       : await signInWithPhone(login, password);
 
     if (result.error) {
+      const agency = loginAgency(login, password);
+      if (!agency.error) {
+        navigate("/agence", { replace: true });
+        return;
+      }
       setLoading(false);
       setError(mapAuthError(result.error, result.code));
       return;
     }
+    logoutAgency();
     navigate(postLoginPath(result.role, from), { replace: true });
   }
 
@@ -85,6 +112,8 @@ export default function Login() {
             {t("auth.forgotPassword")}
           </Link>
         </p>
+
+        <p className="muted text-center mt-5 text-xs">{t("auth.agencyHint")}</p>
 
         <p className="muted text-center mt-5">
           {t("auth.noAccount")}{" "}
