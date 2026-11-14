@@ -29,6 +29,7 @@ export default function NewTrip() {
   const { prices } = useCityPrices();
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [vehicleId, setVehicleId] = useState("");
   const [fromCityId, setFromCityId] = useState("");
   const [toCityId, setToCityId] = useState("");
@@ -131,7 +132,11 @@ export default function NewTrip() {
   }, [user, profile?.current_trip_id]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setVehiclesLoading(false);
+      return;
+    }
+    setVehiclesLoading(true);
     supabase
       .from("vehicles")
       .select("*")
@@ -143,7 +148,8 @@ export default function NewTrip() {
           setVehicleId(list[0].id);
           setSeats(list[0].seats);
         }
-      });
+      })
+      .finally(() => setVehiclesLoading(false));
   }, [user]);
 
   async function handleSubmit(e: FormEvent) {
@@ -225,7 +231,7 @@ export default function NewTrip() {
     <div className="page max-w-xl">
       <h1 className="h1 mb-5">{t("driver.newTripTitle")}</h1>
 
-      {vehicles.length === 0 && (
+      {!vehiclesLoading && vehicles.length === 0 && (
         <p className="card p-4 mb-4 text-sm text-amber-800 bg-amber-50 border-amber-200">
           ⚠ {t("driver.noVehicles")}
         </p>
