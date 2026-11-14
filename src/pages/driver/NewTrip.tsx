@@ -135,11 +135,12 @@ export default function NewTrip() {
     if (!user) return;
     let cancelled = false;
     setVehiclesLoading(true);
-    supabase
-      .from("vehicles")
-      .select("*")
-      .eq("driver_id", user.id)
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("vehicles")
+          .select("*")
+          .eq("driver_id", user.id);
         if (cancelled) return;
         const list = (data as Vehicle[] | null) ?? [];
         setVehicles(list);
@@ -147,10 +148,10 @@ export default function NewTrip() {
           setVehicleId(list[0].id);
           setSeats(list[0].seats);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setVehiclesLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
