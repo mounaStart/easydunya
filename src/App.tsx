@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Spinner from "./components/Spinner";
 import { useAuth } from "./hooks/useAuth";
 
 import Home from "./pages/Home";
@@ -32,8 +33,8 @@ import AdminDashboard from "./pages/admin/Dashboard";
 
 /** Page d'accueil selon le rôle : chauffeur → tableau de bord, admin → admin, sinon recherche passager. */
 function HomeIndex() {
-  const { loading, profile } = useAuth();
-  if (loading) return <Home />;
+  const { loading, profile, user, authReady } = useAuth();
+  if (loading || (user && !authReady)) return <Spinner />;
   if (profile?.role === "driver") return <DriverHome />;
   if (profile?.role === "admin") return <Navigate to="/admin" replace />;
   return <Home />;

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { mapAuthError, isEmailLogin } from "../lib/authErrors";
+import { postLoginPath } from "../lib/postLoginPath";
 import { useAuth } from "../hooks/useAuth";
 import PasswordInput from "../components/PasswordInput";
 
@@ -30,12 +31,12 @@ export default function Login() {
       ? await signInWithEmail(login, password)
       : await signInWithPhone(login, password);
 
-    setLoading(false);
     if (result.error) {
+      setLoading(false);
       setError(mapAuthError(result.error, result.code));
       return;
     }
-    navigate(from, { replace: true });
+    navigate(postLoginPath(result.role, from), { replace: true });
   }
 
   return (

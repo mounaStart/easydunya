@@ -26,6 +26,11 @@ export default function ProtectedRoute({
   if (roles && role && !roles.includes(role)) {
     return <Navigate to="/" replace />;
   }
+  // Admin autorisé à publier un voyage (/driver/trips/new), mais l'accueil
+  // chauffeur ne doit pas remplacer le tableau de bord admin.
+  if (role === "admin" && location.pathname === "/driver") {
+    return <Navigate to="/admin" replace />;
+  }
   if (
     requireDriverApproved &&
     role === "driver" &&

@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { cn } from "../lib/utils";
@@ -11,6 +11,7 @@ interface MobileNavDrawerProps {
 
 export default function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user, isDriver, isAdmin, signOut } = useAuth();
 
   if (!open) return null;
@@ -66,7 +67,10 @@ export default function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps)
             type="button"
             onClick={() => {
               onClose();
-              void signOut();
+              void (async () => {
+                await signOut();
+                navigate("/login", { replace: true, state: {} });
+              })();
             }}
             className="mt-auto rounded-xl px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 text-left"
           >

@@ -36,12 +36,12 @@ interface AuthContextValue {
   signInWithPhone: (
     phone: string,
     password: string
-  ) => Promise<{ error?: string; code?: string }>;
+  ) => Promise<{ error?: string; code?: string; role?: UserRole }>;
   /** Admin : connexion par email + mot de passe */
   signInWithEmail: (
     email: string,
     password: string
-  ) => Promise<{ error?: string; code?: string }>;
+  ) => Promise<{ error?: string; code?: string; role?: UserRole }>;
   /** Inscription passager : nom + téléphone + mot de passe (sans email) */
   signUpPassenger: (params: {
     fullName: string;
@@ -93,16 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", u.id)
         .maybeSingle();
 
-      if (loadProfileForRef.current !== u.id) return;
+      if (loadProfileForRef.current !== u.id) return null;
 
       if (error) {
         setProfile(null);
-        return;
+        return null;
       }
 
       if (data) {
-        setProfile(data as Profile);
-        return;
+        const p = data as Profile;
+        setProfile(p);
+        return p;
       }
 
       // Aucun profil → le créer (sinon les réservations échouent : FK passenger_id)
@@ -123,8 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select()
         .maybeSingle();
 
-      if (loadProfileForRef.current !== u.id) return;
-      setProfile((created as Profile | null) ?? (payload as unknown as Profile));
+      if (loadProfileForRef.current !== u.id) return null;
+      const p = (created as Profile | null) ?? (payload as unknown as Profile);
+      setProfile(p);
+      return p;
     } finally {
       if (loadProfileForRef.current === u.id && !opts?.silent) {
         setProfileLoading(false);
@@ -218,22 +221,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshSessionFromStorage]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    if (data.user) {
+      const p = await loadProfile(data.user);
+      return { role: p?.role };
+    }
     return {};
-  }, []);
+  }, [loadProfile]);
 
   const signInWithPhone = useCallback(async (phone: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: phoneToEmail(phone),
       password,
     });
     if (error) return { error: error.message, code: error.code };
+    if (data.user) {
+      const p = await loadProfile(data.user);
+      return { role: p?.role };
+    }
     return {};
-  }, []);
+  }, [loadProfile]);
 
   const signUpPassenger = useCallback(
     async ({

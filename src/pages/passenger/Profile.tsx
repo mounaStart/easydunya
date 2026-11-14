@@ -172,7 +172,7 @@ export default function Profile() {
 
   async function handleLogout() {
     await signOut();
-    navigate("/login", { replace: true });
+    navigate("/login", { replace: true, state: {} });
   }
 
   async function handleDeleteAccount() {
@@ -186,7 +186,7 @@ export default function Profile() {
       return;
     }
     await signOut();
-    navigate("/login", { replace: true });
+    navigate("/login", { replace: true, state: {} });
   }
 
   return (
