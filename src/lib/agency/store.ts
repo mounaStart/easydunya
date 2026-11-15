@@ -1,3 +1,4 @@
+import { isSupabaseConfigured, supabase } from "../supabase";
 import { generateAgencyBookingCode } from "./codes";
 import { buildDemoDb } from "./demo";
 import {
@@ -30,6 +31,7 @@ import type {
 const KEY = "ed_agency_v2";
 const SESSION_KEY = "ed_agency_session";
 const OLD_KEY = "ed_agency_v1";
+const CLOUD_ID = "v2";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -56,11 +58,61 @@ function save(db: AgencyDB) {
 }
 
 let db: AgencyDB = typeof window === "undefined" ? buildDemoDb() : load();
+let cloudReady = false;
+let hydratePromise: Promise<void> | null = null;
+
+function isAgencyDb(value: unknown): value is AgencyDB {
+  if (!value || typeof value !== "object") return false;
+  const v = value as AgencyDB;
+  return Array.isArray(v.agencies) && Array.isArray(v.staff) && Array.isArray(v.trips) && Array.isArray(v.bookings);
+}
+
+async function pullCloud(): Promise<AgencyDB | null> {
+  if (!isSupabaseConfigured()) return null;
+  const { data, error } = await supabase.from("agency_kv").select("payload").eq("id", CLOUD_ID).maybeSingle();
+  if (error || !data?.payload) return null;
+  return isAgencyDb(data.payload) ? data.payload : null;
+}
+
+async function pushCloud(next: AgencyDB) {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from("agency_kv").upsert({
+    id: CLOUD_ID,
+    payload: next as unknown as Record<string, unknown>,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.warn("[agences] sync cloud impossible", error.message);
+}
+
+export function hydrateAgencyCloud(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (hydratePromise) return hydratePromise;
+  hydratePromise = (async () => {
+    try {
+      const remote = await pullCloud();
+      if (remote) {
+        db = remote;
+        save(db);
+        listeners.forEach((l) => l());
+      } else {
+        await pushCloud(db);
+      }
+    } catch (e) {
+      console.warn("[agences] hydrate", e);
+    } finally {
+      cloudReady = true;
+    }
+  })();
+  return hydratePromise;
+}
+
+if (typeof window !== "undefined") void hydrateAgencyCloud();
 
 function commit(next: AgencyDB) {
   db = next;
   save(db);
   listeners.forEach((l) => l());
+  if (cloudReady) void pushCloud(db);
 }
 
 export function subscribeAgency(fn: Listener): () => void {
@@ -73,8 +125,11 @@ export function getAgencyDb(): AgencyDB {
 }
 
 export function resetAgencyDemo() {
-  commit(buildDemoDb());
+  const demo = buildDemoDb();
+  db = demo;
+  save(db);
   localStorage.removeItem(SESSION_KEY);
+  listeners.forEach((l) => l());
 }
 
 export interface AgencySession {
@@ -97,7 +152,8 @@ export function setAgencySession(s: AgencySession | null) {
   listeners.forEach((l) => l());
 }
 
-export function loginAgency(login: string, password: string): { error?: string; staff?: AgencyStaff } {
+export async function loginAgency(login: string, password: string): Promise<{ error?: string; staff?: AgencyStaff }> {
+  await hydrateAgencyCloud();
   const id = login.trim().toLowerCase();
   const staff = db.staff.find(
     (s) =>
@@ -166,7 +222,7 @@ export function publishedTripsForSearch() {
   );
 }
 
-export function createAgencyByEasyDunya(args: {
+export async function createAgencyByEasyDunya(args: {
   name: string;
   address: string;
   city: string;
@@ -174,12 +230,16 @@ export function createAgencyByEasyDunya(args: {
   login: string;
   adminName: string;
   password: string;
-}): { error?: string; agency?: Agency } {
+  phone?: string;
+}): Promise<{ error?: string; agency?: Agency; login?: string }> {
+  await hydrateAgencyCloud();
   const slug = args.login.trim().toLowerCase().replace(/\s+/g, "");
   if (slug.length < 2) return { error: "Identifiant trop court." };
+  if (args.password.trim().length < 6) return { error: "Mot de passe trop court (6 caractères min.)." };
   if (db.staff.some((s) => s.login === slug || s.email.toLowerCase() === args.email.toLowerCase())) {
     return { error: "Identifiant ou e-mail déjà utilisé." };
   }
+  const phone = (args.phone ?? "").replace(/\D/g, "").slice(0, 8) || null;
   const agency: Agency = {
     id: uid(),
     name: args.name.trim(),
@@ -187,8 +247,8 @@ export function createAgencyByEasyDunya(args: {
     contact: args.adminName.trim(),
     address: args.address.trim(),
     city: args.city.trim() || "Nouakchott",
-    phone: null,
-    whatsapp: null,
+    phone,
+    whatsapp: phone,
     email: args.email.trim().toLowerCase(),
     logo: null,
     cancelHours: 3,
@@ -215,7 +275,7 @@ export function createAgencyByEasyDunya(args: {
     agencies: [...db.agencies, agency],
     staff: [...db.staff, admin],
   });
-  return { agency };
+  return { agency, login: slug };
 }
 
 export function setAgencyStatus(id: string, status: Agency["status"]) {

@@ -36,7 +36,7 @@ export default function Login() {
     const login = phone.trim();
 
     if (looksLikeAgencyIdent(login) || from.startsWith("/agence")) {
-      const agency = loginAgency(login, password);
+      const agency = await loginAgency(login, password);
       if (!agency.error && agency.staff) {
         navigate(from.startsWith("/agence") ? from : postAgencyLoginPath(agency.staff), { replace: true });
         return;
@@ -53,7 +53,7 @@ export default function Login() {
       : await signInWithPhone(login, password);
 
     if (result.error) {
-      const agency = loginAgency(login, password);
+      const agency = await loginAgency(login, password);
       if (!agency.error && agency.staff) {
         navigate(postAgencyLoginPath(agency.staff), { replace: true });
         return;
