@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { NEAREST_PASSENGER_RADIUS_KM } from "../hooks/useNearestPassengerFilter";
 import { cn } from "../lib/utils";
 
 type Props = {
@@ -31,7 +32,7 @@ export default function NearestFilterToggle({ enabled, busy, error, onToggle }: 
             ? t("driver.nearestFilterOn")
             : t("driver.nearestFilter")}
       </button>
-      <p className="text-[11px] text-slate-500">{t("driver.nearestFilterHint")}</p>
+      <p className="text-[11px] text-slate-500">{t("driver.nearestFilterHint", { km: NEAREST_PASSENGER_RADIUS_KM })}</p>
       {error && <p className="text-[11px] text-rose-700">{error}</p>}
     </div>
   );

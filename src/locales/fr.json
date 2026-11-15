@@ -356,7 +356,7 @@
     "nearestFilter": "Passagers les plus proches",
     "nearestFilterOn": "Filtre proches activé",
     "nearestFilterBusy": "Position…",
-    "nearestFilterHint": "Optionnel : cliquez seulement si vous voulez voir les demandes près de vous (20 km).",
+    "nearestFilterHint": "Optionnel : cliquez seulement si vous voulez voir les demandes près de vous ({{km}} km).",
     "nearestNone": "Aucun passager à moins de {{km}} km. Désactivez le filtre pour tout voir.",
     "passengerInQuartier": "passager dans ce quartier",
     "passengersInQuartier": "passagers dans ce quartier",

@@ -4,7 +4,7 @@ import { locationFailMessage, requestAppLocation } from "../lib/locationPermissi
 import { distanceKm } from "../lib/utils";
 
 /** Rayon du filtre optionnel « passagers les plus proches ». */
-export const NEAREST_PASSENGER_RADIUS_KM = 20;
+export const NEAREST_PASSENGER_RADIUS_KM = 12;
 
 export type GeoPos = { lat: number; lng: number };
 

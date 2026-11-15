@@ -356,7 +356,7 @@
     "nearestFilter": "الركاب الأقرب",
     "nearestFilterOn": "فلتر الأقرب مفعّل",
     "nearestFilterBusy": "الموقع…",
-    "nearestFilterHint": "اختياري: اضغط فقط إذا أردت رؤية الطلبات القريبة منك (20 كم).",
+    "nearestFilterHint": "اختياري: اضغط فقط إذا أردت رؤية الطلبات القريبة منك ({{km}} كم).",
     "nearestNone": "لا يوجد راكب على بعد أقل من {{km}} كم. أوقف الفلتر لعرض الجميع.",
     "passengerInQuartier": "راكب في هذا الحي",
     "passengersInQuartier": "ركاب في هذا الحي",
