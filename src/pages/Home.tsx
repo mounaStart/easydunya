@@ -7,6 +7,7 @@ import Spinner from "../components/Spinner";
 import { useAuth } from "../hooks/useAuth";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
+import { agencyTripPath, isAgencyTripPublicId, publicTripMatchesCities, useAgencyPublicTrips } from "../lib/agency/public";
 import type { TripPublic } from "../lib/types";
 import { useAppRefresh } from "../lib/appRefresh";
 import { distanceKm, formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
@@ -60,7 +61,12 @@ export default function Home() {
   const isAr = i18n.language === "ar";
   const { cities, tripCities } = useCities();
   const { cities: cityCounts } = useCityCounts();
-  const { trips, loading, error: tripsError } = useUpcomingTrips({ days: 30 });
+  const { trips: driverTrips, loading, error: tripsError } = useUpcomingTrips({ days: 30 });
+  const agencyTrips = useAgencyPublicTrips();
+  const trips = useMemo(
+    () => [...driverTrips, ...agencyTrips].sort((a, b) => a.depart_at.localeCompare(b.depart_at)),
+    [driverTrips, agencyTrips]
+  );
 
   const [fromId, setFromId] = useState(NOUAKCHOTT_ID);
   const [toId, setToId] = useState(BOGHE_ID);
@@ -83,8 +89,7 @@ export default function Home() {
 
   const { items: filteredResults, radiusKm } = useMemo(() => {
     const filtered = trips.filter((tr) => {
-      if (fromId && tr.from_city_id !== fromId) return false;
-      if (toId && tr.to_city_id !== toId) return false;
+      if (!publicTripMatchesCities(tr, fromId || undefined, toId || undefined)) return false;
       if (date) {
         const d = new Date(tr.depart_at);
         const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -376,6 +381,8 @@ export default function Home() {
           totalBrowsePages={totalBrowsePages}
           onBrowsePage={setBrowsePage}
           isAr={isAr}
+          fromId={fromId}
+          toId={toId}
           t={t}
         />
       </div>
@@ -566,6 +573,8 @@ function SearchResults({
   totalBrowsePages,
   onBrowsePage,
   isAr,
+  fromId,
+  toId,
   t,
 }: {
   loading: boolean;
@@ -582,6 +591,8 @@ function SearchResults({
   totalBrowsePages: number;
   onBrowsePage: (page: number) => void;
   isAr: boolean;
+  fromId?: string;
+  toId?: string;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }) {
   const isEmpty = !loading && resultCount === 0;
@@ -638,7 +649,7 @@ function SearchResults({
             {results.map(({ tr, dist }) => (
               <Link
                 key={tr.id}
-                to={`/trips/${tr.id}`}
+                to={isAgencyTripPublicId(tr.id) ? agencyTripPath(tr.id, fromId, toId) : `/trips/${tr.id}`}
                 className="card p-4 flex items-start gap-3 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-14">
@@ -653,10 +664,20 @@ function SearchResults({
                   </div>
                   <div className="text-xs text-slate-500 mt-1 text-center">
                     {tr.seats_available}/{tr.seats_total} {t("common.seats").toLowerCase()}
+                    {isAgencyTripPublicId(tr.id) && (
+                      <span className="ml-2 text-[10px] font-bold uppercase text-brand-700">Agence</span>
+                    )}
                   </div>
+                  {tr.notes?.startsWith("Via ") && (
+                    <div className="text-[11px] text-slate-400 mt-0.5 truncate">{tr.notes}</div>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-extrabold text-brand-600">{formatPrice(tr.price_per_seat)}</div>
+                  <div className="font-extrabold text-brand-600">
+                    {isAgencyTripPublicId(tr.id) && tr.notes?.startsWith("Via ")
+                      ? `dès ${formatPrice(tr.price_per_seat)}`
+                      : formatPrice(tr.price_per_seat)}
+                  </div>
                   {searched && nearMode && dist != null && (
                     <div className="text-xs text-brand-600 mt-1">{t("search.departAt", { km: Math.round(dist) })}</div>
                   )}

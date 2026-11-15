@@ -1,24 +1,45 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import TicketCard from "../components/agency/TicketCard";
 import { findBookingByCode } from "../hooks/useBookings";
+import { findAgencyBookingByCode } from "../lib/agency/store";
 import type { Booking } from "../lib/types";
+import type { Agency, AgencyBooking, AgencyTrip } from "../lib/agency/types";
 import StatusBadge from "../components/StatusBadge";
 import { isValidConfirmationCode } from "../lib/codes";
+
+function isAgencyCode(code: string): boolean {
+  return /^ED-[A-Z]{3}-[A-Z0-9]{5}$/.test(code.trim().toUpperCase());
+}
 
 export default function CheckBooking() {
   const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState<Booking | null | undefined>(undefined);
+  const [agencyHit, setAgencyHit] = useState<{
+    booking: AgencyBooking;
+    trip: AgencyTrip;
+    agency: Agency;
+  } | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!isValidConfirmationCode(code)) {
+    setAgencyHit(null);
+    const raw = code.trim().toUpperCase();
+    if (isAgencyCode(raw)) {
+      const hit = findAgencyBookingByCode(raw);
+      setBooking(undefined);
+      setAgencyHit(hit);
+      if (!hit) setBooking(null);
+      return;
+    }
+    if (!isValidConfirmationCode(raw)) {
       setBooking(null);
       return;
     }
     setLoading(true);
-    const b = await findBookingByCode(code);
+    const b = await findBookingByCode(raw);
     setBooking(b);
     setLoading(false);
   }
@@ -33,7 +54,7 @@ export default function CheckBooking() {
           <input
             className="input flex-1 uppercase tracking-widest font-bold text-center"
             placeholder={t("booking.check.placeholder")}
-            maxLength={6}
+            maxLength={14}
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))}
           />
@@ -42,10 +63,16 @@ export default function CheckBooking() {
           </button>
         </form>
 
-        {booking === null && (
+        {booking === null && !agencyHit && (
           <p className="mt-4 text-sm text-rose-700 bg-rose-50 rounded-lg px-3 py-2">
             {t("booking.check.notFound")}
           </p>
+        )}
+
+        {agencyHit && (
+          <div className="mt-5">
+            <TicketCard agency={agencyHit.agency} trip={agencyHit.trip} booking={agencyHit.booking} />
+          </div>
         )}
 
         {booking && (

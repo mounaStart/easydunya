@@ -69,7 +69,9 @@ export default function Layout() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [user?.id, profile, loading, authReady]);
 
-  const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin;
+  const isAgencyStaffUi =
+    location.pathname.startsWith("/agence") && !location.pathname.startsWith("/agence/voyage");
+  const isPassengerHome = location.pathname === "/" && !isDriver && !isAdmin && !isAgencyStaffUi;
 
   const handlePullRefresh = useCallback(async () => {
     dispatchAppRefresh({ resetHome: isPassengerHome });
@@ -115,7 +117,7 @@ export default function Layout() {
         © {new Date().getFullYear()} Easy Dunya — Adam Ba &amp; Maimouna Dia
       </footer>
       <NotificationPrompt />
-      <BottomNav />
+      {!isAgencyStaffUi && <BottomNav />}
     </div>
   );
 }
