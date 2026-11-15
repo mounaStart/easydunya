@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TripPublic } from "../types";
+import { AGENCY_CITIES, FALLBACK_TRIP_CITIES } from "./cities";
 import { freeSeatCount } from "./rules";
 import { getAgencyDb, publishedTripsForSearch, subscribeAgency } from "./store";
+import { displayFromPrice, isMultiStop, tripStops } from "./trip";
 import type { AgencyDB, AgencyTrip } from "./types";
 
-const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
-  "11111111-1111-1111-1111-000000000001": { lat: 18.0735, lng: -15.9582 },
-  "11111111-1111-1111-1111-000000000003": { lat: 16.5128, lng: -15.805 },
-  "11111111-1111-1111-1111-000000000004": { lat: 16.592, lng: -14.27 },
-  "11111111-1111-1111-1111-000000000005": { lat: 16.1503, lng: -13.5037 },
-};
+export { FALLBACK_TRIP_CITIES };
+
+const CITY_COORDS: Record<string, { lat: number; lng: number }> = Object.fromEntries(
+  AGENCY_CITIES.map((c) => [c.id, { lat: c.lat, lng: c.lng }])
+);
 
 export const AGENCY_TRIP_PREFIX = "agency:";
 
@@ -17,9 +18,13 @@ export function isAgencyTripPublicId(id: string | undefined | null): boolean {
   return !!id && id.startsWith(AGENCY_TRIP_PREFIX);
 }
 
-export function agencyTripPath(id: string): string {
+export function agencyTripPath(id: string, fromId?: string, toId?: string): string {
   const raw = id.startsWith(AGENCY_TRIP_PREFIX) ? id.slice(AGENCY_TRIP_PREFIX.length) : id;
-  return `/agence/voyage/${raw}`;
+  const q = new URLSearchParams();
+  if (fromId) q.set("from", fromId);
+  if (toId) q.set("to", toId);
+  const qs = q.toString();
+  return `/agence/voyage/${raw}${qs ? `?${qs}` : ""}`;
 }
 
 export function agencyToTripPublic(db: AgencyDB, t: AgencyTrip): TripPublic {
@@ -34,10 +39,14 @@ export function agencyToTripPublic(db: AgencyDB, t: AgencyTrip): TripPublic {
     from_city_id: t.fromCityId,
     to_city_id: t.toCityId,
     depart_at: t.departAt,
-    price_per_seat: t.price,
+    price_per_seat: displayFromPrice(t),
     seats_total: t.seats,
     seats_available: freeSeatCount(db, t),
-    notes: t.notes,
+    notes: isMultiStop(t)
+      ? [`Via ${tripStops(t).slice(1, -1).map((s) => s.city).join(", ")}`, t.notes]
+          .filter(Boolean)
+          .join(" · ")
+      : t.notes,
     status: "scheduled",
     started_at: null,
     ended_at: null,
@@ -64,6 +73,35 @@ export function agencyToTripPublic(db: AgencyDB, t: AgencyTrip): TripPublic {
   };
 }
 
+export function publicTripMatchesCities(tr: TripPublic, fromId?: string, toId?: string): boolean {
+  if (!isAgencyTripPublicId(tr.id)) {
+    if (fromId && tr.from_city_id !== fromId) return false;
+    if (toId && tr.to_city_id !== toId) return false;
+    return true;
+  }
+  const raw = getAgencyDb().trips.find((t) => `${AGENCY_TRIP_PREFIX}${t.id}` === tr.id);
+  if (!raw) return false;
+  return agencyTripMatchesRoute(raw, fromId || undefined, toId || undefined);
+}
+
+export function stopIndicesForRoute(
+  t: AgencyTrip,
+  fromId?: string,
+  toId?: string
+): { fromIdx: number; toIdx: number } | null {
+  const ids = tripStops(t).map((s) => s.cityId);
+  const fi = fromId ? ids.indexOf(fromId) : 0;
+  const ti = toId ? ids.lastIndexOf(toId) : ids.length - 1;
+  if (fromId && fi < 0) return null;
+  if (toId && ti < 0) return null;
+  if (fi < 0 || ti < 0 || fi >= ti) return null;
+  return { fromIdx: fi, toIdx: ti };
+}
+
+export function agencyTripMatchesRoute(t: AgencyTrip, fromId?: string, toId?: string): boolean {
+  return stopIndicesForRoute(t, fromId, toId) != null;
+}
+
 export function useAgencyPublicTrips(): TripPublic[] {
   const [, setTick] = useState(0);
   useEffect(() => subscribeAgency(() => setTick((n) => n + 1)), []);
@@ -76,14 +114,3 @@ export function useAgencyPublicTrips(): TripPublic[] {
     [db]
   );
 }
-
-export const FALLBACK_TRIP_CITIES = [
-  { id: "11111111-1111-1111-1111-000000000001", name_fr: "Nouakchott", name_ar: "نواكشوط" },
-  { id: "11111111-1111-1111-1111-000000000003", name_fr: "Rosso", name_ar: "روصو" },
-  { id: "11111111-1111-1111-1111-000000000004", name_fr: "Boghé", name_ar: "بوغي" },
-  { id: "11111111-1111-1111-1111-000000000005", name_fr: "Kaédi", name_ar: "كيهيدي" },
-  { id: "11111111-1111-1111-1111-000000000002", name_fr: "Nouadhibou", name_ar: "نواذيبو" },
-  { id: "11111111-1111-1111-1111-000000000006", name_fr: "Kiffa", name_ar: "كيفة" },
-  { id: "11111111-1111-1111-1111-000000000007", name_fr: "Atar", name_ar: "أطار" },
-  { id: "11111111-1111-1111-1111-000000000008", name_fr: "Aleg", name_ar: "ألاك" },
-];

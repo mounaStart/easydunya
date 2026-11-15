@@ -22,11 +22,7 @@ export function useAgency() {
       return { trips: [], bookings: [], vehicles: [], drivers: [], points: [], staffAll: [] };
     }
     const trips = db.trips.filter((t) => t.agencyId === staff.agencyId);
-    const bookings = db.bookings.filter((b) => {
-      if (b.agencyId !== staff.agencyId) return false;
-      if (staff.role === "admin") return true;
-      return b.pointId === staff.pointId;
-    });
+    const bookings = db.bookings.filter((b) => b.agencyId === staff.agencyId);
     return {
       trips,
       bookings,

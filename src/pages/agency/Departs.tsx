@@ -1,8 +1,10 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useAgency } from "../../lib/agency/useAgency";
 import { cancelTrip, publishTrip } from "../../lib/agency/store";
-import { freeSeatCount, tripDisplayStatus } from "../../lib/agency/rules";
+import { DISPLAY_STATUS_LABEL, freeSeatCount, tripDisplayStatus } from "../../lib/agency/rules";
 import { SUGGESTED_FARES } from "../../lib/agency/types";
+import { buildFares } from "../../lib/agency/trip";
+import type { AgencyStop } from "../../lib/agency/types";
 import { useCities } from "../../hooks/useCities";
 import { FALLBACK_TRIP_CITIES } from "../../lib/agency/public";
 import { formatPrice } from "../../lib/utils";
@@ -58,7 +60,12 @@ export default function AgencyDeparts() {
             <div key={t.id} className="card p-4">
               <div className="flex justify-between gap-2 flex-wrap">
                 <div>
-                  <div className="font-bold">{t.fromName} → {t.toName}</div>
+                  <div className="font-bold">
+                    {t.fromName} → {t.toName}
+                    {t.stops && t.stops.length >= 3 ? (
+                      <span className="font-normal text-xs text-slate-500"> via {t.stops.slice(1, -1).map((s) => s.city).join(", ")}</span>
+                    ) : null}
+                  </div>
                   <div className="text-xs text-slate-500">
                     {new Date(t.departAt).toLocaleString("fr-FR")} · {formatPrice(t.price)} · {freeSeatCount(db, t)}/{t.seats} lib. · {v?.plate} · {d ? `${d.first} ${d.last}` : "Sans chauffeur"}
                   </div>
@@ -81,7 +88,7 @@ export default function AgencyDeparts() {
                   </button>
                 )}
               </div>
-              <div className="text-[10px] mt-1 font-bold text-slate-400 uppercase">{st}</div>
+              <div className="text-[10px] mt-1 font-bold text-slate-400 uppercase">{DISPLAY_STATUS_LABEL[st]}</div>
             </div>
           );
         })}
@@ -130,6 +137,8 @@ function PublishModal({
   const [seats, setSeats] = useState(vehicles[0]?.seats ?? 14);
   const [meeting, setMeeting] = useState(defaultMeeting);
   const [notes, setNotes] = useState("");
+  const [via, setVia] = useState<string[]>([]);
+  const [viaPick, setViaPick] = useState("");
 
   const fromName = cities.find((c) => c.id === fromId)?.name_fr ?? "";
   const toName = cities.find((c) => c.id === toId)?.name_fr ?? "";
@@ -146,18 +155,40 @@ function PublishModal({
     setErr(null);
     try {
       const departAt = new Date(`${date}T${time}:00`).toISOString();
+      const viaCities = via
+        .map((id) => cities.find((c) => c.id === id))
+        .filter((c): c is { id: string; name_fr: string } => !!c);
+      let stops: AgencyStop[] | null = null;
+      let fares: Record<string, number> | null = null;
+      if (viaCities.length) {
+        const all = [
+          { id: fromId, name_fr: fromName },
+          ...viaCities,
+          { id: toId, name_fr: toName },
+        ];
+        stops = all.map((c, i) => ({
+          index: i,
+          cityId: c.id,
+          city: c.name_fr,
+          time: i === 0 ? time : null,
+        }));
+        fares = buildFares(stops);
+      }
+      const endFare = stops && fares ? fares[`0-${stops.length - 1}`] : undefined;
       publishTrip({
         fromCityId: fromId,
         toCityId: toId,
         fromName,
         toName,
         departAt,
-        price,
+        price: endFare ?? price,
         vehicleId,
         driverId: driverId || null,
         seats,
         meeting,
         notes: notes || null,
+        stops,
+        fares,
       });
       onClose();
     } catch (er) {
@@ -191,6 +222,35 @@ function PublishModal({
         {suggest && (
           <p className="text-xs text-brand-700">Tarif habituel {formatPrice(suggest.price)} · ~{suggest.hours} h (modifiable)</p>
         )}
+        <div className="space-y-1">
+          <div className="text-xs font-semibold text-slate-500">Arrêts en route (optionnel)</div>
+          <div className="flex gap-2">
+            <select className="input flex-1" value={viaPick} onChange={(e) => setViaPick(e.target.value)}>
+              <option value="">Ajouter une ville</option>
+              {cities
+                .filter((c) => c.id !== fromId && c.id !== toId && !via.includes(c.id))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name_fr}</option>
+                ))}
+            </select>
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              onClick={() => {
+                if (viaPick) setVia((v) => [...v, viaPick]);
+                setViaPick("");
+              }}
+            >
+              Ajouter
+            </button>
+          </div>
+          {via.map((id, i) => (
+            <div key={id} className="flex justify-between text-sm">
+              <span>{i + 1}. {cities.find((c) => c.id === id)?.name_fr}</span>
+              <button type="button" className="text-rose-600 text-xs" onClick={() => setVia((v) => v.filter((x) => x !== id))}>Retirer</button>
+            </div>
+          ))}
+        </div>
         <input className="input" value={meeting} onChange={(e) => setMeeting(e.target.value)} placeholder="Point de départ exact" required />
         <textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" />
         {err && <p className="text-sm text-rose-600">{err}</p>}

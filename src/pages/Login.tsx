@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { mapAuthError, isEmailLogin } from "../lib/authErrors";
 import { postLoginPath } from "../lib/postLoginPath";
-import { loginAgency, logoutAgency } from "../lib/agency/store";
+import { loginAgency, logoutAgency, postAgencyLoginPath } from "../lib/agency/store";
 import { useAuth } from "../hooks/useAuth";
 import PasswordInput from "../components/PasswordInput";
 
@@ -37,8 +37,8 @@ export default function Login() {
 
     if (looksLikeAgencyIdent(login) || from.startsWith("/agence")) {
       const agency = loginAgency(login, password);
-      if (!agency.error) {
-        navigate(from.startsWith("/agence") ? from : "/agence", { replace: true });
+      if (!agency.error && agency.staff) {
+        navigate(from.startsWith("/agence") ? from : postAgencyLoginPath(agency.staff), { replace: true });
         return;
       }
       if (looksLikeAgencyIdent(login)) {
@@ -54,8 +54,8 @@ export default function Login() {
 
     if (result.error) {
       const agency = loginAgency(login, password);
-      if (!agency.error) {
-        navigate("/agence", { replace: true });
+      if (!agency.error && agency.staff) {
+        navigate(postAgencyLoginPath(agency.staff), { replace: true });
         return;
       }
       setLoading(false);

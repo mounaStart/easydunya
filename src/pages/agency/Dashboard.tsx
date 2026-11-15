@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAgency } from "../../lib/agency/useAgency";
-import { freeSeatCount, seatsByChannel, tripDisplayStatus } from "../../lib/agency/rules";
+import { DISPLAY_STATUS_LABEL, freeSeatCount, seatsByChannel, tripDisplayStatus } from "../../lib/agency/rules";
+import { displayFromPrice, isMultiStop } from "../../lib/agency/trip";
 import { CHANNEL_COLOR, CHANNEL_LABEL } from "../../lib/agency/types";
 import { formatPrice } from "../../lib/utils";
 
@@ -10,8 +11,6 @@ export default function AgencyDashboard() {
     .filter((t) => t.status === "publie" && new Date(t.departAt).getTime() > Date.now())
     .sort((a, b) => a.departAt.localeCompare(b.departAt))
     .slice(0, 6);
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
   const week = Date.now() - 7 * 86400000;
   const weekBookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= week && b.status !== "annulee");
   const pending = bookings.filter((b) => b.status === "attente");
@@ -62,15 +61,15 @@ export default function AgencyDashboard() {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}{" "}
-                        · {formatPrice(t.price)}
+                        · {isMultiStop(t) ? `dès ${formatPrice(displayFromPrice(t))}` : formatPrice(t.price)}
                       </div>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full h-fit ${badge(st)}`}>
-                      {label(st)} · {freeSeatCount(db, t)} lib.
+                      {DISPLAY_STATUS_LABEL[st]} · {freeSeatCount(db, t)} lib.
                     </span>
                   </div>
                   <div className="mt-2 h-2 rounded-full overflow-hidden flex bg-slate-100">
-                    {(["app", "guichet", "sous"] as const).map((c) => (
+                    {(["app", "guichet"] as const).map((c) => (
                       <div
                         key={c}
                         title={`${CHANNEL_LABEL[c]} ${ch[c]}`}
@@ -90,8 +89,8 @@ export default function AgencyDashboard() {
 
       <section>
         <h2 className="h2 mb-2">Ventes 7 jours par canal</h2>
-        <div className="grid grid-cols-3 gap-2">
-          {(["app", "guichet", "sous"] as const).map((c) => (
+        <div className="grid grid-cols-2 gap-2">
+          {(["app", "guichet"] as const).map((c) => (
             <div key={c} className="card p-3">
               <div className="text-[10px] font-bold uppercase" style={{ color: CHANNEL_COLOR[c] }}>
                 {CHANNEL_LABEL[c]}
@@ -129,13 +128,7 @@ function badge(st: string) {
   if (st === "ouvert") return "bg-emerald-100 text-emerald-800";
   if (st === "presque") return "bg-amber-100 text-amber-800";
   if (st === "complet") return "bg-rose-100 text-rose-800";
+  if (st === "selon") return "bg-indigo-100 text-indigo-800";
   if (st === "annule") return "bg-slate-200 text-slate-600";
   return "bg-slate-100 text-slate-500";
-}
-function label(st: string) {
-  return (
-    { ouvert: "Ouvert", presque: "Presque complet", complet: "Complet", termine: "Terminé", annule: "Annulé" }[
-      st
-    ] ?? st
-  );
 }

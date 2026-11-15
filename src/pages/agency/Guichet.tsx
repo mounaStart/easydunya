@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import SeatMap from "../../components/agency/SeatMap";
 import TicketCard from "../../components/agency/TicketCard";
 import { useAgency } from "../../lib/agency/useAgency";
-import { firstFreeSeats, freeSeatCount } from "../../lib/agency/rules";
+import { firstFreeSeats, freeOnLegs, freeSeatCount, hasAnyFreeSeat } from "../../lib/agency/rules";
 import { sellSeats } from "../../lib/agency/store";
+import { displayFromPrice, farePrice, lastStopIndex, legLabel, tripStops } from "../../lib/agency/trip";
 import type { AgencyPayMethod, AgencyPayStatus } from "../../lib/agency/types";
 import { formatPrice } from "../../lib/utils";
 
 export default function AgencyGuichet() {
-  const { trips, db, staff, agency, points, bookings } = useAgency();
+  const { trips, db, agency, bookings } = useAgency();
   const upcoming = trips
     .filter((t) => t.status === "publie" && new Date(t.departAt).getTime() > Date.now())
     .sort((a, b) => a.departAt.localeCompare(b.departAt));
@@ -16,26 +17,41 @@ export default function AgencyGuichet() {
   const [tripId, setTripId] = useState(upcoming[0]?.id ?? "");
   const [dest, setDest] = useState("");
   const trip = upcoming.find((t) => t.id === tripId) ?? upcoming[0];
+  const stops = trip ? tripStops(trip) : [];
+  const last = trip ? lastStopIndex(trip) : 1;
+  const [fromIdx, setFromIdx] = useState(0);
+  const [toIdx, setToIdx] = useState(last);
   const [seats, setSeats] = useState<number[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pay, setPay] = useState<AgencyPayStatus>("paye");
   const [method, setMethod] = useState<AgencyPayMethod>("especes");
-  const [pointId, setPointId] = useState(staff?.pointId ?? "principal");
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   const list = useMemo(
-    () => upcoming.filter((t) => !dest || t.toName === dest),
+    () => upcoming.filter((t) => !dest || t.toName === dest || tripStops(t).some((s) => s.city === dest)),
     [upcoming, dest]
   );
-  const recent = bookings.filter((b) => b.channel !== "app").slice(-5).reverse();
+  const recent = bookings.filter((b) => b.channel === "guichet").slice(-5).reverse();
+  const unit = trip ? farePrice(trip, fromIdx, toIdx) : 0;
+  const freeLeg = trip ? freeOnLegs(db, trip, fromIdx, toIdx) : 0;
 
   function pickTrip(id: string) {
     const t = upcoming.find((x) => x.id === id);
     setTripId(id);
-    setSeats(t ? firstFreeSeats(db, t, 1) : []);
+    const end = t ? lastStopIndex(t) : 1;
+    setFromIdx(0);
+    setToIdx(end);
+    setSeats(t ? firstFreeSeats(db, t, 1, 0, end) : []);
     setStep(2);
+  }
+
+  function applyLeg(from: number, to: number) {
+    if (!trip || to <= from) return;
+    setFromIdx(from);
+    setToIdx(to);
+    setSeats(firstFreeSeats(db, trip, Math.max(1, seats.length), from, to));
   }
 
   function toggle(n: number) {
@@ -53,12 +69,13 @@ export default function AgencyGuichet() {
         phone,
         pay,
         payMethod: pay === "a_payer" ? null : method,
-        pointId: staff?.role === "admin" ? pointId : staff?.pointId,
+        fromIdx,
+        toIdx,
       });
       setDone(b.id);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erreur");
-      setSeats(trip ? firstFreeSeats(db, trip, seats.length || 1) : []);
+      setSeats(trip ? firstFreeSeats(db, trip, seats.length || 1, fromIdx, toIdx) : []);
     }
   }
 
@@ -75,7 +92,7 @@ export default function AgencyGuichet() {
             setDone(null);
             setName("");
             setPhone("");
-            setSeats(trip ? firstFreeSeats(db, trip, 1) : []);
+            setSeats(trip ? firstFreeSeats(db, trip, 1, 0, lastStopIndex(trip)) : []);
             setStep(1);
           }}
         >
@@ -100,7 +117,7 @@ export default function AgencyGuichet() {
           <div className="space-y-2">
             <select className="input" value={dest} onChange={(e) => setDest(e.target.value)}>
               <option value="">Toutes destinations</option>
-              {[...new Set(upcoming.map((t) => t.toName))].map((n) => (
+              {[...new Set(upcoming.flatMap((t) => tripStops(t).slice(1).map((s) => s.city)))].map((n) => (
                 <option key={n}>{n}</option>
               ))}
             </select>
@@ -110,13 +127,14 @@ export default function AgencyGuichet() {
                 <button
                   key={t.id}
                   type="button"
-                  disabled={free === 0}
+                  disabled={!hasAnyFreeSeat(db, t)}
                   onClick={() => pickTrip(t.id)}
                   className="card p-3 w-full text-left disabled:opacity-40"
                 >
                   <div className="font-bold">{t.fromName} → {t.toName}</div>
                   <div className="text-xs text-slate-500">
-                    {new Date(t.departAt).toLocaleString("fr-FR")} · {formatPrice(t.price)} · {free} places
+                    {new Date(t.departAt).toLocaleString("fr-FR")} · dès {formatPrice(displayFromPrice(t))} · {free} places
+                    {t.stops && t.stops.length >= 3 ? ` · via ${t.stops.slice(1, -1).map((s) => s.city).join(", ")}` : ""}
                   </div>
                 </button>
               );
@@ -130,6 +148,23 @@ export default function AgencyGuichet() {
               <button type="button" className="btn-ghost text-sm" onClick={() => setStep(1)}>←</button>
               <div className="font-bold">{trip.fromName} → {trip.toName}</div>
             </div>
+            {stops.length >= 3 && (
+              <div className="grid grid-cols-2 gap-2">
+                <select className="input" value={fromIdx} onChange={(e) => applyLeg(Number(e.target.value), toIdx)}>
+                  {stops.filter((s) => s.index < last).map((s) => (
+                    <option key={s.index} value={s.index}>Montée {s.city}</option>
+                  ))}
+                </select>
+                <select className="input" value={toIdx} onChange={(e) => applyLeg(fromIdx, Number(e.target.value))}>
+                  {stops.filter((s) => s.index > fromIdx).map((s) => (
+                    <option key={s.index} value={s.index}>Descente {s.city}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <p className="text-sm font-semibold">
+              {legLabel(trip, fromIdx, toIdx)} · {formatPrice(unit)} · {freeLeg} libres
+            </p>
             <div className="flex items-center gap-2">
               <button type="button" className="w-10 h-10 rounded-xl border" onClick={() => setSeats((s) => s.slice(0, -1))} disabled={seats.length <= 1}>−</button>
               <span className="font-extrabold w-8 text-center">{seats.length}</span>
@@ -137,7 +172,7 @@ export default function AgencyGuichet() {
                 type="button"
                 className="w-10 h-10 rounded-xl border"
                 onClick={() => {
-                  const next = firstFreeSeats(db, trip, seats.length + 1);
+                  const next = firstFreeSeats(db, trip, seats.length + 1, fromIdx, toIdx);
                   if (next.length > seats.length) setSeats(next);
                 }}
               >
@@ -145,7 +180,7 @@ export default function AgencyGuichet() {
               </button>
               <span className="text-sm text-slate-500">Places {seats.join(", ") || "—"}</span>
             </div>
-            <SeatMap db={db} trip={trip} selected={seats} onToggle={toggle} interactive />
+            <SeatMap db={db} trip={trip} selected={seats} onToggle={toggle} interactive fromIdx={fromIdx} toIdx={toIdx} />
             <button type="button" className="btn-primary" disabled={!seats.length} onClick={() => setStep(3)}>
               Continuer
             </button>
@@ -157,14 +192,6 @@ export default function AgencyGuichet() {
             <button type="button" className="btn-ghost text-sm" onClick={() => setStep(2)}>← Places</button>
             <input className="input" placeholder="Nom du passager" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="input" placeholder="Téléphone 8 chiffres" inputMode="numeric" maxLength={8} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))} />
-            {staff?.role === "admin" && (
-              <select className="input" value={pointId} onChange={(e) => setPointId(e.target.value)}>
-                <option value="principal">Guichet principal</option>
-                {points.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            )}
             <select className="input" value={pay} onChange={(e) => setPay(e.target.value as AgencyPayStatus)}>
               <option value="paye">Encaisser maintenant</option>
               <option value="a_payer">Réserver sans paiement</option>
@@ -177,7 +204,7 @@ export default function AgencyGuichet() {
                 <option value="sedad">Sedad</option>
               </select>
             )}
-            <p className="font-extrabold">{formatPrice(trip.price * seats.length)}</p>
+            <p className="font-extrabold">{formatPrice(unit * seats.length)}</p>
             {err && <p className="text-sm text-rose-600">{err}</p>}
             <button type="button" className="btn-primary w-full" disabled={name.trim().length < 2 || phone.length !== 8} onClick={sell}>
               Valider la vente

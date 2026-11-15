@@ -37,8 +37,8 @@ export default function AdminAgences() {
   return (
     <div className="space-y-6">
       <div className="rounded-xl bg-amber-50 text-amber-900 text-sm p-3">
-        Démo locale (aperçu, sans SQL) : identifiants STV <strong>stv</strong>, <strong>stv.guichet</strong>,{" "}
-        <strong>stv.tevragh</strong>, <strong>stv.embarq</strong> — mot de passe <strong>demo1234</strong>.
+        Démo petites agences : <strong>sahel</strong> (propriétaire), <strong>sahel.guichet</strong> (employé),{" "}
+        <strong>amal</strong>, <strong>tagant</strong> — mot de passe <strong>demo1234</strong>. Pas de sous-agence.
       </div>
       <div className="space-y-2">
         {db.agencies.map((a) => (
@@ -78,7 +78,7 @@ export default function AdminAgences() {
         <button className="btn-primary">Créer</button>
       </form>
       <button type="button" className="btn-ghost text-xs text-slate-500" onClick={() => resetAgencyDemo()}>
-        Réinitialiser la démo STV
+        Réinitialiser la démo (SAHEL / AL AMAL / TAGANT)
       </button>
     </div>
   );

@@ -5,6 +5,7 @@ export type AgencyPerm =
   | "annuler"
   | "embarquement"
   | "rapports";
+/** `sous` réservé à la version étendue — non utilisé en petites agences. */
 export type AgencyChannel = "app" | "guichet" | "sous";
 export type AgencyTripStatus = "publie" | "annule";
 export type AgencyBookingStatus = "attente" | "confirmee" | "annulee" | "terminee";
@@ -30,12 +31,16 @@ export const PERM_PRESETS: Record<string, { label: string; perms: AgencyPerm[] }
     perms: ["vendre", "reservations"],
   },
   responsable: {
-    label: "Responsable point de vente",
+    label: "Responsable",
     perms: ["vendre", "reservations", "annuler", "rapports"],
   },
   controleur: {
     label: "Contrôleur d'embarquement",
     perms: ["embarquement", "reservations"],
+  },
+  guichet_complet: {
+    label: "Employé guichet",
+    perms: ["vendre", "reservations", "embarquement"],
   },
 };
 
@@ -103,6 +108,14 @@ export interface AgencyDriver {
   active: boolean;
 }
 
+/** Ville du trajet, rang 0 = départ. */
+export interface AgencyStop {
+  index: number;
+  cityId: string;
+  city: string;
+  time: string | null;
+}
+
 export interface AgencyTrip {
   id: string;
   agencyId: string;
@@ -118,6 +131,10 @@ export interface AgencyTrip {
   meeting: string;
   notes: string | null;
   status: AgencyTripStatus;
+  /** Absent = trajet direct. Sinon 3 villes ou plus, rang 0…n. */
+  stops: AgencyStop[] | null;
+  /** Clés `"i-j"` → prix. Absent = un seul prix (départ). */
+  fares: Record<string, number> | null;
 }
 
 export interface AgencyBooking {
@@ -125,6 +142,8 @@ export interface AgencyBooking {
   code: string;
   agencyId: string;
   tripId: string;
+  fromIdx: number;
+  toIdx: number;
   passenger: string;
   phone: string;
   seats: number;
@@ -166,6 +185,7 @@ export const CHANNEL_LABEL: Record<AgencyChannel, string> = {
   sous: "Sous-agence",
 };
 
+/** Barème Nouakchott → ville (suggestion de tarifs / durées). */
 export const SUGGESTED_FARES: Record<string, { price: number; hours: number }> = {
   Rosso: { price: 300, hours: 3 },
   Akjoujt: { price: 300, hours: 3 },
@@ -178,6 +198,18 @@ export const SUGGESTED_FARES: Record<string, { price: number; hours: number }> =
   Tidjikja: { price: 1000, hours: 8 },
   Sélibaby: { price: 1100, hours: 9 },
   Zouérate: { price: 1200, hours: 10 },
+  Zouérat: { price: 1200, hours: 10 },
   Aïoun: { price: 1400, hours: 12 },
+  Aioun: { price: 1400, hours: 12 },
   Néma: { price: 1700, hours: 16 },
 };
+
+export function suggestFare(fromCity: string, toCity: string): number {
+  if (fromCity === toCity) return 0;
+  const a = SUGGESTED_FARES[fromCity]?.price ?? 0;
+  const b = SUGGESTED_FARES[toCity]?.price ?? 0;
+  if (fromCity === "Nouakchott") return Math.max(50, b);
+  if (toCity === "Nouakchott") return Math.max(50, a);
+  const diff = Math.abs(b - a);
+  return Math.max(50, Math.round(diff / 50) * 50);
+}

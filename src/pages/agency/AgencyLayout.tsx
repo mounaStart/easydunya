@@ -20,7 +20,7 @@ const ALL_LINKS: Array<{
   { to: "/agence/rapports", label: "Rapports", perm: "rapports", end: false, adminOnly: false },
   { to: "/agence/vehicules", label: "Véhicules", perm: null, end: false, adminOnly: true },
   { to: "/agence/chauffeurs", label: "Chauffeurs", perm: null, end: false, adminOnly: true },
-  { to: "/agence/reseau", label: "Réseau", perm: null, end: false, adminOnly: true },
+  { to: "/agence/equipe", label: "Équipe", perm: null, end: false, adminOnly: true },
   { to: "/agence/parametres", label: "Paramètres", perm: null, end: false, adminOnly: true },
 ];
 
@@ -70,8 +70,7 @@ export default function AgencyLayout() {
           <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Espace agence</div>
           <h1 className="h1">{agency.name}</h1>
           <p className="muted text-sm">
-            {staff.name} · {staff.role === "admin" ? "Administrateur" : "Agent"} ·{" "}
-            {staff.pointId === "principal" ? "Guichet principal" : "Sous-agence"}
+            {staff.name} · {staff.role === "admin" ? "Propriétaire" : "Employé"}
           </p>
         </div>
         <button

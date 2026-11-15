@@ -1,3 +1,4 @@
+import { legLabel } from "../../lib/agency/trip";
 import type { Agency, AgencyBooking, AgencyTrip } from "../../lib/agency/types";
 import { formatPrice } from "../../lib/utils";
 
@@ -14,9 +15,10 @@ export default function TicketCard({
 }) {
   const when = new Date(trip.departAt);
   const payLabel = booking.pay === "paye" ? "Payé" : booking.pay === "a_payer" ? "À payer" : booking.pay;
+  const route = legLabel(trip, booking.fromIdx, booking.toIdx);
   const text = [
     `Easy Dunya · ${agency.name}`,
-    `${trip.fromName} → ${trip.toName}`,
+    route,
     when.toLocaleString("fr-FR"),
     `${booking.passenger} · ${booking.phone}`,
     `Places ${booking.seatNos.join(", ")} · ${formatPrice(booking.total)}`,
@@ -37,9 +39,7 @@ export default function TicketCard({
     <div className="card overflow-hidden border-brand-100">
       <div className="px-4 py-3 text-white" style={{ backgroundImage: "var(--brand-gradient)" }}>
         <div className="text-xs opacity-90">{agency.name}</div>
-        <div className="font-extrabold text-lg">
-          {trip.fromName} → {trip.toName}
-        </div>
+        <div className="font-extrabold text-lg">{route}</div>
         <div className="text-sm opacity-90">
           {when.toLocaleDateString("fr-FR")} ·{" "}
           {when.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}

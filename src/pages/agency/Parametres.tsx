@@ -57,7 +57,7 @@ export default function AgencyParametres() {
       </section>
       <section className="card p-4">
         <h2 className="h2 mb-2">Démo</h2>
-        <p className="text-sm text-slate-500 mb-2">Réinitialise l’agence STV (données locales de prévisualisation).</p>
+        <p className="text-sm text-slate-500 mb-2">Réinitialise SAHEL, AL AMAL et TAGANT (données locales de prévisualisation).</p>
         <button
           type="button"
           className="btn-ghost text-rose-700"

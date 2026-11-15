@@ -3,6 +3,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Spinner from "./components/Spinner";
 import { useAuth } from "./hooks/useAuth";
+import { postAgencyLoginPath } from "./lib/agency/store";
 import { useAgency } from "./lib/agency/useAgency";
 
 import Home from "./pages/Home";
@@ -41,7 +42,7 @@ import AgencyEmbarquement from "./pages/agency/Embarquement";
 import AgencyRapports from "./pages/agency/Rapports";
 import AgencyVehicules from "./pages/agency/Vehicules";
 import AgencyChauffeurs from "./pages/agency/Chauffeurs";
-import AgencyReseau from "./pages/agency/Reseau";
+import AgencyEquipe from "./pages/agency/Equipe";
 import AgencyParametres from "./pages/agency/Parametres";
 import AgencyVoyagePublic from "./pages/agency/VoyagePublic";
 
@@ -52,7 +53,9 @@ function HomeIndex() {
   if (loading || (user && !authReady)) return <Spinner />;
   if (profile?.role === "driver") return <DriverHome />;
   if (profile?.role === "admin") return <Navigate to="/admin" replace />;
-  if (!user && staff && agency?.status === "approved") return <Navigate to="/agence" replace />;
+  if (!user && staff && agency?.status === "approved") {
+    return <Navigate to={postAgencyLoginPath(staff)} replace />;
+  }
   return <Home />;
 }
 
@@ -90,7 +93,8 @@ export default function App() {
           <Route path="rapports" element={<AgencyRapports />} />
           <Route path="vehicules" element={<AgencyVehicules />} />
           <Route path="chauffeurs" element={<AgencyChauffeurs />} />
-          <Route path="reseau" element={<AgencyReseau />} />
+          <Route path="equipe" element={<AgencyEquipe />} />
+          <Route path="reseau" element={<AgencyEquipe />} />
           <Route path="parametres" element={<AgencyParametres />} />
         </Route>
 

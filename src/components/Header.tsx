@@ -4,7 +4,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useAgency } from "../lib/agency/useAgency";
-import { logoutAgency } from "../lib/agency/store";
+import { logoutAgency, postAgencyLoginPath } from "../lib/agency/store";
 import { supabase } from "../lib/supabase";
 import LangSwitcher from "./LangSwitcher";
 import NotificationBell from "./NotificationBell";
@@ -164,8 +164,8 @@ export default function Header({ className }: { className?: string }) {
   const driverApproved = profile?.driver_status === "approved";
 
   const links: NavLinkItem[] = [{ to: "/", label: t("nav.home") }];
-  if (agencyNav) {
-    links.push({ to: "/agence", label: t("nav.agency") });
+  if (agencyNav && staff) {
+    links.push({ to: postAgencyLoginPath(staff), label: t("nav.agency") });
   } else if (isDriver) {
     links.push(
       { to: "/driver", label: t("nav.dashboard") },
@@ -233,7 +233,7 @@ export default function Header({ className }: { className?: string }) {
               name={agencyNav ? agency?.name ?? staff?.name : profileOk ? profile?.full_name : null}
               email={user?.email ?? staff?.email ?? null}
               onLogout={handleLogout}
-              profileTo={agencyNav ? "/agence" : "/profile"}
+              profileTo={agencyNav && staff ? postAgencyLoginPath(staff) : "/profile"}
             />
           ) : (
             <>

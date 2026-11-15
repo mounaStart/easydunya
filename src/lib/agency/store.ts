@@ -3,11 +3,13 @@ import { buildDemoDb } from "./demo";
 import {
   firstFreeSeats,
   freeSeatCount,
+  hasAnyFreeSeat,
   hasPerm,
-  occupiedSeatNos,
+  occupiedOnLegs,
   refundForCancel,
   sameDay,
 } from "./rules";
+import { farePrice, lastStopIndex } from "./trip";
 import type {
   Agency,
   AgencyBooking,
@@ -20,12 +22,14 @@ import type {
   AgencyPoint,
   AgencyStaff,
   AgencyStaffRole,
+  AgencyStop,
   AgencyTrip,
   AgencyVehicle,
 } from "./types";
 
-const KEY = "ed_agency_v1";
+const KEY = "ed_agency_v2";
 const SESSION_KEY = "ed_agency_session";
+const OLD_KEY = "ed_agency_v1";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -36,6 +40,7 @@ function uid(): string {
 
 function load(): AgencyDB {
   try {
+    localStorage.removeItem(OLD_KEY);
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw) as AgencyDB;
   } catch {
@@ -100,10 +105,6 @@ export function loginAgency(login: string, password: string): { error?: string; 
   );
   if (!staff) return { error: "Identifiants incorrects." };
   if (!staff.active) return { error: "Compte désactivé. Contactez l'administrateur de l'agence." };
-  const point = staff.pointId === "principal" ? null : db.points.find((p) => p.id === staff.pointId);
-  if (point && !point.active) {
-    return { error: "Cette sous-agence est désactivée. Connexion impossible." };
-  }
   const agency = db.agencies.find((a) => a.id === staff.agencyId);
   if (!agency || agency.status === "suspended") {
     return { error: "Agence suspendue. Contactez Easy Dunya." };
@@ -119,6 +120,14 @@ export function loginAgency(login: string, password: string): { error?: string; 
   });
   setAgencySession({ staffId: staff.id, agencyId: staff.agencyId });
   return { staff };
+}
+
+export function postAgencyLoginPath(staff: AgencyStaff): string {
+  if (staff.role === "admin") return "/agence";
+  if (hasPerm(staff, "vendre")) return "/agence/guichet";
+  if (hasPerm(staff, "reservations")) return "/agence/reservations";
+  if (hasPerm(staff, "embarquement")) return "/agence/embarquement";
+  return "/agence";
 }
 
 export function logoutAgency() {
@@ -153,7 +162,7 @@ export function publishedTripsForSearch() {
     (t) =>
       t.status === "publie" &&
       new Date(t.departAt).getTime() > Date.now() &&
-      freeSeatCount(db, t) > 0
+      hasAnyFreeSeat(db, t)
   );
 }
 
@@ -335,7 +344,7 @@ export function upsertStaff(args: {
     password: args.password?.trim() || existing?.password || "demo1234",
     name: args.name.trim(),
     role: args.role,
-    pointId: args.pointId,
+    pointId: "principal",
     perms: args.role === "admin" ? ["vendre", "reservations", "annuler", "embarquement", "rapports"] : args.perms,
     active: args.active,
     lastLogin: existing?.lastLogin ?? null,
@@ -373,11 +382,18 @@ export function publishTrip(args: Omit<AgencyTrip, "id" | "agencyId" | "status">
     );
     if (clashD) throw new Error("Ce chauffeur a déjà un départ ce jour-là.");
   }
+  if (args.fromCityId === args.toCityId) throw new Error("Ville d'arrivée identique au départ.");
   const existing = args.id ? db.trips.find((t) => t.id === args.id) : null;
   if (existing) {
-    const occ = occupiedSeatNos(db, existing.id).length;
+    const occ = existing.seats - freeSeatCount(db, existing);
     if (args.seats < occ) throw new Error("Places inférieures aux sièges déjà occupés.");
+    if (existing.stops && db.bookings.some((b) => b.tripId === existing.id && b.status !== "annulee")) {
+      /* villes verrouillées : on garde les arrêts existants si des réservations existent */
+    }
   }
+  const stops: AgencyStop[] | null =
+    args.stops && args.stops.length >= 3 ? args.stops : null;
+  const fares = stops ? args.fares : null;
   const row: AgencyTrip = {
     id: existing?.id ?? `agtr-${uid().slice(0, 8)}`,
     agencyId: s.agencyId,
@@ -393,6 +409,8 @@ export function publishTrip(args: Omit<AgencyTrip, "id" | "agencyId" | "status">
     meeting: args.meeting,
     notes: args.notes,
     status: "publie",
+    stops,
+    fares,
   };
   commit({
     ...db,
@@ -434,41 +452,43 @@ export function sellSeats(args: {
   phone: string;
   pay: AgencyPayStatus;
   payMethod: AgencyPayMethod | null;
-  channel?: AgencyChannel;
-  pointId?: string;
+  fromIdx?: number;
+  toIdx?: number;
 }): AgencyBooking {
   const s = scopedStaff();
   assertPerm("vendre");
   const trip = db.trips.find((t) => t.id === args.tripId && t.agencyId === s.agencyId);
   if (!trip || trip.status !== "publie") throw new Error("Départ indisponible.");
   if (new Date(trip.departAt).getTime() < Date.now()) throw new Error("Départ déjà passé.");
-  const taken = new Set(occupiedSeatNos(db, trip.id));
+  const fromIdx = args.fromIdx ?? 0;
+  const toIdx = args.toIdx ?? lastStopIndex(trip);
+  if (toIdx <= fromIdx) throw new Error("La descente doit être après la montée.");
+  const taken = occupiedOnLegs(db, trip.id, fromIdx, toIdx);
   for (const n of args.seatNos) {
     if (n < 1 || n > trip.seats || taken.has(n)) {
-      throw new Error("Une ou plusieurs places viennent d'être vendues. Choisissez d'autres sièges.");
+      throw new Error(`La place ${n} vient d'être vendue. Choisissez d'autres places.`);
     }
   }
   const agency = db.agencies.find((a) => a.id === s.agencyId)!;
-  const pointId =
-    s.role === "admin" ? args.pointId || "principal" : s.pointId;
-  const channel: AgencyChannel =
-    args.channel ?? (pointId === "principal" ? "guichet" : "sous");
+  const unit = farePrice(trip, fromIdx, toIdx);
   const booking: AgencyBooking = {
     id: uid(),
     code: generateAgencyBookingCode(agency.slug),
     agencyId: s.agencyId,
     tripId: trip.id,
+    fromIdx,
+    toIdx,
     passenger: args.passenger.trim(),
     phone: args.phone.replace(/\D/g, "").slice(0, 8),
     seats: args.seatNos.length,
     seatNos: [...args.seatNos].sort((a, b) => a - b),
-    total: trip.price * args.seatNos.length,
-    channel,
-    pointId,
+    total: unit * args.seatNos.length,
+    channel: "guichet",
+    pointId: "principal",
     agentId: s.id,
-    status: args.pay === "a_payer" ? "attente" : "confirmee",
+    status: "confirmee",
     pay: args.pay,
-    payMethod: args.payMethod,
+    payMethod: args.pay === "a_payer" ? null : args.payMethod,
     createdAt: new Date().toISOString(),
     boarded: false,
     boardedAt: null,
@@ -486,31 +506,39 @@ export function bookFromApp(args: {
   seats?: number;
   passenger: string;
   phone: string;
+  fromIdx?: number;
+  toIdx?: number;
 }): AgencyBooking {
   const trip = db.trips.find((t) => t.id === args.tripId);
   if (!trip || trip.status !== "publie") throw new Error("Départ indisponible.");
+  const fromIdx = args.fromIdx ?? 0;
+  const toIdx = args.toIdx ?? lastStopIndex(trip);
+  if (toIdx <= fromIdx) throw new Error("La descente doit être après la montée.");
   const nos =
     args.seatNos && args.seatNos.length
       ? args.seatNos
-      : firstFreeSeats(db, trip, args.seats ?? 1);
+      : firstFreeSeats(db, trip, args.seats ?? 1, fromIdx, toIdx);
   if (nos.length < (args.seats ?? nos.length)) throw new Error("Plus assez de places.");
-  const taken = new Set(occupiedSeatNos(db, trip.id));
+  const taken = occupiedOnLegs(db, trip.id, fromIdx, toIdx);
   if (nos.some((n) => taken.has(n))) throw new Error("Places déjà prises.");
   const agency = db.agencies.find((a) => a.id === trip.agencyId)!;
+  const unit = farePrice(trip, fromIdx, toIdx);
   const booking: AgencyBooking = {
     id: uid(),
     code: generateAgencyBookingCode(agency.slug),
     agencyId: trip.agencyId,
     tripId: trip.id,
+    fromIdx,
+    toIdx,
     passenger: args.passenger.trim(),
     phone: args.phone.replace(/\D/g, "").slice(0, 8),
     seats: nos.length,
     seatNos: nos,
-    total: trip.price * nos.length,
+    total: unit * nos.length,
     channel: "app",
     pointId: "app",
     agentId: null,
-    status: "confirmee",
+    status: "attente",
     pay: "a_payer",
     payMethod: null,
     createdAt: new Date().toISOString(),
@@ -529,7 +557,6 @@ export function cancelBooking(id: string, reason: string) {
   assertPerm("annuler");
   const b = db.bookings.find((x) => x.id === id && x.agencyId === s.agencyId);
   if (!b) throw new Error("Réservation introuvable.");
-  if (s.role !== "admin" && b.pointId !== s.pointId) throw new Error("Hors de votre point de vente.");
   const trip = db.trips.find((t) => t.id === b.tripId)!;
   const agency = db.agencies.find((a) => a.id === s.agencyId)!;
   const { refund, pay } = refundForCancel(agency, trip, b);
@@ -637,9 +664,5 @@ export function findAgencyBookingByCode(code: string): {
 export function visibleBookings(): AgencyBooking[] {
   const s = currentStaff();
   if (!s) return [];
-  return db.bookings.filter((b) => {
-    if (b.agencyId !== s.agencyId) return false;
-    if (s.role === "admin") return true;
-    return b.pointId === s.pointId;
-  });
+  return db.bookings.filter((b) => b.agencyId === s.agencyId);
 }

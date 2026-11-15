@@ -5,7 +5,7 @@ import MapView from "../components/MapView";
 import Spinner from "../components/Spinner";
 import { useCities } from "../hooks/useCities";
 import { useCityCounts, useUpcomingTrips } from "../hooks/useTrips";
-import { agencyTripPath, isAgencyTripPublicId, useAgencyPublicTrips } from "../lib/agency/public";
+import { agencyTripPath, isAgencyTripPublicId, publicTripMatchesCities, useAgencyPublicTrips } from "../lib/agency/public";
 import { formatPrice, formatPeriod, isoToday, relativeDateLabel } from "../lib/utils";
 import { BRAND_BLUE, BRAND_GRADIENT_BR } from "../lib/brandColors";
 
@@ -27,8 +27,7 @@ export default function Search() {
 
   const results = useMemo(() => {
     return trips.filter((tr) => {
-      if (fromId && tr.from_city_id !== fromId) return false;
-      if (toId && tr.to_city_id !== toId) return false;
+      if (!publicTripMatchesCities(tr, fromId || undefined, toId || undefined)) return false;
       if (date) {
         const d = new Date(tr.depart_at);
         const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -144,7 +143,7 @@ export default function Search() {
             {results.map((tr) => (
               <Link
                 key={tr.id}
-                to={isAgencyTripPublicId(tr.id) ? agencyTripPath(tr.id) : `/trips/${tr.id}`}
+                to={isAgencyTripPublicId(tr.id) ? agencyTripPath(tr.id, fromId, toId) : `/trips/${tr.id}`}
                 className="card p-4 flex items-center gap-4 hover:shadow-md transition"
               >
                 <div className="text-center shrink-0 w-16">
@@ -185,9 +184,12 @@ export default function Search() {
                       )}
                     </span>
                   </div>
+                  {tr.notes?.startsWith("Via ") && (
+                    <div className="text-[11px] text-slate-400 mt-0.5 truncate">{tr.notes}</div>
+                  )}
                 </div>
                 <div className="text-right shrink-0 font-extrabold text-brand-600">
-                  {formatPrice(tr.price_per_seat)}
+                  {isAgencyTripPublicId(tr.id) && tr.notes?.startsWith("Via ") ? `dès ${formatPrice(tr.price_per_seat)}` : formatPrice(tr.price_per_seat)}
                 </div>
               </Link>
             ))}

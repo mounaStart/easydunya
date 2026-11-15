@@ -1,12 +1,15 @@
-import { occupiedSeatNos } from "../../lib/agency/rules";
+import { occupiedOnLegs } from "../../lib/agency/rules";
+import { lastStopIndex } from "../../lib/agency/trip";
 import type { AgencyBooking, AgencyChannel, AgencyDB, AgencyTrip } from "../../lib/agency/types";
 import { CHANNEL_COLOR } from "../../lib/agency/types";
 
-function seatOwner(bookings: AgencyBooking[], n: number): AgencyBooking | undefined {
+function seatOwner(bookings: AgencyBooking[], n: number, fromIdx: number, toIdx: number): AgencyBooking | undefined {
   return bookings.find(
     (b) =>
       b.seatNos.includes(n) &&
-      (b.status === "attente" || b.status === "confirmee" || b.status === "terminee")
+      (b.status === "attente" || b.status === "confirmee" || b.status === "terminee") &&
+      b.fromIdx < toIdx &&
+      b.toIdx > fromIdx
   );
 }
 
@@ -16,15 +19,21 @@ export default function SeatMap({
   selected,
   onToggle,
   interactive,
+  fromIdx,
+  toIdx,
 }: {
   db: AgencyDB;
   trip: AgencyTrip;
   selected?: number[];
   onToggle?: (n: number) => void;
   interactive?: boolean;
+  fromIdx?: number;
+  toIdx?: number;
 }) {
+  const from = fromIdx ?? 0;
+  const to = toIdx ?? lastStopIndex(trip);
   const bookings = db.bookings.filter((b) => b.tripId === trip.id);
-  const taken = new Set(occupiedSeatNos(db, trip.id));
+  const taken = occupiedOnLegs(db, trip.id, from, to);
   const sel = new Set(selected ?? []);
   const cols = 4;
   const rows = Math.ceil(trip.seats / cols);
@@ -47,16 +56,12 @@ export default function SeatMap({
   );
 
   function renderSeat(n: number) {
-    const b = seatOwner(bookings, n);
+    const b = seatOwner(bookings, n, from, to);
     const pending = b?.status === "attente";
     const ch: AgencyChannel | null = b?.channel ?? null;
     const isSel = sel.has(n);
     const isTaken = taken.has(n) && !isSel;
-    const bg = isSel
-      ? "#1976D2"
-      : ch
-        ? CHANNEL_COLOR[ch]
-        : "#fff";
+    const bg = isSel ? "#1976D2" : ch ? CHANNEL_COLOR[ch] : "#fff";
     return (
       <button
         key={n}
@@ -71,7 +76,6 @@ export default function SeatMap({
           backgroundImage: pending
             ? "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,.35) 3px, rgba(255,255,255,.35) 6px)"
             : undefined,
-          opacity: isTaken && !isSel ? 0.95 : 1,
         }}
         title={`Place ${n}`}
       >

@@ -3,6 +3,7 @@ import { useAgency } from "../../lib/agency/useAgency";
 import { refundForCancel } from "../../lib/agency/rules";
 import { cancelBooking } from "../../lib/agency/store";
 import { CHANNEL_COLOR, CHANNEL_LABEL } from "../../lib/agency/types";
+import { legLabel } from "../../lib/agency/trip";
 import { formatPrice } from "../../lib/utils";
 
 export default function AgencyReservations() {
@@ -41,7 +42,6 @@ export default function AgencyReservations() {
             <option value="">Tous canaux</option>
             <option value="app">App</option>
             <option value="guichet">Guichet</option>
-            <option value="sous">Sous-agence</option>
           </select>
         </div>
         <div className="overflow-x-auto card">
@@ -87,9 +87,7 @@ export default function AgencyReservations() {
             <div className="text-xs text-slate-500">
               {b.code} · {b.phone}
             </div>
-            <div>
-              {t.fromName} → {t.toName}
-            </div>
+            <div>{legLabel(t, b.fromIdx, b.toIdx)}</div>
             <div>Places {b.seatNos.join(", ")}</div>
             <div>
               {formatPrice(b.total)} · {b.pay}
