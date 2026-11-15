@@ -4,6 +4,7 @@ import {
   currentStaff,
   getAgencyDb,
   getAgencySession,
+  hydrateAgencyCloud,
   subscribeAgency,
 } from "./store";
 import { hasPerm } from "./rules";
@@ -12,6 +13,9 @@ import type { AgencyPerm } from "./types";
 export function useAgency() {
   const [, setTick] = useState(0);
   useEffect(() => subscribeAgency(() => setTick((n) => n + 1)), []);
+  useEffect(() => {
+    void hydrateAgencyCloud();
+  }, []);
   const session = getAgencySession();
   const staff = currentStaff();
   const agency = currentAgency();

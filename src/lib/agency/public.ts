@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TripPublic } from "../types";
 import { AGENCY_CITIES, FALLBACK_TRIP_CITIES } from "./cities";
 import { freeSeatCount } from "./rules";
-import { getAgencyDb, publishedTripsForSearch, subscribeAgency } from "./store";
+import { getAgencyDb, hydrateAgencyCloud, publishedTripsForSearch, subscribeAgency } from "./store";
 import { displayFromPrice, isMultiStop, tripStops } from "./trip";
 import type { AgencyDB, AgencyTrip } from "./types";
 
@@ -105,6 +105,9 @@ export function agencyTripMatchesRoute(t: AgencyTrip, fromId?: string, toId?: st
 export function useAgencyPublicTrips(): TripPublic[] {
   const [, setTick] = useState(0);
   useEffect(() => subscribeAgency(() => setTick((n) => n + 1)), []);
+  useEffect(() => {
+    void hydrateAgencyCloud();
+  }, []);
   const db = getAgencyDb();
   return useMemo(
     () =>

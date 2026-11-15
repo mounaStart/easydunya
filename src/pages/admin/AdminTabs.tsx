@@ -17,11 +17,11 @@ export default function AdminTabs({ onChange }: Props) {
 
   const tabs: Array<{ id: TabId; label: string; icon: string }> = [
     { id: "book", label: "Réserver", icon: "📞" },
+    { id: "agencies", label: "Agences", icon: "🏢" },
     { id: "drivers", label: "Chauffeurs", icon: "🚗" },
     { id: "trips", label: "Voyages", icon: "🛣" },
     { id: "prices", label: "Prix villes", icon: "💵" },
     { id: "users", label: "Utilisateurs", icon: "👥" },
-    { id: "agencies", label: "Agences", icon: "🏢" },
   ];
 
   return (
