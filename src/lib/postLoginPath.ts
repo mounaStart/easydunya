@@ -16,10 +16,10 @@ export function postLoginPath(
   }
 
   if (role === "driver") {
-    if (dest.startsWith("/admin")) return "/driver";
+    if (dest.startsWith("/admin") || dest.startsWith("/agence")) return "/driver";
     return dest;
   }
 
-  if (dest.startsWith("/driver") || dest.startsWith("/admin")) return "/";
+  if (dest.startsWith("/driver") || dest.startsWith("/admin") || dest.startsWith("/agence")) return "/";
   return dest;
 }

@@ -4,8 +4,9 @@ import AdminUsers from "./AdminUsers";
 import AdminTrips from "./AdminTrips";
 import AdminCityPrices from "./AdminCityPrices";
 import AdminBookPassenger from "./AdminBookPassenger";
+import AdminAgences from "./AdminAgences";
 
-type TabId = "book" | "drivers" | "users" | "trips" | "prices";
+type TabId = "book" | "drivers" | "users" | "trips" | "prices" | "agencies";
 
 interface Props {
   onChange?: () => void;
@@ -20,6 +21,7 @@ export default function AdminTabs({ onChange }: Props) {
     { id: "trips", label: "Voyages", icon: "🛣" },
     { id: "prices", label: "Prix villes", icon: "💵" },
     { id: "users", label: "Utilisateurs", icon: "👥" },
+    { id: "agencies", label: "Agences", icon: "🏢" },
   ];
 
   return (
@@ -47,6 +49,7 @@ export default function AdminTabs({ onChange }: Props) {
         {tab === "trips" && <AdminTrips />}
         {tab === "prices" && <AdminCityPrices />}
         {tab === "users" && <AdminUsers />}
+        {tab === "agencies" && <AdminAgences />}
       </div>
     </div>
   );
