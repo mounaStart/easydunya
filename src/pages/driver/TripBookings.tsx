@@ -27,7 +27,7 @@ import {
   useNearestPassengerFilter,
 } from "../../hooks/useNearestPassengerFilter";
 import NearestFilterToggle from "../../components/NearestFilterToggle";
-import { isDepartureDatePassed } from "../../lib/tripSchedule";
+import { formatDepartureDay, isDepartureDatePassed } from "../../lib/tripSchedule";
 
 // Rayon (en mètres) autour de la destination où le chauffeur peut terminer le voyage.
 const END_TRIP_RADIUS_M = 500;
@@ -422,7 +422,9 @@ export default function TripBookings() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <StatusBadge status={trip.status} kind="trip" />
-              <span className="chip text-xs py-0.5 px-2">{relativeDateLabel(trip.depart_at)}</span>
+              <span className="chip text-xs py-0.5 px-2">
+                {relativeDateLabel(trip.depart_at)} · {formatDepartureDay(trip.depart_at, i18n.language)}
+              </span>
             </div>
             <h1 className="text-lg font-bold text-ink leading-tight mt-1">
               {(isAr ? trip.from_name_ar : trip.from_name_fr)} →{" "}

@@ -1,13 +1,13 @@
 import i18n from "i18next";
+import { APP_TIME_ZONE, civilDateInTimeZone } from "./tripSchedule";
 
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-/** Date locale du jour (YYYY-MM-DD) — min pour les champs date passager. */
+/** Date du jour en Mauritanie (YYYY-MM-DD) — min pour les champs date. */
 export function isoToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return civilDateInTimeZone(new Date());
 }
 
 /** Devise affichée (ouguiya mauritanien — MRU). */
@@ -24,17 +24,19 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat(i18n.language === "ar" ? "ar-MR" : "fr-FR").format(n);
 }
 
-/** Renvoie "Aujourd'hui", "Demain" ou la date complète. */
+/** Renvoie "Aujourd'hui", "Demain" ou la date complète (jour civil Mauritanie). */
 export function relativeDateLabel(date: Date | string, lang = i18n.language): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+  const today = civilDateInTimeZone(new Date());
+  const target = civilDateInTimeZone(d);
+  const diffDays = Math.round(
+    (Date.parse(`${target}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000
+  );
 
   if (diffDays === 0) return lang === "ar" ? "اليوم" : "Aujourd'hui";
   if (diffDays === 1) return lang === "ar" ? "غدًا" : "Demain";
   return new Intl.DateTimeFormat(lang === "ar" ? "ar-MR" : "fr-FR", {
+    timeZone: APP_TIME_ZONE,
     weekday: "short",
     day: "2-digit",
     month: "short",

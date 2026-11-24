@@ -12,6 +12,7 @@ import type { TripPublic } from "../../lib/types";
 import { distanceKm, formatPrice } from "../../lib/utils";
 import { fetchDrivingDistanceKm } from "../../lib/routing";
 import { tripRouteEndpoint } from "../../lib/cityRoutePoints";
+import { nouakchottDateTimeIso } from "../../lib/tripSchedule";
 import type { Vehicle } from "../../lib/types";
 import SeatStepper from "../../components/SeatStepper";
 
@@ -167,10 +168,9 @@ export default function NewTrip() {
     setBusy(true);
     setError(null);
 
-    // La date choisie + la période (matin/soir) déterminent l'heure de départ
-    const [y, m, d] = departDate.split("-").map(Number);
+    // Date du calendrier = jour à Nouakchott (GMT), pas le fuseau du navigateur.
     const hour = period === "morning" ? MORNING_HOUR : EVENING_HOUR;
-    const departDateTime = new Date(y, (m ?? 1) - 1, d ?? 1, hour, 0, 0);
+    const departAtIso = nouakchottDateTimeIso(departDate, hour);
 
     // Distance : tarif officiel sinon calcul Haversine sur les coordonnées des villes
     const fromCity = cities.find((c) => c.id === fromCityId);
@@ -192,7 +192,7 @@ export default function NewTrip() {
       vehicle_id: vehicleId || null,
       from_city_id: fromCityId,
       to_city_id: toCityId,
-      depart_at: departDateTime.toISOString(),
+      depart_at: departAtIso,
       price_per_seat: price,
       seats_total: seats,
       seats_available: seats,
