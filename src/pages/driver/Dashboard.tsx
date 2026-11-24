@@ -12,6 +12,7 @@ import {
   formatPeriod,
   relativeDateLabel,
 } from "../../lib/utils";
+import { isDepartureDatePassed } from "../../lib/tripSchedule";
 import { CONTACT_PHONE, CONTACT_PHONE_HREF } from "../../lib/contact";
 import {
   driverBookingsPath,
@@ -306,6 +307,11 @@ export default function DriverDashboard() {
                       <span className="chip">
                         {relativeDateLabel(trip.depart_at)}
                       </span>
+                      {isDepartureDatePassed(trip.depart_at) && (
+                        <span className="chip bg-rose-50 text-rose-700 border-rose-100">
+                          {t("driver.datePassedChip")}
+                        </span>
+                      )}
                     </div>
                     <div className="font-semibold text-slate-900 mt-1">
                       {(isAr ? trip.from_name_ar : trip.from_name_fr)} →{" "}

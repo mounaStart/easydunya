@@ -13,6 +13,7 @@ import { clusterBookingsByQuartier } from "../../lib/mapClusters";
 import { driverPassengerPhone } from "../../lib/driverBookingPrivacy";
 import { enrichBookingPickup } from "../../lib/passengerLocation";
 import { cn, formatDistance, formatPrice, formatPeriod, relativeDateLabel } from "../../lib/utils";
+import { isDepartureDatePassed } from "../../lib/tripSchedule";
 import {
   nearbyOnly,
   rankByDistance,
@@ -118,7 +119,6 @@ export default function DriverHome() {
     async function load() {
       if (!user) return;
 
-      await supabase.rpc("expire_overdue_trips");
       const { data: tripsData } = await supabase
         .from("trips_public")
         .select("*")
@@ -471,6 +471,11 @@ export default function DriverHome() {
                 <div className="font-semibold text-ink truncate">{route(focusTrip)}</div>
                 <div className="text-xs text-slate-500">
                   {relativeDateLabel(focusTrip.depart_at)} · {formatPeriod(focusTrip.depart_at)}
+                  {isDepartureDatePassed(focusTrip.depart_at) && (
+                    <span className="ml-1.5 text-rose-600 font-semibold">
+                      · {t("driver.datePassedChip")}
+                    </span>
+                  )}
                   {(pendingByTrip[focusTrip.id] ?? 0) > 0 && (
                     <span className="ml-1.5 text-rose-600 font-semibold">
                       · {pendingByTrip[focusTrip.id]} {t("driver.pendingRequests")}

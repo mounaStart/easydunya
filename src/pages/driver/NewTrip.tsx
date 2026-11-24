@@ -9,7 +9,7 @@ import { reverseQuartier } from "../../lib/geocode";
 import { locationFailMessage, requestAppLocation } from "../../lib/locationPermission";
 import { driverBookingsPath, pickPrimaryActiveTrip } from "../../lib/driverActiveTrip";
 import type { TripPublic } from "../../lib/types";
-import { distanceKm, formatPrice } from "../../lib/utils";
+import { distanceKm, formatPrice, isoToday } from "../../lib/utils";
 import { fetchDrivingDistanceKm } from "../../lib/routing";
 import { tripRouteEndpoint } from "../../lib/cityRoutePoints";
 import { nouakchottDateTimeIso } from "../../lib/tripSchedule";
@@ -165,6 +165,10 @@ export default function NewTrip() {
       setError("Les villes de départ et d'arrivée doivent être différentes.");
       return;
     }
+    if (departDate < isoToday()) {
+      setError(t("driver.departDatePassed"));
+      return;
+    }
     setBusy(true);
     setError(null);
 
@@ -305,8 +309,13 @@ export default function NewTrip() {
               type="date"
               className="input"
               required
+              min={isoToday()}
               value={departDate}
-              onChange={(e) => setDepartDate(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next && next < isoToday()) return;
+                setDepartDate(next);
+              }}
             />
           </div>
           <div>
@@ -429,7 +438,5 @@ export default function NewTrip() {
 }
 
 function defaultDate() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return isoToday();
 }

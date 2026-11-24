@@ -158,7 +158,6 @@ export default function TripBookings() {
 
   const reloadTrip = useCallback(async () => {
     if (!tripId) return;
-    await supabase.rpc("expire_overdue_trips");
     const { data } = await supabase
       .from("trips_public")
       .select("*")
@@ -331,7 +330,8 @@ export default function TripBookings() {
   if (!trip) {
     return (
       <div className="page max-w-3xl py-8 text-center">
-        <p className="text-slate-500">{t("common.noResults")}</p>
+        <p className="text-slate-700 font-semibold">{t("driver.tripMissingTitle")}</p>
+        <p className="text-slate-500 mt-2">{t("driver.tripMissingHint")}</p>
         <Link to="/driver" className="btn-primary mt-4 inline-flex">
           {t("nav.dashboard")}
         </Link>
@@ -478,6 +478,12 @@ export default function TripBookings() {
         {isInProgress && (
           <p className="text-[11px] text-brand-700 bg-brand-50 px-2 py-1 rounded-lg mt-2">
             📍 GPS actif — déblocage à l&apos;arrivée (500 m)
+          </p>
+        )}
+
+        {trip.status === "cancelled" && (
+          <p className="text-xs text-rose-700 bg-rose-50 px-2 py-1.5 rounded-lg mt-2">
+            {t("driver.tripExpiredHint")}
           </p>
         )}
 
