@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import SeatMap from "../../components/agency/SeatMap";
 import TicketCard from "../../components/agency/TicketCard";
+import { useCities } from "../../hooks/useCities";
 import { useAgency } from "../../lib/agency/useAgency";
+import { FALLBACK_TRIP_CITIES } from "../../lib/agency/public";
 import { firstFreeSeats, freeOnLegs, freeSeatCount, hasAnyFreeSeat } from "../../lib/agency/rules";
 import { sellSeats } from "../../lib/agency/store";
 import { displayFromPrice, farePrice, lastStopIndex, legLabel, tripStops } from "../../lib/agency/trip";
@@ -10,6 +12,14 @@ import { formatPrice } from "../../lib/utils";
 
 export default function AgencyGuichet() {
   const { trips, db, agency, bookings } = useAgency();
+  const { tripCities } = useCities();
+  const destNames = useMemo(() => {
+    const list = tripCities.length ? tripCities : FALLBACK_TRIP_CITIES;
+    return [...list]
+      .map((c) => c.name_fr)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "fr"));
+  }, [tripCities]);
   const upcoming = trips
     .filter((t) => t.status === "publie" && new Date(t.departAt).getTime() > Date.now())
     .sort((a, b) => a.departAt.localeCompare(b.departAt));
@@ -117,8 +127,10 @@ export default function AgencyGuichet() {
           <div className="space-y-2">
             <select className="input" value={dest} onChange={(e) => setDest(e.target.value)}>
               <option value="">Toutes destinations</option>
-              {[...new Set(upcoming.flatMap((t) => tripStops(t).slice(1).map((s) => s.city)))].map((n) => (
-                <option key={n}>{n}</option>
+              {destNames.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
             {list.map((t) => {

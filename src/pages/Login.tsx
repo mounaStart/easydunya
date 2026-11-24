@@ -77,8 +77,11 @@ export default function Login() {
             <input
               type="text"
               required
-              inputMode="tel"
+              inputMode="email"
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="+222… ou admin@…"
               className="input"
               value={phone}

@@ -338,6 +338,7 @@
     "callPassenger": "اتصل بالمسافر",
     "officialPriceHint": "السعر المقترح: {{price}} · {{km}} كم (قابل للتعديل)",
     "startTrip": "بدء الرحلة",
+    "startTripDatePassed": "تعذّر بدء الرحلة: تاريخ الانطلاق المحدد قد مضى. تم إنهاء الرحلة.",
     "endTrip": "إنهاء الرحلة",
     "endTripTooFarTitle": "إنهاء الرحلة غير متاح",
     "endTripTooFar": "يجب أن تكون على بعد أقل من 500 متر من الوجهة (يتبقى {{distance}}).",

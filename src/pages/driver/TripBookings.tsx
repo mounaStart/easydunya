@@ -27,6 +27,7 @@ import {
   useNearestPassengerFilter,
 } from "../../hooks/useNearestPassengerFilter";
 import NearestFilterToggle from "../../components/NearestFilterToggle";
+import { isDepartureDatePassed } from "../../lib/tripSchedule";
 
 // Rayon (en mètres) autour de la destination où le chauffeur peut terminer le voyage.
 const END_TRIP_RADIUS_M = 500;
@@ -157,6 +158,7 @@ export default function TripBookings() {
 
   const reloadTrip = useCallback(async () => {
     if (!tripId) return;
+    await supabase.rpc("expire_overdue_trips");
     const { data } = await supabase
       .from("trips_public")
       .select("*")
@@ -250,12 +252,23 @@ export default function TripBookings() {
 
   async function startTrip() {
     if (!tripId) return;
+    if (trip && isDepartureDatePassed(trip.depart_at)) {
+      setLockMsg(t("driver.startTripDatePassed"));
+      await reloadTrip();
+      return;
+    }
     setBusy(true);
     setLockMsg(null);
     const { error } = await supabase.rpc("driver_start_trip", { p_trip_id: tripId });
     setBusy(false);
     if (error) {
-      setLockMsg(error.message);
+      const msg = error.message ?? "";
+      setLockMsg(
+        /departure date has passed|not scheduled/i.test(msg)
+          ? t("driver.startTripDatePassed")
+          : msg
+      );
+      await reloadTrip();
       return;
     }
     await reloadTrip();
@@ -473,9 +486,15 @@ export default function TripBookings() {
         <div className="mt-2.5 flex gap-2 items-center flex-wrap">
           {trip.status === "scheduled" && (
             <>
-              <button onClick={startTrip} disabled={busy} className="btn-primary text-sm py-2 px-4 flex-1 min-w-0">
-                ▶ {t("driver.startTrip")}
-              </button>
+              {isDepartureDatePassed(trip.depart_at) ? (
+                <p className="text-xs text-rose-700 bg-rose-50 px-2 py-1.5 rounded-lg flex-1 min-w-0">
+                  {t("driver.startTripDatePassed")}
+                </p>
+              ) : (
+                <button onClick={startTrip} disabled={busy} className="btn-primary text-sm py-2 px-4 flex-1 min-w-0">
+                  ▶ {t("driver.startTrip")}
+                </button>
+              )}
               <button onClick={cancelTrip} disabled={busy} className="btn-ghost text-rose-700 text-xs py-2 shrink-0">
                 {t("common.cancel")}
               </button>

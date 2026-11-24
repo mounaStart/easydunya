@@ -118,6 +118,7 @@ export default function DriverHome() {
     async function load() {
       if (!user) return;
 
+      await supabase.rpc("expire_overdue_trips");
       const { data: tripsData } = await supabase
         .from("trips_public")
         .select("*")

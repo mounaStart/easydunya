@@ -338,6 +338,7 @@
     "callPassenger": "Appeler le passager",
     "officialPriceHint": "Tarif conseillé : {{price}} · {{km}} km (modifiable)",
     "startTrip": "Démarrer le voyage",
+    "startTripDatePassed": "Impossible de démarrer : la date prévue de ce voyage est dépassée. Le trajet a été expiré.",
     "endTrip": "Terminer le voyage",
     "endTripTooFarTitle": "Terminer le voyage indisponible",
     "endTripTooFar": "Vous devez être à moins de 500 m de la destination (encore {{distance}}).",
